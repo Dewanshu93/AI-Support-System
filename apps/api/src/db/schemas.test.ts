@@ -67,7 +67,6 @@ const valid = {
     contextualText:
       'Parental Leave (US) > Parental Leave > Eligibility\nEmployees are eligible after 90 days.',
     tokenCount: 12,
-    embedding: [0.1, 0.2, 0.3],
     embeddingModel: 'gemini-embedding-001',
     domain: 'HR',
     countries: ['US'],
@@ -363,7 +362,7 @@ const invalidCases: [string, keyof typeof valid, (d: Doc) => void, string][] = [
     (d) => (d.effectiveDate = '2026-01-01'),
     'effectiveDate',
   ],
-  ['chunks: empty embedding', 'chunks', (d) => (d.embedding = []), 'embedding'],
+  ['chunks: empty text', 'chunks', (d) => (d.text = ''), 'text'],
   ['chunks: negative ordinal', 'chunks', (d) => (d.ordinal = -1), 'ordinal'],
   ['conversations: unknown status', 'conversations', (d) => (d.status = 'pending'), 'status'],
   [

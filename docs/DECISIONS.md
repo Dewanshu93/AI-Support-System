@@ -53,7 +53,7 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 
 ## ADR-003 — mongodb-atlas-local for development and integration tests (D-3)
 
-- **Status:** Accepted as the playbook default (2026-10-02, W1-04); D-3 approval pending
+- **Status:** Superseded by ADR-004 (2026-10-02). Atlas Search and Vector Search are no longer used, so any MongoDB 8.x works
 - **Context:** Retrieval needs `$vectorSearch` and `$search`. Plain `mongod` and in-memory test
   servers do not support them, so a test environment without them can't validate retrieval.
 - **Decision:**
@@ -72,3 +72,55 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   run); plain MongoDB plus a separate vector DB (violates Do Not Build).
 - **Consequences:** CI or developers need Docker, or an Atlas URI, to run integration tests. On
   this development machine neither is available yet, so the W1-04 acceptance run is pending.
+
+## ADR-004 — Qdrant for vector and keyword (BM25) search; MongoDB for structured data
+
+- **Status:** Accepted by the project owner (2026-10-02, W1-04 amendment)
+- **Context:**
+  - MongoDB Atlas cannot be reached from the development network. The HTC TLS-inspecting proxy
+    resets TLS on port 27017 (certificate issuer "HTC GLOBAL SERVICES INDIA PRIV Forward Trust CA").
+  - The available LAN server (192.168.29.3) is MongoDB Community 8.3.4 without mongot, so
+    `$vectorSearch` and `$search` return `SearchNotEnabled`.
+  - The owner chose: MongoDB for structured data, Qdrant for semantic/vector search, and Qdrant
+    sparse BM25 for the keyword side of hybrid search.
+- **Decision:**
+  - **MongoDB** (any 8.x) stays the system of record: users, documents, chunk text and metadata,
+    conversations, messages, traces, tickets, evals, audit.
+  - **Qdrant** (server ≥ 1.10, `qdrant/qdrant:v1.19.1` in compose) holds one point per chunk in
+    collection `chunks`:
+    - named dense vector `dense`: cosine, size from `config/models.yaml`;
+    - named sparse vector `bm25`: `modifier: idf`, so Qdrant computes IDF and the client supplies
+      term-frequency sparse vectors;
+    - payload with the access-filter fields (`countries`, `employmentTypes`, `accessLevel`,
+      `status`, `domain`) and `documentId`, all keyword-indexed.
+  - Point ID = the chunk's ObjectId zero-padded into a UUID (`chunkPointId`), so there is no
+    lookup table.
+  - Hybrid retrieval (W1-11) runs a dense query and a BM25 query, each with the same payload
+    pre-filter, and fuses them with Reciprocal Rank Fusion in application code (D-4 unchanged), so
+    vector-only, keyword-only and fused recall can still be measured separately.
+  - Permission enforcement stays three-layered: the Qdrant payload filter, `assertAccessible` in
+    code, and the re-check on source view. The LLM never decides access.
+  - `npm run db:indexes` creates the Mongo indexes and the Qdrant collection and payload indexes
+    idempotently. It refuses a dense-size change or missing sparse vector (re-index needed, D-2).
+  - `/api/health` adds an optional `vectorStore: up|down` field. The API boots without Qdrant and
+    reports `degraded`.
+  - New dependency: `@qdrant/js-client-rest` 1.19.0 (official client). Whether retrieval goes
+    through LangChain's Qdrant integration or the client directly is decided in W1-11.
+- **Deviations approved:**
+  - From the mandatory stack: Atlas Vector Search and Atlas Search are replaced by Qdrant.
+  - From playbook section 14 (Do Not Build): "separate vector database" is excepted for Qdrant
+    only.
+  - D-3 (atlas-local) is superseded.
+- **Alternatives:**
+  - Atlas Local on the LAN PC (keeps the playbook stack; needs Docker there).
+  - Atlas cloud (blocked on this network).
+  - MongoDB `$text` for keyword search (rejected by the owner in favour of BM25 in Qdrant).
+- **Consequences:**
+  - Two stores must stay consistent. Ingestion writes the Mongo chunk, then upserts the Qdrant
+    point. Any document status or audience change must re-sync both the Mongo chunk metadata and
+    the Qdrant payload.
+  - Deleting or re-indexing a document deletes its points by `documentId` filter.
+  - BM25 tokenisation (W1-10/W1-11) must be identical at ingest and query time and covered by unit
+    tests.
+  - Another service to run: compose gains `qdrant`, and the LAN PC needs
+    `docker run -p 6333:6333 qdrant/qdrant:v1.19.1`.

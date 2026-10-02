@@ -82,7 +82,7 @@ export const DocumentSchema = z.object({
 });
 export type DocumentDoc = z.infer<typeof DocumentSchema>;
 
-/** Document metadata copied onto every chunk so search pre-filters can use it. */
+/** Document metadata copied onto every chunk and its Qdrant point so search pre-filters can use it. */
 export const CHUNK_FILTER_FIELDS = [
   'countries',
   'employmentTypes',
@@ -97,10 +97,10 @@ export const ChunkSchema = z.object({
   ordinal: Count,
   sectionPath: z.array(z.string()),
   text: NonEmpty,
-  /** Title + section path + text: what is embedded and keyword-indexed. */
+  /** Title + section path + text: what is embedded (dense) and BM25-indexed (sparse) in Qdrant. */
   contextualText: NonEmpty,
   tokenCount: Count,
-  embedding: z.array(z.number()).min(1),
+  /** Model whose vector is stored for this chunk in Qdrant (ADR-004). */
   embeddingModel: NonEmpty,
   domain: DomainSchema,
   countries: z.array(CountrySchema).min(1),

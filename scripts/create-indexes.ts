@@ -1,8 +1,8 @@
-// npm run db:indexes — creates every collection, regular index and Atlas
-// search index (playbook section 3), then waits until the search indexes are
-// queryable. Safe to run repeatedly.
+// npm run db:indexes — creates every MongoDB collection and index (playbook
+// section 3) and the Qdrant chunks collection with its payload indexes
+// (ADR-004). Safe to run repeatedly.
 import { ConfigError, loadConfig, loadDotEnv } from '../apps/api/src/config';
-import { connectDatabase, ensureAllIndexes } from '../apps/api/src/db';
+import { connectDatabase, createQdrantClient, ensureAllIndexes } from '../apps/api/src/db';
 
 async function main(): Promise<number> {
   loadDotEnv();
@@ -31,15 +31,17 @@ async function main(): Promise<number> {
   const { client, db } = database;
   try {
     console.log(`Ensuring indexes on database "${db.databaseName}"…`);
-    const result = await ensureAllIndexes(db, {
+    const qdrant = createQdrantClient(config.env.QDRANT_URL, config.env.QDRANT_API_KEY);
+    const result = await ensureAllIndexes(db, qdrant, {
       embeddingDimension: config.models.embeddings.dimension,
     });
     const report = (label: string, items: string[]) =>
       console.log(`${label}: ${items.length === 0 ? 'none (already present)' : items.join(', ')}`);
     report('Collections created', result.collectionsCreated);
     report('Indexes created', result.indexesCreated);
-    report('Search indexes created', result.searchIndexesCreated);
-    console.log('Search indexes are queryable. Done.');
+    report('Qdrant collection created', result.qdrantCollectionCreated ? ['chunks'] : []);
+    report('Qdrant payload indexes created', result.qdrantPayloadIndexesCreated);
+    console.log('Done.');
     return 0;
   } finally {
     await client.close();

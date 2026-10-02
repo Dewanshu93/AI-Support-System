@@ -8,8 +8,9 @@
 
 ## Stack (mandatory — do not replace without approval)
 
-Next.js (App Router) + Tailwind · Node.js + Express + TypeScript · MongoDB Atlas + Atlas Vector
-Search + Atlas Search · LangChain · LangGraph (one `StateGraph`) · Zod · Jest + ts-jest ·
+Next.js (App Router) + Tailwind · Node.js + Express + TypeScript · MongoDB (structured data and
+chunk text) + Qdrant (dense + sparse BM25 vector search; ADR-004 replaces Atlas Search/Vector Search) ·
+LangChain · LangGraph (one `StateGraph`) · Zod · Jest + ts-jest ·
 Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`,
 `packages/shared`, `e2e`.
 

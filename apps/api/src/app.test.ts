@@ -20,6 +20,22 @@ describe('api smoke', () => {
     expect(res.body).toEqual({ status: 'degraded', db: 'down' });
   });
 
+  it('reports the vector store and degrades when it is down', async () => {
+    const up = await request(
+      createApp({ pingDb: async () => true, pingVectorStore: async () => true }),
+    ).get('/api/health');
+    expect(up.body).toEqual({ status: 'ok', db: 'up', vectorStore: 'up' });
+
+    const down = await request(
+      createApp({ pingDb: async () => true, pingVectorStore: async () => false }),
+    ).get('/api/health');
+    expect(HealthResponseSchema.parse(down.body)).toEqual({
+      status: 'degraded',
+      db: 'up',
+      vectorStore: 'down',
+    });
+  });
+
   it('does not advertise the framework', async () => {
     const res = await request(createApp()).get('/api/health');
     expect(res.headers['x-powered-by']).toBeUndefined();

@@ -68,22 +68,29 @@ Living summary of what exists in the code. Target design: playbook sections 2–
   `hr_case`, humanId format. `CHUNK_FILTER_FIELDS` lists the metadata copied onto chunks.
 - `db/collections.ts`: `COLLECTIONS` names, typed `getCollections(db)`, and
   `validateForWrite(collection, schema, doc)` for repositories.
-- `db/indexes.ts`: explicit-name regular indexes per collection, the `chunks_vector` (cosine,
-  dimension from `models.yaml`, 5 filter fields) and `chunks_text` (lucene.standard on
-  `contextualText` plus token filters) definitions, and the idempotent `ensureAllIndexes`, which
-  waits for search indexes to become queryable.
+- `db/indexes.ts`: explicit-name regular indexes per collection, plus the idempotent
+  `ensureAllIndexes(db, qdrant, { embeddingDimension })` (Mongo collections and indexes, then the
+  Qdrant collection).
+- `db/qdrant.ts` (ADR-004): the Qdrant client factory and ping, and the `chunks` collection, which
+  has a cosine `dense` vector (size from `models.yaml`), a `bm25` sparse vector with
+  `modifier: idf`, and keyword payload indexes on the access-filter fields plus `documentId`.
+  `chunkPointId` / `chunkIdFromPointId` map a chunk's ObjectId to a UUID. `ensureChunkCollection`
+  refuses a dense-size change or a missing sparse vector.
+- Chunk text and metadata live in MongoDB (`chunks`, no `embedding` field). Vectors live only in
+  Qdrant.
 - `db/counters.ts`: `nextSequence(counters, 'IT' | 'HR')`, an atomic `$inc` upsert that retries
   once on a first-insert race.
 - `scripts/create-indexes.ts` (`npm run db:indexes`) calls `ensureAllIndexes`.
-- `server.ts` connects before listening and exits 1 if MongoDB is unreachable (compose restarts it
-  with `restart: on-failure`). It shuts down cleanly on SIGTERM/SIGINT. Health reports `db:
-up/down`, and `status: degraded` when down.
+- `server.ts` connects to MongoDB before listening and exits 1 if it is unreachable (compose
+  restarts it with `restart: on-failure`). Qdrant is optional at boot (a warning is logged).
+  It shuts down cleanly on SIGTERM/SIGINT. Health reports `db` and `vectorStore` as `up/down`,
+  with `status: degraded` if either is down.
 - LangGraph checkpoint collections are created later by the checkpointer package and are not
   listed here.
 
 ## Runtime
 
-- `GET /api/health` → `200 { status, db }`; `llmConfigured` is added in W1-09.
+- `GET /api/health` → `200 { status, db, vectorStore }`; `llmConfigured` is added in W1-09.
 - The web app has a placeholder home page only. Auth, layouts and the prototype banner come in
   W1-06.
 

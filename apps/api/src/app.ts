@@ -6,6 +6,8 @@ import { requestId } from './http/requestId';
 export interface CreateAppOptions {
   /** Database health probe; when omitted, health reports no `db` field. */
   pingDb?: () => Promise<boolean>;
+  /** Qdrant health probe; when omitted, health reports no `vectorStore` field. */
+  pingVectorStore?: () => Promise<boolean>;
   /** Test-only hook to mount extra routes before the 404 and error handlers. */
   extraRoutes?: (app: Express) => void;
 }
@@ -23,11 +25,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // Public health probe; llmConfigured is added in W1-09.
   app.get(`${API_BASE_PATH}/health`, async (_req, res) => {
     const body: HealthResponse = { status: 'ok' };
-    if (options.pingDb) {
-      const up = await options.pingDb();
-      body.db = up ? 'up' : 'down';
-      if (!up) body.status = 'degraded';
-    }
+    const [db, vectorStore] = await Promise.all([options.pingDb?.(), options.pingVectorStore?.()]);
+    if (db !== undefined) body.db = db ? 'up' : 'down';
+    if (vectorStore !== undefined) body.vectorStore = vectorStore ? 'up' : 'down';
+    if (db === false || vectorStore === false) body.status = 'degraded';
     res.status(200).json(body);
   });
 

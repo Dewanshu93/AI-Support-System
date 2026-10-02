@@ -1,3 +1,4 @@
+import os from 'node:os';
 import { type Db, MongoClient } from 'mongodb';
 
 export const DEFAULT_DB_NAME = 'servicedesk';
@@ -27,6 +28,9 @@ export async function connectDatabase(
     maxPoolSize: 20,
     minPoolSize: 0,
     serverSelectionTimeoutMS: 10_000,
+    // Driver 7 otherwise loads `os` via dynamic import(), which fails inside Jest's
+    // VM and leaves the handshake without client metadata (MongoDB 8.3 rejects that).
+    runtimeAdapters: { os },
   });
   await client.connect();
   return { client, db: client.db(options.dbName ?? dbNameFromUri(uri)) };

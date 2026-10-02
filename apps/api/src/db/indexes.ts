@@ -1,6 +1,6 @@
-import type { Collection, Db, Document, IndexDirection, SearchIndexDescription } from 'mongodb';
+import type { Db, Document, IndexDirection } from 'mongodb';
 import { COLLECTIONS, type CollectionKey } from './collections';
-import { CHUNK_FILTER_FIELDS } from './schemas';
+import { ensureChunkCollection, type QdrantLike } from './qdrant';
 
 export interface IndexSpec {
   name: string;
@@ -74,47 +74,7 @@ export const REGULAR_INDEXES: Record<CollectionKey, IndexSpec[]> = {
   gapClusters: [{ name: 'snapshotAt', key: { snapshotAt: -1 } }],
 };
 
-export const SEARCH_INDEX_NAMES = { vector: 'chunks_vector', text: 'chunks_text' } as const;
-
-/**
- * Atlas Vector Search and Atlas Search definitions for `chunks`. Both index the
- * denormalised metadata, so the profile access filter runs inside the search
- * stage as a pre-filter (playbook section 7).
- */
-export function chunkSearchIndexes(embeddingDimension: number): SearchIndexDescription[] {
-  return [
-    {
-      name: SEARCH_INDEX_NAMES.vector,
-      type: 'vectorSearch',
-      definition: {
-        fields: [
-          {
-            type: 'vector',
-            path: 'embedding',
-            numDimensions: embeddingDimension,
-            similarity: 'cosine',
-          },
-          ...CHUNK_FILTER_FIELDS.map((path) => ({ type: 'filter', path })),
-        ],
-      },
-    },
-    {
-      name: SEARCH_INDEX_NAMES.text,
-      type: 'search',
-      definition: {
-        mappings: {
-          dynamic: false,
-          fields: {
-            contextualText: { type: 'string', analyzer: 'lucene.standard' },
-            ...Object.fromEntries(CHUNK_FILTER_FIELDS.map((path) => [path, { type: 'token' }])),
-          },
-        },
-      },
-    },
-  ];
-}
-
-/** Creates any collection that does not exist yet (search indexes need one). */
+/** Creates any collection that does not exist yet. */
 export async function ensureCollections(db: Db): Promise<string[]> {
   const existing = new Set(
     (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name),
@@ -161,90 +121,26 @@ export async function ensureRegularIndexes(db: Db): Promise<string[]> {
   return created;
 }
 
-type SearchIndexHost = Pick<Collection, 'listSearchIndexes' | 'createSearchIndex'>;
-
-/** The fields of a $listSearchIndexes row we rely on (the driver types only `name`). */
-interface SearchIndexInfo {
-  name: string;
-  status?: string;
-  queryable?: boolean;
-  latestDefinition?: Document;
-}
-
-async function listSearchIndexInfo(
-  chunks: Pick<Collection, 'listSearchIndexes'>,
-): Promise<Map<string, SearchIndexInfo>> {
-  const rows = (await chunks.listSearchIndexes().toArray()) as SearchIndexInfo[];
-  return new Map(rows.map((ix) => [ix.name, ix]));
-}
-
-/** Creates missing search indexes on `chunks`; refuses a silent dimension change. */
-export async function ensureSearchIndexes(
-  chunks: SearchIndexHost,
-  embeddingDimension: number,
-): Promise<string[]> {
-  const existing = await listSearchIndexInfo(chunks);
-  const created: string[] = [];
-  for (const description of chunkSearchIndexes(embeddingDimension)) {
-    const current = existing.get(description.name!);
-    if (!current) {
-      await chunks.createSearchIndex(description);
-      created.push(`chunks.${description.name}`);
-      continue;
-    }
-    if (description.type === 'vectorSearch') {
-      const fields = (current.latestDefinition?.fields ?? []) as Document[];
-      const dims = fields.find((f) => f.type === 'vector')?.numDimensions;
-      if (dims !== undefined && dims !== embeddingDimension) {
-        throw new Error(
-          `${description.name} has ${dims} dimensions but config/models.yaml says ${embeddingDimension}. ` +
-            'Changing the embedding dimension needs a full re-index: drop the index and chunks, then re-run db:indexes and ingest.',
-        );
-      }
-    }
-  }
-  return created;
-}
-
-/** Polls until every named search index is queryable. Atlas builds them asynchronously. */
-export async function waitForSearchIndexes(
-  chunks: Pick<Collection, 'listSearchIndexes'>,
-  names: readonly string[],
-  { timeoutMs = 120_000, intervalMs = 2_000 }: { timeoutMs?: number; intervalMs?: number } = {},
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const byName = await listSearchIndexInfo(chunks);
-    const failed = names.filter((n) => byName.get(n)?.status === 'FAILED');
-    if (failed.length > 0) throw new Error(`Search index build failed: ${failed.join(', ')}`);
-    const pending = names.filter((n) => byName.get(n)?.queryable !== true);
-    if (pending.length === 0) return;
-    if (Date.now() >= deadline) {
-      throw new Error(`Timed out waiting for search indexes: ${pending.join(', ')}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-}
-
 export interface EnsureIndexesResult {
   collectionsCreated: string[];
   indexesCreated: string[];
-  searchIndexesCreated: string[];
+  qdrantCollectionCreated: boolean;
+  qdrantPayloadIndexesCreated: string[];
 }
 
-/** Idempotent: collections, regular indexes, then search indexes (waited on unless disabled). */
+/** Idempotent: MongoDB collections and indexes, then the Qdrant chunks collection (ADR-004). */
 export async function ensureAllIndexes(
   db: Db,
-  options: { embeddingDimension: number; wait?: boolean; timeoutMs?: number },
+  qdrant: QdrantLike,
+  options: { embeddingDimension: number },
 ): Promise<EnsureIndexesResult> {
   const collectionsCreated = await ensureCollections(db);
   const indexesCreated = await ensureRegularIndexes(db);
-  const chunks = db.collection(COLLECTIONS.chunks);
-  const searchIndexesCreated = await ensureSearchIndexes(chunks, options.embeddingDimension);
-  if (options.wait !== false) {
-    await waitForSearchIndexes(chunks, Object.values(SEARCH_INDEX_NAMES), {
-      timeoutMs: options.timeoutMs,
-    });
-  }
-  return { collectionsCreated, indexesCreated, searchIndexesCreated };
+  const q = await ensureChunkCollection(qdrant, options.embeddingDimension);
+  return {
+    collectionsCreated,
+    indexesCreated,
+    qdrantCollectionCreated: q.collectionCreated,
+    qdrantPayloadIndexesCreated: q.payloadIndexesCreated,
+  };
 }

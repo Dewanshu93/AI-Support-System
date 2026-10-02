@@ -1,8 +1,8 @@
-# Local stack: web (Next.js), api (Express), mongodb (Atlas Local — provides
-# Atlas Search and Vector Search; see D-3 / ADR-003).
+# Local stack: web (Next.js), api (Express), mongodb (structured data and
+# chunk text) and qdrant (dense + sparse BM25 vector search; ADR-004).
 services:
   mongodb:
-    image: mongodb/mongodb-atlas-local:8.0
+    image: mongo:8.0
     hostname: mongodb
     ports:
       - '27017:27017'
@@ -10,11 +10,19 @@ services:
       - mongodb-data:/data/db
       - mongodb-config:/data/configdb
 
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    hostname: qdrant
+    ports:
+      - '6333:6333'
+    volumes:
+      - qdrant-data:/qdrant/storage
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    # Atlas Local may still be starting; the API exits if it cannot connect.
+    # MongoDB may still be starting; the API exits if it cannot connect.
     restart: on-failure
     env_file:
       - path: .env
@@ -22,11 +30,13 @@ services:
     environment:
       API_PORT: '4000'
       MONGODB_URI: mongodb://mongodb:27017/servicedesk?directConnection=true
+      QDRANT_URL: http://qdrant:6333
       WEB_ORIGIN: http://localhost:3000
     ports:
       - '4000:4000'
     depends_on:
       - mongodb
+      - qdrant
 
   web:
     build:
@@ -42,3 +52,4 @@ services:
 volumes:
   mongodb-data:
   mongodb-config:
+  qdrant-data:

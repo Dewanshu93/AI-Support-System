@@ -26,6 +26,9 @@ export const EnvSchema = z.object({
     blankToUndefined,
     z.string({ error: 'is required' }).min(32, 'must be at least 32 characters'),
   ),
+  /** Qdrant (vector store, ADR-004). */
+  QDRANT_URL: z.preprocess(blankToUndefined, z.url().default('http://localhost:6333')),
+  QDRANT_API_KEY: optionalString,
   DEMO_PASSWORD: optionalString,
   // Provider keys are optional so the app can boot without an LLM;
   // GET /api/health reports llmConfigured (W1-09).

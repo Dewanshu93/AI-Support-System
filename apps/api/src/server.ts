@@ -1,7 +1,7 @@
 import { APP_NAME } from '@sd/shared';
 import { createApp } from './app';
 import { type AppConfig, ConfigError, initConfig, loadDotEnv } from './config';
-import { connectDatabase, pingDatabase } from './db';
+import { connectDatabase, createQdrantClient, pingDatabase, pingQdrant } from './db';
 import { logger } from './lib/logger';
 
 function startupConfig(): AppConfig {
@@ -35,7 +35,20 @@ async function main() {
   const { client, db } = database;
   logger.info({ db: db.databaseName }, 'connected to MongoDB');
 
-  const server = createApp({ pingDb: () => pingDatabase(db) }).listen(config.env.API_PORT, () => {
+  // Qdrant is not required to boot: retrieval fails per request and health reports it.
+  const qdrant = createQdrantClient(config.env.QDRANT_URL, config.env.QDRANT_API_KEY);
+  if (!(await pingQdrant(qdrant))) {
+    logger.warn(
+      { url: config.env.QDRANT_URL },
+      'Qdrant is not reachable; vector search unavailable',
+    );
+  }
+
+  const app = createApp({
+    pingDb: () => pingDatabase(db),
+    pingVectorStore: () => pingQdrant(qdrant),
+  });
+  const server = app.listen(config.env.API_PORT, () => {
     logger.info(
       { port: config.env.API_PORT, nodeEnv: config.env.NODE_ENV },
       `${APP_NAME} api listening`,

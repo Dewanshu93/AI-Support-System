@@ -1,14 +1,6 @@
 import type { Db, Document } from 'mongodb';
 import { COLLECTIONS, type CollectionKey } from './collections';
-import {
-  chunkSearchIndexes,
-  ensureRegularIndexes,
-  ensureSearchIndexes,
-  REGULAR_INDEXES,
-  SEARCH_INDEX_NAMES,
-  waitForSearchIndexes,
-} from './indexes';
-import { CHUNK_FILTER_FIELDS } from './schemas';
+import { ensureRegularIndexes, REGULAR_INDEXES } from './indexes';
 
 const cursor = (docs: Document[]) => ({ toArray: async () => docs });
 
@@ -46,27 +38,6 @@ describe('index definitions (playbook section 3)', () => {
     expect(keys('tickets')).toContainEqual({ queue: 1, status: 1, priority: -1, createdAt: 1 });
     expect(keys('tickets')).toContainEqual({ requesterId: 1, category: 1, status: 1 });
     expect(keys('turnTraces')).toContainEqual({ 'decision.value': 1, createdAt: -1 });
-  });
-
-  it('builds the vector index with the configured dimension, cosine and access filters', () => {
-    const [vector] = chunkSearchIndexes(768);
-    expect(vector).toMatchObject({ name: SEARCH_INDEX_NAMES.vector, type: 'vectorSearch' });
-    const fields = vector!.definition.fields as Document[];
-    expect(fields[0]).toEqual({
-      type: 'vector',
-      path: 'embedding',
-      numDimensions: 768,
-      similarity: 'cosine',
-    });
-    expect(fields.slice(1).map((f) => f.path)).toEqual([...CHUNK_FILTER_FIELDS]);
-  });
-
-  it('builds the text index on contextualText with filterable token fields', () => {
-    const [, text] = chunkSearchIndexes(768);
-    expect(text).toMatchObject({ name: SEARCH_INDEX_NAMES.text, type: 'search' });
-    const fields = text!.definition.mappings.fields as Record<string, Document>;
-    expect(fields.contextualText).toEqual({ type: 'string', analyzer: 'lucene.standard' });
-    for (const path of CHUNK_FILTER_FIELDS) expect(fields[path]).toEqual({ type: 'token' });
   });
 });
 
@@ -109,87 +80,5 @@ describe('ensureRegularIndexes', () => {
     await expect(ensureRegularIndexes(db)).rejects.toThrow(
       /users\.email_unique exists with key \{"name":1\}/,
     );
-  });
-});
-
-describe('ensureSearchIndexes', () => {
-  function fakeChunks(existing: Document[]) {
-    const created: string[] = [];
-    return {
-      created,
-      chunks: {
-        listSearchIndexes: () => cursor(existing),
-        createSearchIndex: async (d: Document) => {
-          created.push(d.name);
-          return d.name;
-        },
-      } as never,
-    };
-  }
-
-  it('creates both indexes when missing and none when present', async () => {
-    const empty = fakeChunks([]);
-    expect(await ensureSearchIndexes(empty.chunks, 768)).toEqual([
-      'chunks.chunks_vector',
-      'chunks.chunks_text',
-    ]);
-
-    const present = fakeChunks([
-      {
-        name: 'chunks_vector',
-        latestDefinition: { fields: [{ type: 'vector', numDimensions: 768 }] },
-      },
-      { name: 'chunks_text' },
-    ]);
-    expect(await ensureSearchIndexes(present.chunks, 768)).toEqual([]);
-    expect(present.created).toEqual([]);
-  });
-
-  it('refuses a silent embedding-dimension change', async () => {
-    const { chunks } = fakeChunks([
-      {
-        name: 'chunks_vector',
-        latestDefinition: { fields: [{ type: 'vector', numDimensions: 3072 }] },
-      },
-      { name: 'chunks_text' },
-    ]);
-    await expect(ensureSearchIndexes(chunks, 768)).rejects.toThrow(/full re-index/);
-  });
-});
-
-describe('waitForSearchIndexes', () => {
-  const names = ['chunks_vector', 'chunks_text'];
-
-  it('resolves once every index is queryable', async () => {
-    let polls = 0;
-    const chunks = {
-      listSearchIndexes: () => {
-        polls++;
-        const queryable = polls >= 3;
-        return cursor(
-          names.map((name) => ({ name, status: queryable ? 'READY' : 'BUILDING', queryable })),
-        );
-      },
-    } as never;
-    await waitForSearchIndexes(chunks, names, { intervalMs: 1, timeoutMs: 1000 });
-    expect(polls).toBe(3);
-  });
-
-  it('fails fast when a build fails', async () => {
-    const chunks = {
-      listSearchIndexes: () => cursor([{ name: 'chunks_vector', status: 'FAILED' }]),
-    } as never;
-    await expect(waitForSearchIndexes(chunks, names, { intervalMs: 1 })).rejects.toThrow(
-      'Search index build failed: chunks_vector',
-    );
-  });
-
-  it('times out naming the pending indexes', async () => {
-    const chunks = {
-      listSearchIndexes: () => cursor([{ name: 'chunks_vector', queryable: true }]),
-    } as never;
-    await expect(
-      waitForSearchIndexes(chunks, names, { intervalMs: 1, timeoutMs: 20 }),
-    ).rejects.toThrow('Timed out waiting for search indexes: chunks_text');
   });
 });

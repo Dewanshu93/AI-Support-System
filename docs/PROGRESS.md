@@ -132,26 +132,56 @@ Dependency: `mongodb` 7.7.0 (official driver; D-5, no Mongoose).
 
 **Verification**
 
-| Check                                                  | Result                                                                                                                                       |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run lint` / `npm run typecheck`                   | Pass                                                                                                                                         |
-| `npm test`                                             | Pass: shared 31, api 177, web 3; 3 DB integration tests skipped                                                                              |
-| Index definitions match section 3                      | Pass: unit tests for unique/sparse keys, eval/queue/duplicate indexes, search index definitions                                              |
-| Idempotency and drift logic                            | Pass: unit tests against fakes (create all → re-run creates none; only missing created; key drift refused; dimension change refused)         |
-| Search index wait logic                                | Pass: unit tests (becomes queryable, FAILED fails fast, timeout names pending)                                                               |
-| Regular indexes created once across two runs (real DB) | Pass (2026-10-02): MongoDB 8.3.4 at 192.168.29.3; run 1 → 14 collections and 32 indexes, run 2 → 0 and 0; index sets match definitions       |
-| Counters atomicity and unique indexes (real DB)        | Pass: 50 concurrent increments → 1..50; duplicate email and duplicate ticket `conversationId` rejected (E11000)                              |
-| **Search indexes reach ready state**                   | **Pending**: the LAN server is MongoDB Community without mongot (`SearchNotEnabled`); Atlas cloud is blocked by the HTC TLS-inspecting proxy |
+| Check                                                  | Result                                                                                                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run typecheck`                   | Pass                                                                                                                                   |
+| `npm test`                                             | Pass: shared 31, api 177, web 3; 3 DB integration tests skipped                                                                        |
+| Index definitions match section 3                      | Pass: unit tests for unique/sparse keys, eval/queue/duplicate indexes, search index definitions                                        |
+| Idempotency and drift logic                            | Pass: unit tests against fakes (create all → re-run creates none; only missing created; key drift refused; dimension change refused)   |
+| Search index wait logic                                | Pass: unit tests (becomes queryable, FAILED fails fast, timeout names pending)                                                         |
+| Regular indexes created once across two runs (real DB) | Pass (2026-10-02): MongoDB 8.3.4 at 192.168.29.3; run 1 → 14 collections and 32 indexes, run 2 → 0 and 0; index sets match definitions |
+| Counters atomicity and unique indexes (real DB)        | Pass: 50 concurrent increments → 1..50; duplicate email and duplicate ticket `conversationId` rejected (E11000)                        |
+| ~~Search indexes reach ready state~~                   | Superseded by ADR-004: Atlas Search is not used (the LAN MongoDB returns `SearchNotEnabled`; Atlas is blocked by the HTC TLS proxy)    |
 
-**Environment (2026-10-02):** `.env` points at `mongodb://192.168.29.3:27017/servicedesk` (LAN,
-no auth, shared with other projects' databases). The Atlas URI is kept commented out in `.env`.
+### W1-04 amendment: Qdrant vector store (ADR-004), 2026-10-02
 
-**To close the search-index criterion**, run against an Atlas-capable server (Atlas Local on the LAN
-PC, or Atlas from a network without TLS inspection):
+On the owner's decision, MongoDB keeps structured data and chunk text, and Qdrant holds dense
+vectors plus sparse BM25 vectors for hybrid search.
+
+**Changes:**
+
+- Added `db/qdrant.ts`: client, ping, `chunks` collection config, idempotent
+  `ensureChunkCollection` with drift checks, and ObjectId ↔ UUID point IDs.
+- Removed the Atlas search index code.
+- Removed `embedding` from the Mongo chunk schema.
+- New env vars: `QDRANT_URL`, `QDRANT_API_KEY`. Health reports `vectorStore`.
+- `db:indexes` now also creates the Qdrant collection.
+- Compose: `mongo:8.0` + `qdrant/qdrant:v1.19.1`.
+- `connectDatabase` passes `runtimeAdapters: { os }`. Without it, driver 7 loads `os` via dynamic
+  `import()`, which fails under Jest, and the handshake is sent without client metadata (MongoDB
+  8.3: "Missing required sub-document 'driver'").
+- `@qdrant/js-client-rest` 1.19.0 pins `undici` 7.29.0 (10 advisories, 1 high). npm 11.5.2 did not
+  apply a root `overrides` entry in this workspace layout, so the risk is accepted and recorded in
+  `PRODUCTION_GAPS.md` (low exposure: plain HTTP to our own Qdrant). Re-check in W4-07.
+
+| Check                                           | Result                                                                                                                           |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Unit tests (Qdrant module, health, indexes)     | Pass: point-ID mapping, collection config, create-once/re-run, missing payload indexes, dimension and sparse drift refused, ping |
+| MongoDB integration suite (Jest, real server)   | Pass: 3/3 against MongoDB 8.3.4 at 192.168.29.3 (indexes once, unique constraints, counters)                                     |
+| **Qdrant integration (collection once, drift)** | **Pending**: Qdrant not running yet on 192.168.29.3:6333 (connect timeout)                                                       |
+| **`npm run db:indexes` end to end, twice**      | **Pending**: needs Qdrant                                                                                                        |
+
+**Environment:** `.env` uses `mongodb://192.168.29.3:27017/servicedesk` (LAN, no auth, shared with
+other projects' databases) and `QDRANT_URL=http://192.168.29.3:6333`. The Atlas URI is kept
+commented out.
+
+**To close W1-04**, start Qdrant on the LAN PC and allow inbound TCP 6333 in its firewall:
 
 ```bash
-npm run db:indexes   # twice
-MONGODB_TEST_URI="mongodb://<host>:<port>/?directConnection=true" npm test -w @sd/api
+docker run -d --name qdrant -p 6333:6333 -v qdrant-data:/qdrant/storage qdrant/qdrant:v1.19.1
+npm run db:indexes   # twice: second run reports nothing created
+MONGODB_TEST_URI="mongodb://192.168.29.3:27017/?directConnection=true" \
+QDRANT_TEST_URL="http://192.168.29.3:6333" npm test -w @sd/api
 ```
 
 **Notes / risks**
@@ -160,7 +190,10 @@ MONGODB_TEST_URI="mongodb://<host>:<port>/?directConnection=true" npm test -w @s
   `priority` is a string, so `-1` sorts alphabetically (medium > low > high > critical), not by
   severity. W3-05's queue sort ("priority desc") will need a numeric `priorityRank` field or an
   in-query mapping; this needs a decision before W3-05.
-- Integration tests rely on `listSearchIndexes` returning `queryable`. That is documented for
-  Atlas and atlas-local, but unverified here.
+- Two stores (ADR-004): ingestion (W1-10) and document status changes (W4-04) must keep the Mongo
+  chunk metadata and the Qdrant point payload in sync. BM25 tokenisation must match between ingest
+  and query.
+- The LAN MongoDB has no authentication and is shared with other projects. That is acceptable
+  only for synthetic prototype data.
 - LangGraph checkpoint collections are owned by the checkpointer package (W2-02) and are not
   created by `db:indexes`.

@@ -57,8 +57,11 @@ same domain and a ticket schema, and no route or schema may name an unknown cate
 
 ## Database
 
-MongoDB with Atlas Search and Vector Search: `mongodb-atlas-local` in Docker Compose, or an
-Atlas cluster (set `MONGODB_URI`). Create collections and indexes, which is safe to repeat:
+- **MongoDB 8.x** (`MONGODB_URI`): structured data and chunk text.
+- **Qdrant** (`QDRANT_URL`): dense and sparse BM25 vectors for hybrid search (ADR-004).
+
+Both run in Docker Compose. Create the Mongo collections and indexes and the Qdrant collection
+(safe to repeat):
 
 ```bash
 npm run db:indexes
@@ -68,8 +71,9 @@ npm run db:indexes
 
 ```bash
 npm run lint && npm run typecheck && npm test
-# DB integration tests run only when MONGODB_TEST_URI is set (Atlas-capable server):
-MONGODB_TEST_URI="mongodb://localhost:27017/?directConnection=true" npm test -w @sd/api
+# Integration tests run only when their URLs are set (throwaway DB/collection, removed after):
+MONGODB_TEST_URI="mongodb://localhost:27017/?directConnection=true" \
+QDRANT_TEST_URL="http://localhost:6333" npm test -w @sd/api
 npm run test:e2e                   # first time: npx playwright install chromium
 ```
 
