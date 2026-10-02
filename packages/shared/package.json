@@ -1,0 +1,23 @@
+{
+  "name": "@sd/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zod API contracts, enums and DTO types shared by web and api",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.spec.json",
+    "test": "jest"
+  }
+}

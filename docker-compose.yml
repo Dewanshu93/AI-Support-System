@@ -1,0 +1,42 @@
+# Local stack: web (Next.js), api (Express), mongodb (Atlas Local — provides
+# Atlas Search and Vector Search; see D-3 / ADR-003).
+services:
+  mongodb:
+    image: mongodb/mongodb-atlas-local:8.0
+    hostname: mongodb
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb-data:/data/db
+      - mongodb-config:/data/configdb
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      API_PORT: '4000'
+      MONGODB_URI: mongodb://mongodb:27017/servicedesk?directConnection=true
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - '4000:4000'
+    depends_on:
+      - mongodb
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+
+volumes:
+  mongodb-data:
+  mongodb-config:

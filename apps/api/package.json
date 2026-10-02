@@ -1,0 +1,25 @@
+{
+  "name": "@sd/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Express + TypeScript backend (modular monolith; AI layer lives in src/ai)",
+  "type": "commonjs",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -b && tsc -p tsconfig.spec.json",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@sd/shared": "0.1.0",
+    "express": "5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.3.0",
+    "tsx": "4.23.15"
+  }
+}

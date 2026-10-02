@@ -1,0 +1,13 @@
+{
+  "name": "@sd/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright specs for the nine contract flows",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
