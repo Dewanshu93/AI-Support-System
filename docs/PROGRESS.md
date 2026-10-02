@@ -2,14 +2,14 @@
 
 ## Task status
 
-| Task  | Name                                | Status                   | Date       |
-| ----- | ----------------------------------- | ------------------------ | ---------- |
-| W1-01 | Monorepo scaffold                   | Done (Docker unverified) | 2026-10-02 |
-| W1-02 | Config and env loading              | Done                     | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope | Done                     | 2026-10-02 |
-| W1-04 | Database layer and indexes          | Not started              |            |
-| W1-05 | Users seed and auth                 | Not started              |            |
-| W1-06 | Frontend shell and login            | Not started              |            |
+| Task  | Name                                | Status                           | Date       |
+| ----- | ----------------------------------- | -------------------------------- | ---------- |
+| W1-01 | Monorepo scaffold                   | Done (Docker unverified)         | 2026-10-02 |
+| W1-02 | Config and env loading              | Done                             | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope | Done                             | 2026-10-02 |
+| W1-04 | Database layer and indexes          | Code done; DB acceptance pending | 2026-10-02 |
+| W1-05 | Users seed and auth                 | Not started                      |            |
+| W1-06 | Frontend shell and login            | Not started                      |            |
 
 ## Checkpoints
 
@@ -109,3 +109,55 @@ Dependencies: `zod` 4.6.5 in shared (one copy, hoisted), `pino` 10.3.1 in api (s
   ticketing task decides it needs its own code.
 - `createApp({ extraRoutes })` exists only for tests. W1-05 introduces the route policy table in
   `http/routes.ts`.
+
+## W1-04 Database layer and indexes — 2026-10-02
+
+**Delivered:**
+
+- `apps/api/src/db/`:
+  - `client.ts`: connection with pooling, DB name from the URI, ping.
+  - `schemas.ts`: Zod schemas for all 14 collections in playbook section 3.
+  - `collections.ts`: typed accessors and `validateForWrite`.
+  - `indexes.ts`: every regular index with an explicit name, `chunks_vector` and `chunks_text`
+    search index definitions, and idempotent `ensureAllIndexes` with a wait for queryable search
+    indexes.
+  - `counters.ts`: atomic `nextSequence`.
+- `scripts/create-indexes.ts` (`npm run db:indexes`).
+- `server.ts` connects on startup, exits 1 if MongoDB is unreachable, and shuts down cleanly.
+- `/api/health` reports `db`.
+- Shared profile enums (country, employment type, access level), source type, feedback rating.
+- ADR-003. Compose `restart: on-failure` for the api.
+
+Dependency: `mongodb` 7.7.0 (official driver; D-5, no Mongoose).
+
+**Verification**
+
+| Check                                                   | Result                                                                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run lint` / `npm run typecheck`                    | Pass                                                                                                                                 |
+| `npm test`                                              | Pass: shared 31, api 177, web 3; 3 DB integration tests skipped                                                                      |
+| Index definitions match section 3                       | Pass: unit tests for unique/sparse keys, eval/queue/duplicate indexes, search index definitions                                      |
+| Idempotency and drift logic                             | Pass: unit tests against fakes (create all → re-run creates none; only missing created; key drift refused; dimension change refused) |
+| Search index wait logic                                 | Pass: unit tests (becomes queryable, FAILED fails fast, timeout names pending)                                                       |
+| **Script run twice creates indexes once (real DB)**     | **Pending**: no Docker, no local MongoDB, Atlas unreachable from this machine                                                        |
+| **Search indexes reach ready state on atlas-local**     | **Pending**: same reason                                                                                                             |
+| **Counters atomicity and unique indexes (integration)** | **Pending**: written in `test/integration/db.test.ts`, run with `MONGODB_TEST_URI`                                                   |
+
+**To close W1-04 acceptance** (on a machine with Docker):
+
+```bash
+docker compose up -d mongodb
+MONGODB_URI="mongodb://localhost:27017/servicedesk?directConnection=true" JWT_SECRET=<32+ chars> npm run db:indexes   # twice
+MONGODB_TEST_URI="mongodb://localhost:27017/?directConnection=true" npm test -w @sd/api
+```
+
+**Notes / risks**
+
+- The `tickets` index `{queue, status, priority: -1, createdAt}` follows the playbook. But
+  `priority` is a string, so `-1` sorts alphabetically (medium > low > high > critical), not by
+  severity. W3-05's queue sort ("priority desc") will need a numeric `priorityRank` field or an
+  in-query mapping; this needs a decision before W3-05.
+- Integration tests rely on `listSearchIndexes` returning `queryable`. That is documented for
+  Atlas and atlas-local, but unverified here.
+- LangGraph checkpoint collections are owned by the checkpointer package (W2-02) and are not
+  created by `db:indexes`.

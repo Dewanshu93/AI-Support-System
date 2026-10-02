@@ -55,10 +55,21 @@ already set in the environment win.
 Startup also checks the files against each other: every taxonomy category needs a queue of the
 same domain and a ticket schema, and no route or schema may name an unknown category.
 
+## Database
+
+MongoDB with Atlas Search and Vector Search: `mongodb-atlas-local` in Docker Compose, or an
+Atlas cluster (set `MONGODB_URI`). Create collections and indexes, which is safe to repeat:
+
+```bash
+npm run db:indexes
+```
+
 ## Checks
 
 ```bash
 npm run lint && npm run typecheck && npm test
+# DB integration tests run only when MONGODB_TEST_URI is set (Atlas-capable server):
+MONGODB_TEST_URI="mongodb://localhost:27017/?directConnection=true" npm test -w @sd/api
 npm run test:e2e                   # first time: npx playwright install chromium
 ```
 

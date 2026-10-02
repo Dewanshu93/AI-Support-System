@@ -1,6 +1,7 @@
 import { APP_NAME } from '@sd/shared';
 import { createApp } from './app';
 import { type AppConfig, ConfigError, initConfig, loadDotEnv } from './config';
+import { connectDatabase, pingDatabase } from './db';
 import { logger } from './lib/logger';
 
 function startupConfig(): AppConfig {
@@ -17,12 +18,36 @@ function startupConfig(): AppConfig {
   }
 }
 
-const config = startupConfig();
-logger.level = config.env.LOG_LEVEL;
+async function main() {
+  const config = startupConfig();
+  logger.level = config.env.LOG_LEVEL;
 
-createApp().listen(config.env.API_PORT, () => {
-  logger.info(
-    { port: config.env.API_PORT, nodeEnv: config.env.NODE_ENV },
-    `${APP_NAME} api listening`,
-  );
-});
+  let database;
+  try {
+    database = await connectDatabase(config.env.MONGODB_URI);
+  } catch (err) {
+    logger.fatal(
+      { err },
+      'cannot connect to MongoDB; check MONGODB_URI and that the database is running',
+    );
+    process.exit(1);
+  }
+  const { client, db } = database;
+  logger.info({ db: db.databaseName }, 'connected to MongoDB');
+
+  const server = createApp({ pingDb: () => pingDatabase(db) }).listen(config.env.API_PORT, () => {
+    logger.info(
+      { port: config.env.API_PORT, nodeEnv: config.env.NODE_ENV },
+      `${APP_NAME} api listening`,
+    );
+  });
+
+  const shutdown = (signal: string) => {
+    logger.info({ signal }, 'shutting down');
+    server.close(() => void client.close().finally(() => process.exit(0)));
+  };
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
+}
+
+void main();

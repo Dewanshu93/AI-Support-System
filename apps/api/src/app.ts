@@ -4,6 +4,8 @@ import { errorHandler, notFoundHandler } from './http/errors';
 import { requestId } from './http/requestId';
 
 export interface CreateAppOptions {
+  /** Database health probe; when omitted, health reports no `db` field. */
+  pingDb?: () => Promise<boolean>;
   /** Test-only hook to mount extra routes before the 404 and error handlers. */
   extraRoutes?: (app: Express) => void;
 }
@@ -18,9 +20,14 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(requestId());
   app.use(express.json({ limit: '100kb' }));
 
-  // Public health probe; db and llmConfigured are added in W1-04 / W1-09.
-  app.get(`${API_BASE_PATH}/health`, (_req, res) => {
+  // Public health probe; llmConfigured is added in W1-09.
+  app.get(`${API_BASE_PATH}/health`, async (_req, res) => {
     const body: HealthResponse = { status: 'ok' };
+    if (options.pingDb) {
+      const up = await options.pingDb();
+      body.db = up ? 'up' : 'down';
+      if (!up) body.status = 'degraded';
+    }
     res.status(200).json(body);
   });
 

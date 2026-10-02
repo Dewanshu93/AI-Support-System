@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-03)
+## Repository layout (as of W1-04)
 
 ```
 /
@@ -17,6 +17,7 @@ Living summary of what exists in the code. Target design: playbook sections 2–
 │   │   └── test/helpers/     test-only helpers (typechecked, never built)
 │   └── web/                  Next.js 16 App Router + Tailwind v4; src/app, src/lib
 ├── packages/shared/          @sd/shared — enums (DOMAINS, PRIORITIES), constants
+├── scripts/                  operational CLIs (create-indexes)
 ├── e2e/                      Playwright specs
 ├── docker-compose.yml        web :3000, api :4000, mongodb-atlas-local :27017
 ├── tsconfig.base.json        shared compiler options (TS 6.0, strict)
@@ -58,14 +59,35 @@ Living summary of what exists in the code. Target design: playbook sections 2–
 - `lib/logger.ts`: pino JSON logger; level from `LOG_LEVEL`, silent under Jest.
 - `createApp({ extraRoutes })` is a test-only hook for mounting sample routes.
 
+## Database layer (W1-04)
+
+- `db/client.ts`: `connectDatabase(uri)` (pool max 20, 10 s server selection; DB name from the URI
+  path, default `servicedesk`) and `pingDatabase(db)` for health.
+- `db/schemas.ts`: a Zod schema for all 14 collections in playbook section 3. It covers ObjectId
+  and Date types plus the constraints: agent ⇔ non-empty queues, lowercase email, restricted ⇒
+  `hr_case`, humanId format. `CHUNK_FILTER_FIELDS` lists the metadata copied onto chunks.
+- `db/collections.ts`: `COLLECTIONS` names, typed `getCollections(db)`, and
+  `validateForWrite(collection, schema, doc)` for repositories.
+- `db/indexes.ts`: explicit-name regular indexes per collection, the `chunks_vector` (cosine,
+  dimension from `models.yaml`, 5 filter fields) and `chunks_text` (lucene.standard on
+  `contextualText` plus token filters) definitions, and the idempotent `ensureAllIndexes`, which
+  waits for search indexes to become queryable.
+- `db/counters.ts`: `nextSequence(counters, 'IT' | 'HR')`, an atomic `$inc` upsert that retries
+  once on a first-insert race.
+- `scripts/create-indexes.ts` (`npm run db:indexes`) calls `ensureAllIndexes`.
+- `server.ts` connects before listening and exits 1 if MongoDB is unreachable (compose restarts it
+  with `restart: on-failure`). It shuts down cleanly on SIGTERM/SIGINT. Health reports `db:
+up/down`, and `status: degraded` when down.
+- LangGraph checkpoint collections are created later by the checkpointer package and are not
+  listed here.
+
 ## Runtime
 
-- `GET /api/health` → `200 { status: "ok" }`. The `db` and `llmConfigured` fields from the API
-  contract are added with W1-04 and W1-09.
+- `GET /api/health` → `200 { status, db }`; `llmConfigured` is added in W1-09.
 - The web app has a placeholder home page only. Auth, layouts and the prototype banner come in
   W1-06.
 
 ## Not yet present
 
-DB layer (W1-04), auth (W1-05), everything under
+Auth (W1-05), everything under
 `apps/api/src/ai`.

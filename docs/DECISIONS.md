@@ -50,3 +50,25 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Alternatives:** TS 7 (blocked by ts-jest/typescript-eslint); ESM api (needs Jest experimental
   VM modules).
 - **Consequences:** Revisit when ts-jest and typescript-eslint support TS 7.
+
+## ADR-003 — mongodb-atlas-local for development and integration tests (D-3)
+
+- **Status:** Accepted as the playbook default (2026-10-02, W1-04); D-3 approval pending
+- **Context:** Retrieval needs `$vectorSearch` and `$search`. Plain `mongod` and in-memory test
+  servers do not support them, so a test environment without them can't validate retrieval.
+- **Decision:**
+  - `docker-compose.yml` runs `mongodb/mongodb-atlas-local:8.0` as `mongodb`; the API uses
+    `mongodb://mongodb:27017/servicedesk?directConnection=true`.
+  - Integration tests run only when `MONGODB_TEST_URI` points at an Atlas-capable server
+    (atlas-local or an Atlas free-tier cluster). Each run creates and drops its own
+    `servicedesk_test_<random>` database.
+  - `npm run db:indexes` is idempotent. It creates collections, regular indexes and the
+    `chunks_vector` / `chunks_text` search indexes, then waits until they are queryable.
+  - Search index definitions are compared by name. A vector dimension that differs from
+    `config/models.yaml` is refused with re-index instructions (D-2), never silently rebuilt.
+  - Data access uses the official driver (`mongodb` 7.7.0) plus Zod schemas, with no Mongoose
+    (D-5).
+- **Alternatives:** Atlas cloud only (needs network and an account for every developer and test
+  run); plain MongoDB plus a separate vector DB (violates Do Not Build).
+- **Consequences:** CI or developers need Docker, or an Atlas URI, to run integration tests. On
+  this development machine neither is available yet, so the W1-04 acceptance run is pending.

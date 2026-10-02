@@ -15,6 +15,20 @@ export const ROLES = ['employee', 'agent', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 export const RoleSchema = z.enum(ROLES);
 
+// Employee profile attributes that drive document access (section 7).
+export const COUNTRIES = ['US', 'UK'] as const;
+export type Country = (typeof COUNTRIES)[number];
+export const CountrySchema = z.enum(COUNTRIES);
+
+export const EMPLOYMENT_TYPES = ['full_time', 'contractor'] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+export const EmploymentTypeSchema = z.enum(EMPLOYMENT_TYPES);
+
+/** Ordered: a manager may read everything a standard employee can. */
+export const ACCESS_LEVELS = ['standard', 'manager'] as const;
+export type AccessLevel = (typeof ACCESS_LEVELS)[number];
+export const AccessLevelSchema = z.enum(ACCESS_LEVELS);
+
 /** The six turn decisions made by domain/decision-rules (section 5). */
 export const DECISIONS = [
   'ANSWER',
@@ -77,6 +91,14 @@ export const DocumentStatusSchema = z.enum(DOCUMENT_STATUSES);
 export const INGEST_STATUSES = ['pending', 'indexed', 'failed'] as const;
 export type IngestStatus = (typeof INGEST_STATUSES)[number];
 export const IngestStatusSchema = z.enum(INGEST_STATUSES);
+
+export const SOURCE_TYPES = ['markdown', 'pdf'] as const;
+export type SourceType = (typeof SOURCE_TYPES)[number];
+export const SourceTypeSchema = z.enum(SOURCE_TYPES);
+
+export const FEEDBACK_RATINGS = ['up', 'down'] as const;
+export type FeedbackRating = (typeof FEEDBACK_RATINGS)[number];
+export const FeedbackRatingSchema = z.enum(FEEDBACK_RATINGS);
 
 export const EVAL_SUITES = ['retrieval', 'full', 'judge'] as const;
 export type EvalSuite = (typeof EVAL_SUITES)[number];

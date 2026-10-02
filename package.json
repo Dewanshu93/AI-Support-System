@@ -19,7 +19,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts",
+    "db:indexes": "npm run build -w @sd/shared && tsx scripts/create-indexes.ts",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w @sd/e2e"
   },
