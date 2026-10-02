@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-02)
+## Repository layout (as of W1-03)
 
 ```
 /
@@ -38,6 +38,26 @@ Living summary of what exists in the code. Target design: playbook sections 2–
   `config/<file>: malformed YAML at line L, column C: …`, `config/<file> is invalid: - path: …`,
   `Config files are inconsistent: …`.
 
+## HTTP layer and shared contracts (W1-03)
+
+- `packages/shared`: enums with matching Zod schemas (roles, decisions, conversation, message,
+  ticket, event, document, ingest and eval statuses, priorities, domains). Also
+  `ErrorEnvelopeSchema` with `ERROR_HTTP_STATUS` (each code maps to one status), `api/common.ts`
+  (`ObjectIdStringSchema`, `PaginationQuerySchema`, `paginatedSchema`) and `api/health.ts`. Web
+  and api import the same definitions.
+- Middleware order in `createApp()`: `requestId` → `express.json({ limit: 100kb })` → routes →
+  `notFoundHandler` → `errorHandler`.
+- `http/requestId.ts`: accepts a safe incoming `X-Request-Id` (8–64 of `[A-Za-z0-9._-]`) or
+  generates a UUID; sets `req.id` and a child logger `req.log`; logs one line per request.
+- `http/validate.ts`: `validate({ body?, query?, params? })` puts parsed values on
+  `req.validated` and replaces `req.body`. Failures become `VALIDATION_ERROR` with
+  `details.issues[] = { location, path, message }`.
+- `http/errors.ts`: an `AppError` (`lib/errors.ts`) keeps its code and message. body-parser errors
+  map to `VALIDATION_ERROR`. Anything else becomes `INTERNAL` with a generic message, and the
+  stack is logged but never returned.
+- `lib/logger.ts`: pino JSON logger; level from `LOG_LEVEL`, silent under Jest.
+- `createApp({ extraRoutes })` is a test-only hook for mounting sample routes.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status: "ok" }`. The `db` and `llmConfigured` fields from the API
@@ -47,5 +67,5 @@ Living summary of what exists in the code. Target design: playbook sections 2–
 
 ## Not yet present
 
-Shared Zod contracts and error envelope (W1-03), DB layer (W1-04), auth (W1-05), everything under
+DB layer (W1-04), auth (W1-05), everything under
 `apps/api/src/ai`.

@@ -6,7 +6,7 @@
 | ----- | ----------------------------------- | ------------------------ | ---------- |
 | W1-01 | Monorepo scaffold                   | Done (Docker unverified) | 2026-10-02 |
 | W1-02 | Config and env loading              | Done                     | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope | Not started              |            |
+| W1-03 | Shared contracts and error envelope | Done                     | 2026-10-02 |
 | W1-04 | Database layer and indexes          | Not started              |            |
 | W1-05 | Users seed and auth                 | Not started              |            |
 | W1-06 | Frontend shell and login            | Not started              |            |
@@ -73,4 +73,39 @@ README "Configuration" section. Dependencies: `zod` 4.6.5, `js-yaml` 5.4.2 (ship
   against the contract when it is added. W1-07 (corpus) and W1-08 (golden set) will exercise them.
 - The cross-file check covers W3-01's "every category maps to exactly one queue" startup check
   early. W3-01 still owns the routing and priority-floor domain logic.
-- Logging is still `console`; pino arrives in W1-03.
+
+## W1-03 Shared contracts and error envelope — 2026-10-02
+
+**Delivered:**
+
+- `packages/shared`:
+  - Enums with Zod schemas (roles, decisions, conversation, message, ticket, event, document,
+    ingest and eval statuses, priorities, domains).
+  - `errors.ts`: the error envelope plus a code → HTTP status table.
+  - `api/common.ts`: ObjectId, pagination, paginated list helper.
+  - `api/health.ts`, `REQUEST_ID_HEADER`.
+- `apps/api/src/http/{errors,requestId,validate}.ts`, `lib/{errors,logger}.ts`.
+- `createApp()` wired with the request ID, a 100 KB JSON limit, a 404 handler and the error
+  handler.
+- `LOG_LEVEL` env var; `server.ts` logs through pino.
+
+Dependencies: `zod` 4.6.5 in shared (one copy, hoisted), `pino` 10.3.1 in api (ships its own types).
+
+**Verification**
+
+| Check                                     | Result                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run typecheck`      | Pass                                                                                                           |
+| `npm test`                                | Pass: shared 26, api 107, web 3 (136 tests)                                                                    |
+| Invalid body on a sample route → envelope | Pass: `errors.test.ts`; 400 `VALIDATION_ERROR`, `requestId` equals `X-Request-Id`, issues listed by path       |
+| Error handler cases                       | Pass: malformed JSON, > 100 KB, AppError, unknown error → INTERNAL (no leak), async throw, unknown route → 404 |
+| Contracts importable from web and api     | Pass: `apps/web/src/lib/contracts.test.ts`; web typecheck and Next build                                       |
+
+**Notes / follow-ups**
+
+- Endpoint-specific request/response schemas are added in `packages/shared/src/api/<group>.ts`
+  with each feature task.
+- The `DUPLICATE_CANDIDATE` 409 variant (W3-03) will use code `CONFLICT` with details, unless the
+  ticketing task decides it needs its own code.
+- `createApp({ extraRoutes })` exists only for tests. W1-05 introduces the route policy table in
+  `http/routes.ts`.

@@ -23,6 +23,7 @@ describe('parseEnv', () => {
       NODE_ENV: 'development',
       API_PORT: 4000,
       WEB_ORIGIN: 'http://localhost:3000',
+      LOG_LEVEL: 'info',
     });
   });
 

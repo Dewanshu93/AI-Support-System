@@ -19,5 +19,8 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.spec.json",
     "test": "jest"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
   }
 }

@@ -31,6 +31,7 @@ already set in the environment win.
 | `NODE_ENV`                             | no       | `development`           | `development` \| `test` \| `production`   |
 | `API_PORT`                             | no       | `4000`                  |                                           |
 | `WEB_ORIGIN`                           | no       | `http://localhost:3000` | CORS allowlist origin                     |
+| `LOG_LEVEL`                            | no       | `info`                  | pino level; `silent` under Jest           |
 | `DEMO_PASSWORD`                        | no       | —                       | Shared password for the demo login picker |
 | `GEMINI_API_KEY`, `OPENROUTER_API_KEY` | no       | —                       | Needed for the configured provider        |
 | `CONFIG_DIR`                           | no       | `<repo>/config`         | Alternative config directory              |

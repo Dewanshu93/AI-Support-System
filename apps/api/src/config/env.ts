@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LOG_LEVELS } from '../lib/logger';
 import { ConfigError, formatIssues } from './errors';
 
 /** `.env.example` ships keys with empty values; treat blank as not set. */
@@ -14,6 +15,7 @@ export const EnvSchema = z.object({
   ),
   API_PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65535).default(4000)),
   WEB_ORIGIN: z.preprocess(blankToUndefined, z.url().default('http://localhost:3000')),
+  LOG_LEVEL: z.preprocess(blankToUndefined, z.enum(LOG_LEVELS).default('info')),
   MONGODB_URI: z.preprocess(
     blankToUndefined,
     z
