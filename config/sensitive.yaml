@@ -1,0 +1,34 @@
+# Deterministic sensitive-topic precheck. A hit routes straight to the
+# sensitive handoff with no AI advice. Patterns are case-insensitive regular
+# expressions; false positives are acceptable, false negatives are not.
+version: 1
+rules:
+  - id: harassment
+    topic: harassment
+    patterns:
+      - '\bharass(ed|ing|ment)?\b'
+      - '\bbull(y|ied|ying)\b'
+      - '\bsexual(ly)? (comments?|advances?|misconduct)\b'
+  - id: discrimination
+    topic: discrimination
+    patterns:
+      - '\bdiscriminat(e|ed|ing|ion)\b'
+      - '\b(racis[mt]|sexis[mt])\b'
+  - id: medical
+    topic: medical
+    patterns:
+      - '\b(diagnos(is|ed)|medical condition|disability|chronic illness)\b'
+  - id: legal
+    topic: legal
+    patterns:
+      - '\b(lawyer|solicitor|attorney|tribunal|lawsuit|sue|suing)\b'
+      - '\bwhistle-?blow(er|ing)?\b'
+  - id: grievance
+    topic: grievance
+    patterns:
+      - '\b(grievance|formal complaint|disciplinary)\b'
+  - id: wellbeing
+    topic: wellbeing
+    patterns:
+      - '\b(suicid(e|al)|self[- ]harm|kill myself|hurt myself)\b'
+      - '\b(burn(ed|t)? out|breakdown|can.t cope|panic attacks?)\b'

@@ -1,0 +1,20 @@
+# Decision thresholds and retrieval parameters (playbook sections 5 and 7).
+# answerMinRelevance / partialMinRelevance (T_answer / T_partial) are tuned by
+# the eval sweep in W4-06; record any change in an ADR.
+version: 1
+decision:
+  answerMinRelevance: 2
+  partialMinRelevance: 1
+retrieval:
+  vectorNumCandidates: 150
+  vectorLimit: 20
+  keywordLimit: 20
+  rrfK: 60
+  fusedTopK: 12
+  contextTopK: 5
+  contextMinRelevance: 1
+conversation:
+  historyMessages: 8
+ticket:
+  maxClarifyRounds: 2
+  duplicateWindowDays: 7

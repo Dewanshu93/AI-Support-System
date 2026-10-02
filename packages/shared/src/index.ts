@@ -1,5 +1,7 @@
-// Public entry point of @sd/shared. Zod API contracts, enums and error
-// envelope schemas are added here in W1-03.
+// Public entry point of @sd/shared. Zod API contracts and error envelope
+// schemas are added here in W1-03.
+
+export * from './enums';
 
 export const APP_NAME = 'AI Service Desk Front Door';
 

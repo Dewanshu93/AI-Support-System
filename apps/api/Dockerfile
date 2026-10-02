@@ -18,6 +18,7 @@ COPY apps/api/package.json apps/api/
 RUN npm ci --omit=dev --workspace @sd/shared --workspace @sd/api
 COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/apps/api/dist apps/api/dist
+COPY config config
 USER node
 EXPOSE 4000
 CMD ["node", "apps/api/dist/server.js"]

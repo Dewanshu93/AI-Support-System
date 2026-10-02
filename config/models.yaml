@@ -1,0 +1,18 @@
+# LLM provider and models. Switching provider is a config-only change.
+# Model IDs are placeholders until verified by `npm run llm:smoke` (W1-09).
+# Changing the embedding model or dimension requires a full re-index and a
+# new vector index (D-2).
+version: 1
+chat:
+  provider: gemini # gemini | openrouter
+  models:
+    gemini:
+      fast: gemini-2.5-flash
+      quality: gemini-2.5-pro
+    openrouter:
+      fast: google/gemini-2.5-flash
+      quality: google/gemini-2.5-pro
+embeddings:
+  provider: gemini # D-2: Gemini embeddings, configured separately from chat
+  model: gemini-embedding-001
+  dimension: 768

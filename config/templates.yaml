@@ -1,0 +1,19 @@
+# Fixed (non-LLM) replies. {placeholders} are filled by code.
+version: 1
+templates:
+  out_of_scope: >-
+    I can help with IT and HR questions about working here, but that one is outside what I can
+    answer. Try asking about devices, software, access, leave, benefits or company policy.
+  sensitive_handoff: >-
+    Thank you for telling me. This is something a person in HR should handle directly and in
+    confidence, so I won't give automated advice on it. You can contact {contact} at any time.
+    Would you like HR to contact you privately?
+  sensitive_contact: the HR confidential line (hr-confidential@example.com)
+  withdrawn_answer: >-
+    I couldn't back that answer up with the policy documents, so I've withdrawn it rather than
+    risk giving you wrong information. Would you like me to raise a ticket with the {domain} team?
+  ticket_confirmed: >-
+    Your ticket {ticketHumanId} has been created and sent to the {queueLabel} queue. You can
+    follow it under My tickets.
+  generic_error: >-
+    Something went wrong on our side while handling that message. Please try again in a moment.

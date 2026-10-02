@@ -1,0 +1,23 @@
+# Priority floors applied by code after the AI proposes an urgency.
+# Safety rules also drive precheck.safetyHit (ESCALATE in safety mode).
+# Patterns are case-insensitive regular expressions. Priority order
+# (low < medium < high < critical) is fixed in @sd/shared PRIORITIES.
+version: 1
+floors:
+  - id: safety_battery
+    kind: safety
+    floor: critical
+    patterns:
+      - 'battery\b.*\b(swell|swollen|bulg|hot|overheat|smok|leak)'
+      - '\b(swollen|bulging|swelling)\b.*\bbattery'
+      - '\blaptop\b.*\b(smoking|on fire|burning smell)'
+  - id: safety_electrical
+    kind: safety
+    floor: critical
+    patterns:
+      - '\b(sparks?|sparking|electric(al)? shock|exposed wires?|burning smell)\b'
+      - '\b(charger|cable|socket|plug)\b.*\b(melt|melting|scorch|smok)'
+  - id: impact_org_wide
+    kind: impact
+    floor: high
+    impactScope: org

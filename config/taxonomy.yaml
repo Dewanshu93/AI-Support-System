@@ -1,0 +1,63 @@
+# Ticket taxonomy: domains → categories → subcategories.
+# IDs are injected into prompts and validated by code; every category must
+# have exactly one queue in routing.yaml.
+version: 1
+categories:
+  - id: hardware
+    domain: IT
+    label: Hardware
+    subcategories:
+      - { id: laptop_fault, label: Laptop fault }
+      - { id: battery, label: Battery or power }
+      - { id: peripheral, label: 'Monitor, dock or peripheral' }
+      - { id: mobile_device, label: Mobile device }
+  - id: software
+    domain: IT
+    label: Software
+    subcategories:
+      - { id: install_request, label: Install or update request }
+      - { id: application_error, label: Application error }
+      - { id: license, label: Licence }
+  - id: access
+    domain: IT
+    label: Access and accounts
+    subcategories:
+      - { id: new_access, label: New system access }
+      - { id: password_reset, label: Password or MFA reset }
+      - { id: permission_change, label: Permission change }
+  - id: network
+    domain: IT
+    label: Network and VPN
+    subcategories:
+      - { id: vpn, label: VPN }
+      - { id: wifi, label: Office Wi-Fi }
+  - id: leave
+    domain: HR
+    label: Leave and time off
+    subcategories:
+      - { id: annual_leave, label: Annual leave }
+      - { id: parental_leave, label: Parental leave }
+      - { id: sick_leave, label: Sick leave }
+  - id: benefits
+    domain: HR
+    label: Benefits
+    subcategories:
+      - { id: health, label: Health and insurance }
+      - { id: pension, label: Pension or retirement }
+  - id: payroll
+    domain: HR
+    label: Pay and expenses
+    subcategories:
+      - { id: payslip, label: Payslip query }
+      - { id: expenses, label: Expenses }
+  - id: policy
+    domain: HR
+    label: Policy question
+    subcategories:
+      - { id: working_arrangements, label: Working arrangements }
+      - { id: conduct, label: Conduct and compliance }
+  - id: employee_relations
+    domain: HR
+    label: Employee relations (confidential)
+    subcategories:
+      - { id: confidential_case, label: Confidential case }

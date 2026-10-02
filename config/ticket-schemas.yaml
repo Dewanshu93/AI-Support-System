@@ -1,0 +1,47 @@
+# Per-category ticket fields extracted by slot filling (P-5).
+# Absent information is "unknown"; missing required fields drive at most
+# maxClarifyRounds clarifying questions (thresholds.yaml).
+version: 1
+schemas:
+  hardware:
+    fields:
+      - { key: device_model, description: Device make and model, required: true }
+      - { key: symptoms, description: What is happening in the employee's words, required: true }
+      - { key: started_at, description: When the problem started, required: false }
+      - { key: asset_tag, description: Asset tag or serial number, required: false }
+  software:
+    fields:
+      - { key: application, description: Application name and version, required: true }
+      - { key: symptoms, description: What is happening or what is needed, required: true }
+      - { key: error_message, description: Exact error text verbatim, required: false }
+  access:
+    fields:
+      - { key: system, description: System or resource access is needed for, required: true }
+      - { key: access_level, description: Access level or role requested, required: false }
+      - { key: business_reason, description: Why the access is needed, required: true }
+      - { key: manager_approval, description: Whether the manager has approved, required: false }
+  network:
+    fields:
+      - { key: location, description: Office home or other location, required: true }
+      - { key: symptoms, description: What is happening, required: true }
+      - { key: error_message, description: Exact error text verbatim, required: false }
+  leave:
+    fields:
+      - { key: leave_type, description: Type of leave, required: true }
+      - { key: dates, description: Requested or affected dates, required: false }
+      - { key: question, description: What the employee needs from HR, required: true }
+  benefits:
+    fields:
+      - { key: benefit, description: Benefit concerned, required: true }
+      - { key: question, description: What the employee needs from HR, required: true }
+  payroll:
+    fields:
+      - { key: pay_period, description: Pay period or expense date concerned, required: true }
+      - { key: question, description: What the employee needs from HR, required: true }
+  policy:
+    fields:
+      - { key: policy_topic, description: Policy area the question is about, required: true }
+      - { key: question, description: What the employee needs from HR, required: true }
+  employee_relations:
+    # Sensitive handoff: no AI field extraction; the ticket uses a template summary.
+    fields: []

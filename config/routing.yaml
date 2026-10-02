@@ -1,0 +1,20 @@
+# Category → queue routing. Agents are assigned queues in users.queues.
+# Restricted (sensitive handoff) tickets always go to sensitiveQueue.
+version: 1
+queues:
+  - { id: it_hardware, domain: IT, label: IT Hardware }
+  - { id: it_software, domain: IT, label: IT Software }
+  - { id: it_access, domain: IT, label: IT Access }
+  - { id: hr_general, domain: HR, label: HR General }
+  - { id: hr_case, domain: HR, label: HR Confidential Cases }
+sensitiveQueue: hr_case
+routes:
+  hardware: it_hardware
+  software: it_software
+  access: it_access
+  network: it_software
+  leave: hr_general
+  benefits: hr_general
+  payroll: hr_general
+  policy: hr_general
+  employee_relations: hr_case
