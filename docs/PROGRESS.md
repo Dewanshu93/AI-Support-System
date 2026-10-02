@@ -132,23 +132,26 @@ Dependency: `mongodb` 7.7.0 (official driver; D-5, no Mongoose).
 
 **Verification**
 
-| Check                                                   | Result                                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `npm run lint` / `npm run typecheck`                    | Pass                                                                                                                                 |
-| `npm test`                                              | Pass: shared 31, api 177, web 3; 3 DB integration tests skipped                                                                      |
-| Index definitions match section 3                       | Pass: unit tests for unique/sparse keys, eval/queue/duplicate indexes, search index definitions                                      |
-| Idempotency and drift logic                             | Pass: unit tests against fakes (create all → re-run creates none; only missing created; key drift refused; dimension change refused) |
-| Search index wait logic                                 | Pass: unit tests (becomes queryable, FAILED fails fast, timeout names pending)                                                       |
-| **Script run twice creates indexes once (real DB)**     | **Pending**: no Docker, no local MongoDB, Atlas unreachable from this machine                                                        |
-| **Search indexes reach ready state on atlas-local**     | **Pending**: same reason                                                                                                             |
-| **Counters atomicity and unique indexes (integration)** | **Pending**: written in `test/integration/db.test.ts`, run with `MONGODB_TEST_URI`                                                   |
+| Check                                                  | Result                                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run typecheck`                   | Pass                                                                                                                                         |
+| `npm test`                                             | Pass: shared 31, api 177, web 3; 3 DB integration tests skipped                                                                              |
+| Index definitions match section 3                      | Pass: unit tests for unique/sparse keys, eval/queue/duplicate indexes, search index definitions                                              |
+| Idempotency and drift logic                            | Pass: unit tests against fakes (create all → re-run creates none; only missing created; key drift refused; dimension change refused)         |
+| Search index wait logic                                | Pass: unit tests (becomes queryable, FAILED fails fast, timeout names pending)                                                               |
+| Regular indexes created once across two runs (real DB) | Pass (2026-10-02): MongoDB 8.3.4 at 192.168.29.3; run 1 → 14 collections and 32 indexes, run 2 → 0 and 0; index sets match definitions       |
+| Counters atomicity and unique indexes (real DB)        | Pass: 50 concurrent increments → 1..50; duplicate email and duplicate ticket `conversationId` rejected (E11000)                              |
+| **Search indexes reach ready state**                   | **Pending**: the LAN server is MongoDB Community without mongot (`SearchNotEnabled`); Atlas cloud is blocked by the HTC TLS-inspecting proxy |
 
-**To close W1-04 acceptance** (on a machine with Docker):
+**Environment (2026-10-02):** `.env` points at `mongodb://192.168.29.3:27017/servicedesk` (LAN,
+no auth, shared with other projects' databases). The Atlas URI is kept commented out in `.env`.
+
+**To close the search-index criterion**, run against an Atlas-capable server (Atlas Local on the LAN
+PC, or Atlas from a network without TLS inspection):
 
 ```bash
-docker compose up -d mongodb
-MONGODB_URI="mongodb://localhost:27017/servicedesk?directConnection=true" JWT_SECRET=<32+ chars> npm run db:indexes   # twice
-MONGODB_TEST_URI="mongodb://localhost:27017/?directConnection=true" npm test -w @sd/api
+npm run db:indexes   # twice
+MONGODB_TEST_URI="mongodb://<host>:<port>/?directConnection=true" npm test -w @sd/api
 ```
 
 **Notes / risks**
