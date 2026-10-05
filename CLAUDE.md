@@ -25,6 +25,7 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 | `npm test`                            | Jest in shared, api, web                              |
 | `npm run test:e2e`                    | Playwright (starts web dev server if not running)     |
 | `npm run db:indexes`                  | Create Mongo indexes + Qdrant collection (idempotent) |
+| `npm run seed`                        | Upsert demo users from `seed/users.json` (idempotent) |
 | `docker compose up --build`           | web + api + mongodb + qdrant                          |
 
 ## Core rules

@@ -1,10 +1,10 @@
 import request from 'supertest';
-import { createApp } from '../app';
+import { buildTestApp } from '../../test/helpers/app';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 describe('requestId middleware', () => {
-  const app = createApp();
+  const { app } = buildTestApp();
 
   it('generates a UUID request ID and returns it in X-Request-Id', async () => {
     const res = await request(app).get('/api/health');

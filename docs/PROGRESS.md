@@ -8,7 +8,7 @@
 | W1-02 | Config and env loading              | Done                            | 2026-10-02 |
 | W1-03 | Shared contracts and error envelope | Done                            | 2026-10-02 |
 | W1-04 | Database layer and indexes          | Done (amended: Qdrant, ADR-004) | 2026-10-05 |
-| W1-05 | Users seed and auth                 | Not started                     |            |
+| W1-05 | Users seed and auth                 | Done                            | 2026-10-05 |
 | W1-06 | Frontend shell and login            | Not started                     |            |
 
 ## Checkpoints
@@ -198,3 +198,53 @@ superseded by ADR-004).
   only for synthetic prototype data.
 - LangGraph checkpoint collections are owned by the checkpointer package (W2-02) and are not
   created by `db:indexes`.
+
+## W1-05 Users seed and auth — 2026-10-05
+
+**Delivered:**
+
+- `seed/users.json`: 8 demo personas.
+  - Priya: US, full-time.
+  - Tom: UK, contractor.
+  - Olivia: UK, full-time, manager.
+  - Marcus: US, contractor.
+  - Ravi: US, full-time, manager.
+  - Sam: IT agent; queues `it_hardware`, `it_software`, `it_access`.
+  - Hana: HR agent; queues `hr_general`, `hr_case`.
+  - Alex: admin.
+- `npm run seed`: idempotent upsert by fixed `_id`.
+- `modules/auth`: demo-users, login, logout, me. HS256 JWT in an httpOnly `SameSite=Lax` cookie
+  `sd_session`, 8 h. Optional `DEMO_PASSWORD`, compared in constant time.
+- `modules/users`: repository, mappers, `GET /api/profiles/me`, seed.
+- `modules/audit`: append-only repository and service; logs `auth.login` and `auth.logout`.
+- `http/requireAuth.ts`, `http/requireRole.ts`.
+- **Route policy table** in `http/routes.ts` (DoD).
+- `AppDeps` injection.
+- Shared `api/auth.ts` contracts.
+
+New dependencies (both approved): `jsonwebtoken` 9.0.3 and `cookie-parser` 1.4.7, plus their
+`@types/*` packages.
+
+**Verification**
+
+| Check                                           | Result                                                                                        |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run typecheck`            | Pass                                                                                          |
+| `npm test` with both integration suites enabled | Pass: 286 tests (shared 31, api 252, web 3), 0 skipped                                        |
+| Each role logs in                               | Pass: API tests for employee, agent and admin; live smoke test as Sam (agent)                 |
+| 401 without a cookie                            | Pass: me, profiles and logout; tampered, foreign-secret, alg-none, expired and garbage tokens |
+| 403 with wrong role                             | Pass: role matrix over employee-only, agent+admin and admin-only routes via the real guards   |
+| Audit entries written                           | Pass: API tests (actor, role, ip, requestId) and the live `audit_log` on the LAN MongoDB      |
+| Route policy table started (DoD)                | Pass: `http/routes.test.ts` asserts every route's policy and that there are no duplicates     |
+| Seed on the real DB                             | Pass: run 1 → 8 inserted; run 2 → 8 unchanged                                                 |
+| Users, audit and seed integration               | Pass: 4/4 against the LAN MongoDB (re-seed keeps `createdAt`, updates changed fields)         |
+
+**Deviations / follow-ups**
+
+- **Deferred to W4-07 (section 9 hardening):** the login rate limit (429, 10/min per IP) and the
+  `X-Requested-With: sd-web` CSRF header check on mutating requests. Both are listed in the
+  playbook's security architecture rather than on this card's acceptance criteria.
+- Failed login attempts are not audited; the card lists only `auth.login` and `auth.logout`.
+- `createApp` now takes `AppDeps`, and the test-only `extraRoutes` hook takes `RouteDef[]`, so test
+  routes go through the same policy guards as real ones.
+- ESLint now also ignores `_`-prefixed unused variables, matching the existing rule for arguments.

@@ -1,8 +1,16 @@
 import { APP_NAME } from '@sd/shared';
 import { createApp } from './app';
 import { type AppConfig, ConfigError, initConfig, loadDotEnv } from './config';
-import { connectDatabase, createQdrantClient, pingDatabase, pingQdrant } from './db';
+import {
+  connectDatabase,
+  createQdrantClient,
+  getCollections,
+  pingDatabase,
+  pingQdrant,
+} from './db';
 import { logger } from './lib/logger';
+import { mongoAuditRepository } from './modules/audit/repository';
+import { mongoUsersRepository } from './modules/users/repository';
 
 function startupConfig(): AppConfig {
   loadDotEnv();
@@ -44,7 +52,15 @@ async function main() {
     );
   }
 
+  const collections = getCollections(db);
   const app = createApp({
+    users: mongoUsersRepository(collections.users),
+    audit: mongoAuditRepository(collections.auditLog),
+    auth: {
+      jwtSecret: config.env.JWT_SECRET,
+      demoPassword: config.env.DEMO_PASSWORD,
+      secureCookies: config.env.NODE_ENV === 'production',
+    },
     pingDb: () => pingDatabase(db),
     pingVectorStore: () => pingQdrant(qdrant),
   });

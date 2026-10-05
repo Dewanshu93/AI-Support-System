@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-04)
+## Repository layout (as of W1-05)
 
 ```
 /
@@ -88,6 +88,33 @@ Living summary of what exists in the code. Target design: playbook sections 2–
 - LangGraph checkpoint collections are created later by the checkpointer package and are not
   listed here.
 
+## Auth, RBAC and audit (W1-05)
+
+- `http/routes.ts` is the **route policy table**. Every endpoint is a `RouteDef` with
+  `access: 'public' | 'any' | Role[]`, and `mountRoutes` adds `requireAuth` / `requireRole` from
+  that rule. `http/routes.test.ts` lists the reviewed policy for every endpoint.
+- `http/requireAuth.ts` verifies the `sd_session` cookie (HS256 JWT only) and re-loads the user
+  from the database on every request, then sets `req.user`. Otherwise it returns 401.
+  `http/requireRole.ts` returns 403 for a disallowed role.
+- `modules/auth`:
+  - `tokens.ts`: sign/verify; claims `sub`, `role`, `iat`, `exp`; 8 h lifetime.
+  - `service.ts`: demo users, and login by `userId` or `email` with the optional
+    `DEMO_PASSWORD`, compared in constant time. Unknown user and bad password get the same 401
+    message.
+  - `routes.ts`: demo-users, login, logout, me. The cookie is httpOnly, `SameSite=Lax`,
+    `Path=/`, and `Secure` when `NODE_ENV=production`.
+- `modules/users`: `repository.ts` (Mongo: `findById`, `findByEmail`, `listDemo`),
+  `mappers.ts` (`AuthUser`, `DemoUser`, profile; `queues` only for agents), `routes.ts`
+  (`GET /api/profiles/me`), and `seed.ts`. The seed loader validates `seed/users.json` against
+  `UserSchema` and routing queues, then upserts by fixed `_id`, setting `createdAt` only on
+  insert.
+- `modules/audit`: an append-only repository (validated with `AuditLogSchema`) and `service.record(req,
+event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.logout`.
+- `deps.ts` (`AppDeps`): `createApp(deps)` receives repositories and auth settings.
+  `server.ts` wires the MongoDB implementations; API tests use the in-memory ones in
+  `test/helpers/app.ts`.
+- Shared contracts are in `packages/shared/src/api/auth.ts`.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore }`; `llmConfigured` is added in W1-09.
@@ -96,5 +123,5 @@ Living summary of what exists in the code. Target design: playbook sections 2–
 
 ## Not yet present
 
-Auth (W1-05), everything under
+Frontend shell (W1-06), everything under
 `apps/api/src/ai`.

@@ -1,8 +1,9 @@
 import { ErrorEnvelopeSchema, PaginationQuerySchema } from '@sd/shared';
 import request from 'supertest';
 import { z } from 'zod';
-import { createApp } from '../app';
+import { buildTestApp } from '../../test/helpers/app';
 import { AppError } from '../lib/errors';
+import type { RouteDef } from './routes';
 import { validate } from './validate';
 
 // Sample routes exercise validation and the central error handler end to end.
@@ -11,33 +12,59 @@ const SampleBody = z.object({
   tone: z.enum(['standard', 'brief']).default('standard'),
 });
 
-const app = createApp({
-  extraRoutes: (a) => {
-    a.post('/api/_test/echo', validate({ body: SampleBody }), (req, res) => {
-      res.json({ body: req.body });
-    });
-    a.get(
-      '/api/_test/items/:id',
+const sampleRoutes: RouteDef[] = [
+  {
+    method: 'post',
+    path: '/api/_test/echo',
+    access: 'public',
+    handlers: [validate({ body: SampleBody }), (req, res) => void res.json({ body: req.body })],
+  },
+  {
+    method: 'get',
+    path: '/api/_test/items/:id',
+    access: 'public',
+    handlers: [
       validate({
         params: z.object({ id: z.string().regex(/^\d+$/) }),
         query: PaginationQuerySchema,
       }),
-      (req, res) => {
-        res.json({ params: req.validated.params, query: req.validated.query });
-      },
-    );
-    a.get('/api/_test/conflict', () => {
-      throw new AppError('CONFLICT', 'A turn is already running', { conversationId: 'c1' });
-    });
-    a.get('/api/_test/crash', () => {
-      throw new Error('database password is hunter2');
-    });
-    a.get('/api/_test/async-crash', async () => {
-      await Promise.resolve();
-      throw new Error('async failure');
-    });
+      (req, res) => void res.json({ params: req.validated.params, query: req.validated.query }),
+    ],
   },
-});
+  {
+    method: 'get',
+    path: '/api/_test/conflict',
+    access: 'public',
+    handlers: [
+      () => {
+        throw new AppError('CONFLICT', 'A turn is already running', { conversationId: 'c1' });
+      },
+    ],
+  },
+  {
+    method: 'get',
+    path: '/api/_test/crash',
+    access: 'public',
+    handlers: [
+      () => {
+        throw new Error('database password is hunter2');
+      },
+    ],
+  },
+  {
+    method: 'get',
+    path: '/api/_test/async-crash',
+    access: 'public',
+    handlers: [
+      async () => {
+        await Promise.resolve();
+        throw new Error('async failure');
+      },
+    ],
+  },
+];
+
+const { app } = buildTestApp({ extraRoutes: sampleRoutes });
 
 /** Asserts the shared envelope shape and that requestId matches the response header. */
 function expectEnvelope(res: request.Response, code: string, status: number) {
