@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-05)
+## Repository layout (as of W1-06)
 
 ```
 /
@@ -115,6 +115,35 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
   `test/helpers/app.ts`.
 - Shared contracts are in `packages/shared/src/api/auth.ts`.
 
+## Frontend shell (W1-06)
+
+- **Same-origin API.** `next.config.ts` rewrites `/api/*` to `API_URL` (default
+  `http://localhost:4000`, server-side only). The browser talks only to the web origin, so the
+  `sd_session` cookie is first-party and no CORS is needed between web and api.
+- `lib/api.ts` is the typed browser client. It calls the same-origin `/api`, includes
+  credentials, sends `X-Requested-With: sd-web` on mutations (for the W4-07 CSRF check) and
+  validates every response with the shared Zod schemas. Errors become `ApiError` with code,
+  message and request ID; `NETWORK` and `INVALID_RESPONSE` cover client-side failures.
+- `lib/session.ts` (Server Components) has `getCurrentUser()`, which forwards the session
+  cookie to `GET /api/auth/me`, and `requireArea(roles)`, which sends anonymous users to
+  `/login` and wrong-role users to their own home. This is UX only; the API enforces access.
+- `lib/roles.ts`: role homes (employee → `/chat`, agent → `/agent/queue`, admin →
+  `/admin`), role navigation, area roles (the agent area allows agent and admin) and labels.
+- Routes:
+  - `app/(auth)/login`: the persona picker (`components/auth/LoginPicker`), grouped by role,
+    with skeleton, "API unreachable" with retry, "No demo users — run seed", and a demo-password
+    field when `passwordRequired` is true.
+  - The `(employee)`, `(agent)` and `(admin)` layouts call `requireArea` and render
+    `AppShell` (role navigation with the active page, a user badge with role, country and
+    employment type, and Sign out).
+  - Every section 10 route has a placeholder page naming the task that builds it.
+  - `/` redirects by session.
+- `PrototypeBanner` is in the root layout, so it shows on every page. `app/error.tsx` (Next 16
+  error boundary with `retry`) and `app/loading.tsx` provide the shared error and loading states.
+- UI primitives in `components/ui`: Button, Badge, Card, Spinner, Skeleton/SkeletonCards,
+  EmptyState and ErrorState (retry plus request ID). Table, Tabs, Dialog, Textarea, Select and
+  Toast are added when a screen first needs them.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore }`; `llmConfigured` is added in W1-09.
@@ -123,5 +152,5 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 
 ## Not yet present
 
-Frontend shell (W1-06), everything under
+Everything under
 `apps/api/src/ai`.

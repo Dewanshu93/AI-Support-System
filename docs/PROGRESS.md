@@ -9,13 +9,13 @@
 | W1-03 | Shared contracts and error envelope | Done                            | 2026-10-02 |
 | W1-04 | Database layer and indexes          | Done (amended: Qdrant, ADR-004) | 2026-10-05 |
 | W1-05 | Users seed and auth                 | Done                            | 2026-10-05 |
-| W1-06 | Frontend shell and login            | Not started                     |            |
+| W1-06 | Frontend shell and login            | Done                            | 2026-10-05 |
 
 ## Checkpoints
 
-| Checkpoint      | Status      | Notes                                                                                                                                                            |
-| --------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CP-1 Foundation | Not reached | After W1-06. The `docker compose up` criterion is deferred by the owner (2026-10-05); CP-1 is checked against a local run (`npm run dev:api` / `dev:web` + seed) |
+| Checkpoint      | Status                             | Notes                                                                                               |
+| --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| CP-1 Foundation | **Passed (2026-10-05)**, local run | Compose criterion deferred by the owner; checked as a local run instead. See the CP-1 section below |
 
 ## W1-01 Monorepo scaffold — 2026-10-02
 
@@ -248,3 +248,72 @@ New dependencies (both approved): `jsonwebtoken` 9.0.3 and `cookie-parser` 1.4.7
 - `createApp` now takes `AppDeps`, and the test-only `extraRoutes` hook takes `RouteDef[]`, so test
   routes go through the same policy guards as real ones.
 - ESLint now also ignores `_`-prefixed unused variables, matching the existing rule for arguments.
+
+## W1-06 Frontend shell and login — 2026-10-05
+
+**Delivered:**
+
+- Next.js rewrites `/api/*` to the Express API (`API_URL`), so the session cookie is
+  first-party and no CORS is needed.
+- `lib/api.ts`: typed client that validates every response with the shared Zod schemas and turns
+  errors into `ApiError` (code, message, request ID).
+- `lib/session.ts`: server-side `getCurrentUser` and `requireArea`.
+- `lib/roles.ts`: homes, navigation and area roles.
+- `/login` persona picker, grouped by role, with loading, error (retry + request ID) and empty
+  ("run seed") states, and a demo-password field when required.
+- `(employee)`, `(agent)` (agent + admin) and `(admin)` layouts with role redirects and
+  `AppShell`: navigation, user badge, sign out.
+- `PrototypeBanner` on every page; `app/error.tsx` (Next 16 `retry`) and `app/loading.tsx`.
+- Placeholder pages for all 14 section 10 routes.
+- UI primitives: Button, Badge, Card, Spinner, Skeleton, EmptyState, ErrorState.
+- API: `GET /api/auth/demo-users` now also returns `passwordRequired`.
+
+Dependency: `zod` 4.6.5 added to the web app (already used by shared; approved).
+
+**Verification**
+
+| Check                                      | Result                                                                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run typecheck`       | Pass                                                                                                        |
+| Unit tests                                 | Pass: web 13 (role routing, API client: validation, error envelope, network, invalid response)              |
+| Playwright (`E2E_BROWSER_CHANNEL=chrome`)  | Pass: 9/9 against the real API + LAN MongoDB + production web build                                         |
+| Each persona lands on their home           | Pass: Priya and Tom → `/chat`, Sam and Hana → `/agent/queue`, Alex → `/admin`; navigation and badge checked |
+| Logout returns to login                    | Pass: then `/chat` redirects to `/login`                                                                    |
+| Banner on every page                       | Pass: checked on every page each persona can open, plus `/login`                                            |
+| Loading/error/empty primitives exist (DoD) | Pass: Skeleton/SkeletonCards, ErrorState, EmptyState; used by `/login`, `error.tsx`, `loading.tsx`          |
+
+**Issues found and fixed during E2E**
+
+- **Sign-in and sign-out used soft client navigation** (`router.replace` + `refresh`) right
+  after the session cookie changed. That raced the cookie and aborted in-flight navigations. Both
+  now do a full page load (`window.location.assign`). This also discards the client router
+  cache, so no signed-in page data survives logout.
+- **Sign out could be clicked before React hydration**, leaving a dead button. It is now
+  disabled until hydrated.
+- **Playwright's web server is a production build** (`next build && next start`), not
+  `next dev`, so compile-on-demand no longer causes timeouts.
+
+**Notes / follow-ups**
+
+- E2E tests take 10–37 s each even against the production build, while the API answers in
+  7–30 ms (measured with Node `fetch`). The likely cause is browser and corporate-network
+  overhead on this machine; not a correctness issue.
+- Wrong-role redirects from a route-group layout are delivered as a client-side redirect
+  (HTTP 200 plus redirect), because the root `loading.tsx` makes the page stream. Browsers follow
+  it, and the E2E tests cover it.
+- Table, Tabs, Dialog, Textarea, Select and Toast primitives are added when a screen first needs
+  them (W2-09 onwards).
+- `apps/web/Dockerfile` and compose now use server-side `API_URL` instead of
+  `NEXT_PUBLIC_API_URL` (still unverified: Docker is deferred).
+
+## CP-1 Foundation checkpoint — 2026-10-05
+
+| CP-1 criterion                                    | Result                                                                                                                                          |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docker compose up` + seed works on a clean clone | **Deferred by the owner.** Checked as a local run: `db:indexes` + `seed` (both idempotent) + `dev:api` / web against the LAN MongoDB and Qdrant |
+| All three roles log in                            | Pass: API tests and Playwright (employee, agent, admin)                                                                                         |
+| RBAC 401/403 tests green                          | Pass: role matrix in `test/api/auth.test.ts`, `rbac.test.ts`, route policy test                                                                 |
+| Config validation fails fast                      | Pass: `server.test.ts` (missing env, malformed YAML → exit 1 with a readable message)                                                           |
+| lint / typecheck / tests green                    | Pass: lint, typecheck, 297 Jest tests (with integration), 9 Playwright                                                                          |
+
+**CP-1 status: passed (local run).** The run used the existing working tree, not a clean clone.

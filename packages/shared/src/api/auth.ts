@@ -16,7 +16,11 @@ export const DemoUserSchema = z.object({
   jobTitle: z.string(),
 });
 export type DemoUser = z.infer<typeof DemoUserSchema>;
-export const DemoUsersResponseSchema = z.object({ users: z.array(DemoUserSchema) });
+export const DemoUsersResponseSchema = z.object({
+  users: z.array(DemoUserSchema),
+  /** True when DEMO_PASSWORD is set, so the login picker shows a password field. */
+  passwordRequired: z.boolean(),
+});
 export type DemoUsersResponse = z.infer<typeof DemoUsersResponseSchema>;
 
 /** POST /api/auth/login: exactly one of userId or email; password only if DEMO_PASSWORD is set. */

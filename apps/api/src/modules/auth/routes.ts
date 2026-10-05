@@ -36,7 +36,10 @@ export function authRoutes(deps: AppDeps): RouteDef[] {
       access: 'public',
       handlers: [
         async (_req, res) => {
-          const body: DemoUsersResponse = { users: await auth.listDemoUsers() };
+          const body: DemoUsersResponse = {
+            users: await auth.listDemoUsers(),
+            passwordRequired: deps.auth.demoPassword !== undefined,
+          };
           res.json(body);
         },
       ],

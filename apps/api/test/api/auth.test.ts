@@ -55,6 +55,13 @@ describe('GET /api/auth/demo-users', () => {
       ['country', 'employmentType', 'id', 'jobTitle', 'name', 'role'].sort(),
     );
     expect(JSON.stringify(res.body)).not.toContain('@example.com');
+    expect(body.passwordRequired).toBe(false);
+  });
+
+  it('tells the login picker when a demo password is required', async () => {
+    const { app } = buildTestApp({ auth: { demoPassword: 'letmein' } });
+    const res = await request(app).get('/api/auth/demo-users');
+    expect(DemoUsersResponseSchema.parse(res.body).passwordRequired).toBe(true);
   });
 });
 

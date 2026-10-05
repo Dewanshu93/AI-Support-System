@@ -7,8 +7,8 @@ COPY apps/web/package.json apps/web/
 RUN npm ci --include-workspace-root --workspace @sd/shared --workspace @sd/web
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG API_URL=http://api:4000
+ENV API_URL=$API_URL
 RUN npm run build -w @sd/shared && npm run build -w @sd/web
 ENV NODE_ENV=production
 USER node
