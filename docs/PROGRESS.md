@@ -15,12 +15,14 @@
 | W1-09 | LLM and embedding provider layer    | Done                                   | 2026-10-05 |
 | W1-10 | Ingestion pipeline                  | Done                                   | 2026-10-05 |
 | W1-11 | Access filter and hybrid retrieval  | Done                                   | 2026-10-05 |
+| W1-12 | Retrieval eval runner               | Done                                   | 2026-10-05 |
 
 ## Checkpoints
 
-| Checkpoint      | Status                             | Notes                                                                                               |
-| --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| CP-1 Foundation | **Passed (2026-10-05)**, local run | Compose criterion deferred by the owner; checked as a local run instead. See the CP-1 section below |
+| Checkpoint      | Status                             | Notes                                                                                                                                           |
+| --------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| CP-1 Foundation | **Passed (2026-10-05)**, local run | Compose criterion deferred by the owner; checked as a local run instead. See the CP-1 section below                                             |
+| CP-2 Retrieval  | **Passed (2026-10-05)**            | Corpus and golden set valid; full corpus ingested idempotently; fused recall@5 100% (gate 75%); leakage 0; exhaustive access-filter tests green |
 
 ## W1-01 Monorepo scaffold — 2026-10-02
 
@@ -564,3 +566,51 @@ No new dependencies.
   composition.
 - **Review:** cases were drafted from the corpus key facts. Please review the expected decisions,
   especially the partial-coverage boundaries and the escalation ticket fields.
+
+## W1-12 Retrieval eval runner — 2026-10-05
+
+**Delivered:**
+
+- `evals/runner/`:
+  - `cli.ts`: `npm run eval -- --suite retrieval [--case …] [--tag …]`.
+  - `retrievalSuite.ts`: each case with expected or forbidden documents is retrieved as its own
+    user, recording the top 5 chunks per mode: vector only, keyword only, fused.
+  - `scorers.ts`: recall@5, first-hit rank, MRR, forbidden-document leakage; per category and per
+    tag; CP-2 gate.
+  - `report.ts`: Markdown report in `evals/reports/`.
+  - `store.ts`: `eval_runs` (with config snapshot: thresholds, prompt versions, models, git commit,
+    dataset version) and `eval_results` per case.
+- A non-zero exit code when the run fails.
+
+**Baseline run** (`evals/reports/2026-10-05-retrieval-fbbbdac4.md`): 54 cases, 35.6 s, real
+Gemini query embeddings on the LAN index.
+
+| Mode    | Recall@5       | MRR   | Forbidden-doc leakage |
+| ------- | -------------- | ----- | --------------------- |
+| vector  | 100.0% (54/54) | 0.991 | 0                     |
+| keyword | 100.0% (54/54) | 0.937 | 0                     |
+| fused   | 100.0% (54/54) | 0.972 | 0                     |
+
+**Verification**
+
+| Check                                                    | Result                                                                                                                                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Report shows recall@5 per mode and forbidden-doc leakage | Pass: see the table above; also per category and tag                                                                                                                         |
+| Scorer unit tests with synthetic results                 | Pass: 15 tests (rank-6 miss, any-of-several hits, version-specific leakage, leakage below top 5 ignored, n/a recall, per-mode independence, MRR, gate, report, suite errors) |
+| CP-2 gate: fused recall@5 ≥ 75%, leakage 0 (DoD)         | Pass: 100%, 0                                                                                                                                                                |
+| Chunking decisions recorded (DoD)                        | Pass: ADR-006 updated with the eval outcome                                                                                                                                  |
+
+**Caveats (important for interpreting 100%)**
+
+- **The set is easy.** The corpus is small (35 documents, 168 chunks), the access filter shrinks
+  each user's candidate pool (often to 20–25 documents), and the questions share vocabulary with
+  the documents because the same author wrote both. Recall@5 is saturated here, so it does not
+  discriminate between modes. **MRR does:** vector 0.991 > fused 0.972 > keyword 0.937.
+- **Forbidden-document leakage is mostly guaranteed by the pre-filter:** forbidden documents are
+  superseded or outside the user's profile. A non-zero value would mean an access-filter bug.
+- **Stronger measurement comes later:** reranking and context assembly (W2-04) and the full eval
+  (W2-10) measure retrieval with LLM-rewritten queries. A harder, more paraphrased golden-set
+  revision (v2) is worth considering once real usage shows how people phrase questions.
+- **The query is the case's user text** (all turns joined); the analysis step's `searchQuery`
+  (P-1) replaces it in W2.
+- **No cost is recorded:** embedding cost is not tracked yet (`costUsd: 0`).

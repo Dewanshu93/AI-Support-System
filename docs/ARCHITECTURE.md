@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-11)
+## Repository layout (as of W1-12)
 
 ```
 /
@@ -243,6 +243,18 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
   and section 8 composition. `npm run golden:validate` prints the composition.
 - `evals/` is typechecked and tested through the api workspace (`apps/api/tsconfig.spec.json`,
   `jest.config.cjs` roots).
+
+## Evaluation runner (W1-12)
+
+- `npm run eval -- --suite retrieval` (`evals/runner/cli.ts`): validates the golden set, then
+  retrieves each case with expected or forbidden documents as its user and scores the top 5 per
+  mode (`retrievalSuite.ts`, `scorers.ts`).
+- It writes `eval_runs` (with config snapshot and git commit) and `eval_results`
+  (`store.ts`), plus `evals/reports/<date>-retrieval-<id>.md` (`report.ts`), and exits 1 if
+  the gate fails (fused recall@5 ≥ 75%, leakage 0).
+- Document references: `slug` matches any version; `slug@version` matches that version's
+  stable document ID.
+- The `full` (W2-10) and `judge` (W4-05) suites are not built yet.
 
 ## Runtime
 

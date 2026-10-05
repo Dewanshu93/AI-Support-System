@@ -209,3 +209,8 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   rejects `.pdf` with that message.
 - **Not handled yet:** a document deleted from `corpus/` stays in the stores. Removal arrives with
   the admin document status endpoint (W4-04).
+
+- **Outcome (W1-12, 2026-10-05):** with these choices the baseline retrieval eval reached recall@5
+  100% in every mode (vector, keyword, fused), with MRR 0.991 / 0.937 / 0.972 and forbidden-doc
+  leakage 0 (54 cases). Small heading-level chunks did not hurt recall, so chunking stays as is.
+  Revisit if the full eval (W2-10) shows answers missing context from neighbouring sections.

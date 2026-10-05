@@ -28,6 +28,7 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 | `npm run seed`                             | Upsert demo users from `seed/users.json` (idempotent)                   |
 | `npm run corpus:validate`                  | Validate `corpus/` (`-- --write` refreshes the README inventory)        |
 | `npm run golden:validate`                  | Validate `evals/golden/golden.v1.jsonl` and print its composition       |
+| `npm run eval -- --suite retrieval`        | Retrieval eval: recall@5 per mode, leakage, report in `evals/reports/`  |
 | `npm run ingest`                           | Chunk, embed and index `corpus/` into MongoDB and Qdrant (idempotent)   |
 | `npm run retrieve -- --user <email> "<q>"` | Profile-safe hybrid retrieval on the real index, as a table             |
 | `npm run llm:smoke`                        | Real structured output + embeddings check for every provider with a key |

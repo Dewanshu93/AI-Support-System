@@ -24,6 +24,7 @@
     "seed": "npm run build -w @sd/shared && tsx scripts/seed.ts",
     "corpus:validate": "npm run build -w @sd/shared && tsx scripts/validate-corpus.ts",
     "golden:validate": "npm run build -w @sd/shared && tsx scripts/validate-golden.ts",
+    "eval": "npm run build -w @sd/shared && tsx --use-system-ca evals/runner/cli.ts",
     "llm:smoke": "npm run build -w @sd/shared && tsx --use-system-ca scripts/llm-smoke.ts",
     "ingest": "npm run build -w @sd/shared && tsx --use-system-ca scripts/ingest.ts",
     "retrieve": "npm run build -w @sd/shared && tsx --use-system-ca scripts/retrieve.ts",
