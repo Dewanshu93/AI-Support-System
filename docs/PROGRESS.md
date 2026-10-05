@@ -13,6 +13,7 @@
 | W1-07 | Corpus authoring and validation     | Done (pending owner review of numbers) | 2026-10-05 |
 | W1-08 | Golden set v1                       | Deferred by owner: before W1-12        |            |
 | W1-09 | LLM and embedding provider layer    | Done                                   | 2026-10-05 |
+| W1-10 | Ingestion pipeline                  | Done                                   | 2026-10-05 |
 
 ## Checkpoints
 
@@ -427,3 +428,43 @@ Dependencies (LangChain, approved stack): `@langchain/core` 1.2.14, `@langchain/
 - **OpenRouter key is free tier** with a small credit limit; long eval runs may need more.
 - **Free-tier limits** (rate limits, 503s) may slow ingestion of 35 documents and the eval runs; a
   paid key removes this.
+
+## W1-10 Ingestion pipeline — 2026-10-05
+
+**Delivered:**
+
+- `ai/ingestion/`: `loaders.ts`, `chunker.ts`, `contextualise.ts`, `embedder.ts`, `identity.ts`,
+  `indexer.ts`.
+- `ai/retrieval/bm25.ts`: shared keyword tokenizer and sparse vectors.
+- `modules/documents/`: `repository.ts`, `vectorStore.ts`, `service.ts`.
+- `scripts/ingest.ts` (`npm run ingest`).
+- `StrictGeminiEmbeddings`, and retry-hint handling in `withCallPolicy`.
+- ADR-006.
+
+Dependency: `@langchain/textsplitters` 1.0.2 (LangChain, approved stack).
+
+**Verification**
+
+| Check                                     | Result                                                                                                                                                                                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run ingest` indexes the whole corpus | Pass: 35 documents, 168 chunks in MongoDB and 168 points in Qdrant (real Gemini embeddings, LAN servers)                                                                                                                                |
+| Re-run is a no-op                         | Pass: "Indexed 0, unchanged 35, failed 0" in 0.8 s; no embedding calls                                                                                                                                                                  |
+| Chunk metadata matches documents          | Pass: a script compared every chunk and point with its document (domain, countries, employment types, access level, status, slug, title, date): 0 problems; no orphan points; superseded versions have `supersededBy`                   |
+| Chunker unit tests                        | Pass: heading paths, tables never split mid-row (oversized tables split by rows with header), overlap, recursive split, max size                                                                                                        |
+| Integration test, 3 fixture documents     | Pass: `test/integration/ingest.test.ts` (both parental-leave versions + UK holidays) on real MongoDB + Qdrant with fake embeddings; re-run no-op; metadata consistent; BM25 and dense search work; superseded excluded by status filter |
+| Chunk statistics printed (DoD)            | Pass: "Chunks: 168 across 35 documents; tokens per chunk mean 62 (min 13, max 213)"                                                                                                                                                     |
+
+**Found during acceptance and fixed**
+
+- **Silent embedding failures.** The first real run indexed 22 documents, then got empty vectors
+  for 13. LangChain's Gemini embeddings swallow a failed batch (free-tier 429) and return `[]`.
+  The dimension check stopped bad data being stored. `StrictGeminiEmbeddings` now propagates the
+  error; retries honour Gemini's `retryDelay`; ingest allows 5 retries.
+
+**Notes / risks**
+
+- **Small chunks:** chunks are below the playbook's 350–500 token target because the policies'
+  H2 sections are short (see ADR-006). This needs checking with the retrieval eval (W1-12).
+- **Re-ingest after model change:** a different embedding model or dimension changes the hash,
+  forcing a full re-index (and `db:indexes` refuses a dimension change on the existing collection).
+- **Deleted corpus documents** are not removed from the stores until W4-04.

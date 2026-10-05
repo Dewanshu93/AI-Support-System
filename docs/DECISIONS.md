@@ -165,3 +165,47 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     holds the usual public CAs, so the flag is harmless.
 - **Consequences:** prompt schemas should prefer `z.enum` over `z.literal`, so the native path is
   used. If quality-tier answers are weak, a Pro model needs a paid key; that is config-only.
+
+## ADR-006 — Ingestion pipeline choices
+
+- **Status:** Accepted (2026-10-05, W1-10)
+- **Heading splitter:** LangChain JS has no Markdown header splitter, so H2/H3 splitting is done
+  in `ai/ingestion/chunker.ts`. LangChain's `RecursiveCharacterTextSplitter` handles only
+  over-long prose.
+- **Chunk sizes:**
+  - Tokens are estimated at about 4 characters per token: deterministic and offline, because the
+    tiktoken loaders fetch rank files over the network.
+  - Chunks fill up to 500 tokens, with a 60-token overlap inside long sections. Tables are never
+    split mid-row; an oversized table is split between rows and repeats its header.
+  - The corpus policies have short sections, so chunks average 62 tokens (max 213). They fall
+    below the 350–500 target because each H2 section is its own chunk, as the heading-first rule
+    specifies. Merging small sections would blur citations.
+- **Identity and idempotency:**
+  - Document `_id` = first 12 bytes of SHA-256 of `slug@version`; chunk `_id` is derived from the
+    document, content hash and ordinal.
+  - `contentHash` covers metadata, the normalised body, the chunker and BM25 tokenizer versions,
+    and the embedding model and dimension.
+  - A document is skipped only if the hash matches, it is `indexed`, and both MongoDB and Qdrant
+    hold `chunkCount` items.
+- **Write order per document:**
+  1. Save the record as `pending`.
+  2. Replace the MongoDB chunks.
+  3. Replace the Qdrant points (`wait: true`).
+  4. Poll until Qdrant counts them (30 s).
+  5. Mark the document `indexed`. Any failure marks it `failed` with `ingestError`.
+- **Supersede sync:** runs on every ingest and is idempotent. It updates the old document
+  (`status`, `supersededBy`), its MongoDB chunks and its Qdrant payloads.
+- **BM25 (ADR-004):**
+  - Single tokenizer in `ai/retrieval/bm25.ts`: NFKD, lowercase, alphanumeric words, a small
+    stopword list, no stemming.
+  - Indices are FNV-1a 32-bit hashes; values use BM25 TF saturation (k1 1.2, b 0.75, fixed
+    average length 100). Qdrant applies IDF.
+  - `BM25_TOKENIZER_VERSION` is part of the content hash.
+- **Gemini embeddings:** `@langchain/google-genai` runs batches with `Promise.allSettled` and
+  turns failures, such as free-tier 429s, into empty vectors. `StrictGeminiEmbeddings` overrides
+  that method to run batches sequentially and propagate the error. `withCallPolicy` honours the
+  provider's retry hint (`retryDelay`), capped at 60 s, and `npm run ingest` allows 5 retries.
+- **PDF:** loading is deferred to W4-04 (the upload endpoint, the first PDF source); the loader
+  rejects `.pdf` with that message.
+- **Not handled yet:** a document deleted from `corpus/` stays in the stores. Removal arrives with
+  the admin document status endpoint (W4-04).

@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-09)
+## Repository layout (as of W1-10)
 
 ```
 /
@@ -185,6 +185,26 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - `GET /api/health` now includes `llmConfigured`.
 - The api `dev`/`start` and `llm:smoke` run Node with `--use-system-ca`, for the corporate TLS
   proxy (ADR-005).
+
+## Ingestion (W1-10)
+
+- `npm run ingest` (`scripts/ingest.ts`) → `ai/ingestion/indexer.ts` `ingestSources`. For each
+  corpus document:
+  1. `chunker.ts`: normalise, then H2/H3 sections, with long sections packed to 500 tokens and
+     60-token overlap (tables whole or split by rows).
+  2. `contextualise.ts`: `title > section path` plus a newline and the text.
+  3. `embedder.ts`: Gemini via `StrictGeminiEmbeddings`, batches of 50.
+  4. `ai/retrieval/bm25.ts`: sparse vector.
+  5. `modules/documents/service.ts` `store`: Mongo record pending → chunks → Qdrant points →
+     poll until queryable → indexed.
+  6. Supersede sync.
+- `ai/ingestion/identity.ts`: deterministic `documentId(slug, version)`, chunk IDs, and a
+  `contentHash` used to skip unchanged documents.
+- `ai/ingestion/loaders.ts`: Markdown only (PDF arrives with W4-04).
+- `modules/documents/`: `repository.ts` (Mongo documents and chunks, Zod-validated writes),
+  `vectorStore.ts` (Qdrant points: `dense`, `bm25`, access payload), `service.ts`
+  (`isUpToDate`, `store`, `supersede`).
+- Current index: 35 documents, 168 chunks; mean 62 estimated tokens per chunk (min 13, max 213).
 
 ## Runtime
 

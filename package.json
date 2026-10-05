@@ -24,6 +24,7 @@
     "seed": "npm run build -w @sd/shared && tsx scripts/seed.ts",
     "corpus:validate": "npm run build -w @sd/shared && tsx scripts/validate-corpus.ts",
     "llm:smoke": "npm run build -w @sd/shared && tsx --use-system-ca scripts/llm-smoke.ts",
+    "ingest": "npm run build -w @sd/shared && tsx --use-system-ca scripts/ingest.ts",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w @sd/e2e"
   },

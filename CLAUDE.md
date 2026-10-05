@@ -27,6 +27,7 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 | `npm run db:indexes`                  | Create Mongo indexes + Qdrant collection (idempotent)                   |
 | `npm run seed`                        | Upsert demo users from `seed/users.json` (idempotent)                   |
 | `npm run corpus:validate`             | Validate `corpus/` (`-- --write` refreshes the README inventory)        |
+| `npm run ingest`                      | Chunk, embed and index `corpus/` into MongoDB and Qdrant (idempotent)   |
 | `npm run llm:smoke`                   | Real structured output + embeddings check for every provider with a key |
 | `docker compose up --build`           | web + api + mongodb + qdrant                                            |
 

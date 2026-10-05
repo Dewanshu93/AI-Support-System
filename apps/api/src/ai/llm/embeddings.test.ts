@@ -100,3 +100,33 @@ describe('callCostUsd', () => {
     ).toThrow(/No cost entry for model "mystery-model"/);
   });
 });
+
+describe('StrictGeminiEmbeddings', () => {
+  const create = () => createEmbeddings(models, { GEMINI_API_KEY: 'g' }, 'document');
+  const withClient = (emb: unknown, batchEmbedContents: jest.Mock) => {
+    (emb as { client: unknown }).client = { batchEmbedContents };
+    return emb as GoogleGenerativeAIEmbeddings;
+  };
+
+  it('propagates a failed batch instead of returning empty vectors', async () => {
+    const rateLimited = new Error('[GoogleGenerativeAI Error]: [429 Too Many Requests] quota');
+    const emb = withClient(create(), jest.fn().mockRejectedValue(rateLimited));
+    await expect(emb.embedDocuments(['a', 'b'])).rejects.toThrow(/429 Too Many Requests/);
+  });
+
+  it('sends batches sequentially and keeps order', async () => {
+    const calls: number[] = [];
+    const batchEmbedContents = jest.fn(async (req: { requests: unknown[] }) => {
+      calls.push(req.requests.length);
+      return { embeddings: req.requests.map((_, i) => ({ values: [calls.length, i] })) };
+    });
+    const emb = withClient(create(), batchEmbedContents);
+    (emb as unknown as { maxBatchSize: number }).maxBatchSize = 2;
+    await expect(emb.embedDocuments(['a', 'b', 'c'])).resolves.toEqual([
+      [1, 0],
+      [1, 1],
+      [2, 0],
+    ]);
+    expect(calls).toEqual([2, 1]);
+  });
+});

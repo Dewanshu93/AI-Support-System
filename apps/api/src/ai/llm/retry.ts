@@ -5,6 +5,8 @@ export interface CallPolicy {
   maxRetries: number;
   /** First backoff delay; doubles per retry, plus jitter. */
   baseDelayMs?: number;
+  /** Upper bound for any single wait, including provider retry hints. */
+  maxDelayMs?: number;
   /** Injectable for tests. */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -28,6 +30,26 @@ const NETWORK_CODES = new Set([
   'EAI_AGAIN',
   'UND_ERR_SOCKET',
 ]);
+
+/**
+ * Provider-suggested wait before retrying, in ms: Gemini puts it in the error
+ * (`"retryDelay":"37s"` or "Please retry in 37.2s"); others use retryAfter.
+ */
+export function retryAfterMs(err: unknown): number | undefined {
+  const e = err as {
+    message?: unknown;
+    retryAfter?: unknown;
+    headers?: { get?: (k: string) => string | null };
+  };
+  if (typeof e?.retryAfter === 'number') return e.retryAfter * 1000;
+  const header = typeof e?.headers?.get === 'function' ? e.headers.get('retry-after') : null;
+  if (header && /^\d+(\.\d+)?$/.test(header)) return Number(header) * 1000;
+  if (typeof e?.message !== 'string') return undefined;
+  const m =
+    /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(e.message) ??
+    /retry in (\d+(?:\.\d+)?)\s*s/i.exec(e.message);
+  return m ? Math.ceil(Number(m[1]) * 1000) : undefined;
+}
 
 /** Timeouts, rate limits, 5xx and network failures are worth retrying; 4xx and bad output are not. */
 export function isRetryable(err: unknown): boolean {
@@ -84,7 +106,8 @@ export async function withCallPolicy<T>(
           { cause: err },
         );
       }
-      await sleep(base * 2 ** attempt + Math.floor(Math.random() * base * 0.2));
+      const backoff = base * 2 ** attempt + Math.floor(Math.random() * base * 0.2);
+      await sleep(Math.min(Math.max(backoff, retryAfterMs(err) ?? 0), policy.maxDelayMs ?? 60_000));
     } finally {
       clearTimeout(timer);
     }

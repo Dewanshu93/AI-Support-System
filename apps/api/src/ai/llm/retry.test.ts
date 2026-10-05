@@ -1,5 +1,5 @@
 import { LlmError } from './errors';
-import { errorStatus, isRetryable, withCallPolicy } from './retry';
+import { errorStatus, isRetryable, retryAfterMs, withCallPolicy } from './retry';
 
 const fast = { timeoutMs: 50, maxRetries: 2, baseDelayMs: 1 };
 const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
@@ -94,5 +94,39 @@ describe('error classification', () => {
     ['programming error', new TypeError('x is not a function'), false],
   ])('%s retryable: %s', (_name, err, expected) => {
     expect(isRetryable(err)).toBe(expected);
+  });
+});
+
+describe('retry hints', () => {
+  it.each<[string, unknown, number | undefined]>([
+    [
+      'Gemini retryDelay detail',
+      new Error('[429 Too Many Requests] … "retryDelay":"37s" …'),
+      37_000,
+    ],
+    ['Gemini prose hint', new Error('Quota exceeded. Please retry in 12.4s.'), 12_400],
+    ['retryAfter seconds', { retryAfter: 3 }, 3000],
+    ['retry-after header', { headers: { get: () => '5' } }, 5000],
+    ['no hint', new Error('boom'), undefined],
+  ])('retryAfterMs from %s', (_name, err, expected) => {
+    expect(retryAfterMs(err)).toBe(expected);
+  });
+
+  it('waits at least the provider hint, capped at maxDelayMs', async () => {
+    const delays: number[] = [];
+    const limited = Object.assign(new Error('"retryDelay":"40s"'), { status: 429 });
+    const fn = jest
+      .fn()
+      .mockRejectedValueOnce(limited)
+      .mockRejectedValueOnce(limited)
+      .mockResolvedValue('ok');
+    await withCallPolicy(fn, {
+      timeoutMs: 50,
+      maxRetries: 3,
+      baseDelayMs: 1,
+      maxDelayMs: 30_000,
+      sleep: async (ms) => void delays.push(ms),
+    });
+    expect(delays).toEqual([30_000, 30_000]);
   });
 });

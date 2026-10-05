@@ -13,6 +13,7 @@ cp .env.example .env               # then set MONGODB_URI, QDRANT_URL, JWT_SECRE
 npm install
 npm run db:indexes                 # once per database; safe to repeat
 npm run seed                       # demo users (safe to repeat)
+npm run ingest                     # index corpus/ (needs GEMINI_API_KEY; safe to repeat)
 npm run dev:api                    # terminal 1: api http://localhost:4000
 npm run dev:web                    # terminal 2: web http://localhost:3000
 ```

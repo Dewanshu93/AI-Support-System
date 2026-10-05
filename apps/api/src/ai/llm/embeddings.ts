@@ -12,6 +12,37 @@ const TASK_TYPE = { document: 'RETRIEVAL_DOCUMENT', query: 'RETRIEVAL_QUERY' } a
 
 export const EMBEDDING_BATCH_SIZE = 50;
 
+interface GeminiBatchClient {
+  batchEmbedContents(req: {
+    requests: unknown[];
+  }): Promise<{ embeddings: { values?: number[] }[] }>;
+}
+
+/**
+ * LangChain's Gemini embeddings run batches with Promise.allSettled and turn a
+ * failed batch (e.g. HTTP 429) into empty vectors, hiding the error. This
+ * subclass sends batches one at a time and lets the error propagate, so the
+ * call policy can retry it.
+ */
+export class StrictGeminiEmbeddings extends GoogleGenerativeAIEmbeddings {
+  protected override async _embedDocumentsContent(documents: string[]): Promise<number[][]> {
+    // `client` and `_convertToContent` are private in the type declarations only.
+    const self = this as unknown as {
+      client: GeminiBatchClient;
+      _convertToContent(text: string): unknown;
+    };
+    const vectors: number[][] = [];
+    for (let i = 0; i < documents.length; i += this.maxBatchSize) {
+      const batch = documents.slice(i, i + this.maxBatchSize);
+      const res = await self.client.batchEmbedContents({
+        requests: batch.map((text) => self._convertToContent(text)),
+      });
+      vectors.push(...res.embeddings.map((v) => v.values ?? []));
+    }
+    return vectors;
+  }
+}
+
 export function createEmbeddings(
   config: ModelsConfig,
   keys: LlmKeys,
@@ -20,7 +51,7 @@ export function createEmbeddings(
   if (!keys.GEMINI_API_KEY) {
     throw new LlmError('config', 'GEMINI_API_KEY is not set; embeddings use Gemini (D-2)');
   }
-  return new GoogleGenerativeAIEmbeddings({
+  return new StrictGeminiEmbeddings({
     model: config.embeddings.model,
     apiKey: keys.GEMINI_API_KEY,
     outputDimensionality: config.embeddings.dimension,
