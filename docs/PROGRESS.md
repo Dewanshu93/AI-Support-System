@@ -2,14 +2,14 @@
 
 ## Task status
 
-| Task  | Name                                | Status                           | Date       |
-| ----- | ----------------------------------- | -------------------------------- | ---------- |
-| W1-01 | Monorepo scaffold                   | Done (Docker unverified)         | 2026-10-02 |
-| W1-02 | Config and env loading              | Done                             | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope | Done                             | 2026-10-02 |
-| W1-04 | Database layer and indexes          | Code done; DB acceptance pending | 2026-10-02 |
-| W1-05 | Users seed and auth                 | Not started                      |            |
-| W1-06 | Frontend shell and login            | Not started                      |            |
+| Task  | Name                                | Status                          | Date       |
+| ----- | ----------------------------------- | ------------------------------- | ---------- |
+| W1-01 | Monorepo scaffold                   | Done (Docker unverified)        | 2026-10-02 |
+| W1-02 | Config and env loading              | Done                            | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope | Done                            | 2026-10-02 |
+| W1-04 | Database layer and indexes          | Done (amended: Qdrant, ADR-004) | 2026-10-05 |
+| W1-05 | Users seed and auth                 | Not started                     |            |
+| W1-06 | Frontend shell and login            | Not started                     |            |
 
 ## Checkpoints
 
@@ -164,25 +164,25 @@ vectors plus sparse BM25 vectors for hybrid search.
   apply a root `overrides` entry in this workspace layout, so the risk is accepted and recorded in
   `PRODUCTION_GAPS.md` (low exposure: plain HTTP to our own Qdrant). Re-check in W4-07.
 
-| Check                                           | Result                                                                                                                           |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Unit tests (Qdrant module, health, indexes)     | Pass: point-ID mapping, collection config, create-once/re-run, missing payload indexes, dimension and sparse drift refused, ping |
-| MongoDB integration suite (Jest, real server)   | Pass: 3/3 against MongoDB 8.3.4 at 192.168.29.3 (indexes once, unique constraints, counters)                                     |
-| **Qdrant integration (collection once, drift)** | **Pending**: Qdrant not running yet on 192.168.29.3:6333 (connect timeout)                                                       |
-| **`npm run db:indexes` end to end, twice**      | **Pending**: needs Qdrant                                                                                                        |
+| Check                                         | Result                                                                                                                                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit tests (Qdrant module, health, indexes)   | Pass: point-ID mapping, collection config, create-once/re-run, missing payload indexes, dimension and sparse drift refused, ping                                                                                    |
+| MongoDB integration suite (Jest, real server) | Pass: 3/3 against MongoDB 8.3.4 at 192.168.29.3 (indexes once, unique constraints, counters)                                                                                                                        |
+| Qdrant integration (collection once, drift)   | Pass (2026-10-05): 2/2 against Qdrant 1.19.1 at 192.168.29.3:6333 (throwaway collection created once with dense 768 cosine + bm25 IDF + 6 payload indexes; dimension change refused; collection deleted afterwards) |
+| `npm run db:indexes` end to end, twice        | Pass (2026-10-05): run 1 → 14 collections, 32 indexes, Qdrant `chunks` + 6 payload indexes; run 2 and three further runs → nothing created, exit 0                                                                  |
+
+**Fix during acceptance:** the second `db:indexes` run crashed at exit with a Windows libuv
+assertion (`!(handle->flags & UV_HANDLE_CLOSING)`), caused by `process.exit()` while the Qdrant
+client's keep-alive sockets were closing. The script now sets `process.exitCode` and lets Node exit
+on its own. Three consecutive runs then exited cleanly.
 
 **Environment:** `.env` uses `mongodb://192.168.29.3:27017/servicedesk` (LAN, no auth, shared with
-other projects' databases) and `QDRANT_URL=http://192.168.29.3:6333`. The Atlas URI is kept
-commented out.
+other projects' databases) and `QDRANT_URL=http://192.168.29.3:6333` (no API key). The Atlas URI
+is kept commented out. The real `servicedesk` database and Qdrant `chunks` collection now exist on
+the LAN servers.
 
-**To close W1-04**, start Qdrant on the LAN PC and allow inbound TCP 6333 in its firewall:
-
-```bash
-docker run -d --name qdrant -p 6333:6333 -v qdrant-data:/qdrant/storage qdrant/qdrant:v1.19.1
-npm run db:indexes   # twice: second run reports nothing created
-MONGODB_TEST_URI="mongodb://192.168.29.3:27017/?directConnection=true" \
-QDRANT_TEST_URL="http://192.168.29.3:6333" npm test -w @sd/api
-```
+**W1-04 status: Done.** All acceptance criteria pass on real servers (Atlas search-index criterion
+superseded by ADR-004).
 
 **Notes / risks**
 

@@ -16,15 +16,16 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 
 ## Commands
 
-| Command                               | What it does                                      |
-| ------------------------------------- | ------------------------------------------------- |
-| `npm install`                         | Install all workspaces                            |
-| `npm run dev:api` / `npm run dev:web` | Build shared, then run api (:4000) / web (:3000)  |
-| `npm run lint`                        | ESLint over the whole repo                        |
-| `npm run typecheck`                   | `tsc` in every workspace (includes tests)         |
-| `npm test`                            | Jest in shared, api, web                          |
-| `npm run test:e2e`                    | Playwright (starts web dev server if not running) |
-| `docker compose up --build`           | web + api + mongodb-atlas-local                   |
+| Command                               | What it does                                          |
+| ------------------------------------- | ----------------------------------------------------- |
+| `npm install`                         | Install all workspaces                                |
+| `npm run dev:api` / `npm run dev:web` | Build shared, then run api (:4000) / web (:3000)      |
+| `npm run lint`                        | ESLint over the whole repo                            |
+| `npm run typecheck`                   | `tsc` in every workspace (includes tests)             |
+| `npm test`                            | Jest in shared, api, web                              |
+| `npm run test:e2e`                    | Playwright (starts web dev server if not running)     |
+| `npm run db:indexes`                  | Create Mongo indexes + Qdrant collection (idempotent) |
+| `docker compose up --build`           | web + api + mongodb + qdrant                          |
 
 ## Core rules
 
@@ -44,7 +45,7 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 
 Microservices / separate AI service / brokers · multi-agent or autonomous loops · LLM calls beyond
 P-1–P-9 · external integrations (ServiceNow, Jira, Slack, …) · real SSO/OAuth/MFA · Redis,
-Kubernetes, job queues, separate vector DB · real HR data · notifications, SLA timers, exports,
+Kubernetes, job queues, any vector DB other than Qdrant (ADR-004) · real HR data · notifications, SLA timers, exports,
 attachments · Mongoose/ORMs, Redux/Zustand, UI kits beyond Tailwind, chart libraries.
 Any new dependency outside the approved list needs a one-line justification and approval.
 

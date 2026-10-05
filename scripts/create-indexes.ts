@@ -48,10 +48,14 @@ async function main(): Promise<number> {
   }
 }
 
+// Set the exit code instead of calling process.exit(): exiting while the Qdrant
+// client's keep-alive sockets are closing trips a libuv assertion on Windows.
 main().then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (err: unknown) => {
     console.error(err instanceof Error ? err.message : err);
-    process.exit(1);
+    process.exitCode = 1;
   },
 );
