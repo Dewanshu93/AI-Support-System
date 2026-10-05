@@ -13,9 +13,9 @@
 
 ## Checkpoints
 
-| Checkpoint      | Status      | Notes       |
-| --------------- | ----------- | ----------- |
-| CP-1 Foundation | Not reached | After W1-06 |
+| Checkpoint      | Status      | Notes                                                                                                                                                            |
+| --------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CP-1 Foundation | Not reached | After W1-06. The `docker compose up` criterion is deferred by the owner (2026-10-05); CP-1 is checked against a local run (`npm run dev:api` / `dev:web` + seed) |
 
 ## W1-01 Monorepo scaffold — 2026-10-02
 
@@ -40,11 +40,12 @@ shared/api/web, Playwright in `e2e/`, Dockerfiles + `docker-compose.yml` (web, a
 **Known issues / follow-ups**
 
 - `docs/BUILD_CONTRACT.md` is a placeholder; the approved contract text must be added.
-- Docker acceptance criterion is still open: run `docker compose up --build` on a machine with
-  Docker. The `mongodb-atlas-local:8.0` tag could not be checked (Docker Hub unreachable).
+- Docker: **deferred by the owner (2026-10-05)**. Development runs locally (`npm run dev:api`,
+  `npm run dev:web`) against the LAN MongoDB and Qdrant. Compose files stay in the repo but are
+  unverified.
 - Playwright's bundled Chromium could not be downloaded (network); E2E uses the installed Chrome
   via `E2E_BROWSER_CHANNEL=chrome`.
-- ADR-002 tooling dependencies (typescript-eslint, tsx, etc.) await approval.
+- ADR-002 tooling dependencies: **approved by the owner (2026-10-05)**.
 - `/api/health` returns `{ status }` only; `db` and `llmConfigured` come with W1-04 and W1-09.
 
 ## W1-02 Config and env loading — 2026-10-02

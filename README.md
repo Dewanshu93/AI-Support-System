@@ -5,15 +5,18 @@ ready-to-confirm ticket. Synthetic data and mocked integrations.
 
 ## Setup
 
-Requires Node.js ≥ 24 and Docker.
+Requires Node.js ≥ 24, a reachable MongoDB 8.x and a Qdrant server (set `MONGODB_URI` and
+`QDRANT_URL` in `.env`). The app runs locally:
 
 ```bash
-cp .env.example .env
+cp .env.example .env               # then set MONGODB_URI, QDRANT_URL, JWT_SECRET
 npm install
-docker compose up --build          # web http://localhost:3000, api http://localhost:4000
+npm run db:indexes                 # once per database; safe to repeat
+npm run dev:api                    # terminal 1: api http://localhost:4000
+npm run dev:web                    # terminal 2: web http://localhost:3000
 ```
 
-Without Docker: `npm run dev:api` and `npm run dev:web` in two terminals.
+`docker-compose.yml` (web, api, mongodb, qdrant) is kept for later but is not used yet.
 
 ## Configuration
 

@@ -30,7 +30,7 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 
 ## ADR-002 — Toolchain versions and module format
 
-- **Status:** Proposed (2026-10-02, W1-01) — tooling deps marked † need approval
+- **Status:** Accepted (2026-10-05): tooling deps marked † approved by the project owner
 - **Context:** Versions checked against the npm registry at install time. `typescript@latest` is
   7.0 (native compiler), but ts-jest 29.4 requires `typescript <7` and typescript-eslint 8.71
   requires `<6.1`.
