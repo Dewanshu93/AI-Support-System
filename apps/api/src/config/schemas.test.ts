@@ -136,7 +136,7 @@ const invalidCases: Case[] = [
     (d) => delete d.schemas.hardware.fields[0].required,
     'schemas.hardware.fields.0.required',
   ],
-  ['prompts: missing prompt', 'prompts', (d) => delete d.active.eval_judge, 'active.eval_judge'],
+  ['prompts: none active', 'prompts', (d) => (d.active = {}), 'active'],
   ['prompts: version zero', 'prompts', (d) => (d.active.turn_analysis = 0), 'active.turn_analysis'],
   ['prompts: unknown prompt', 'prompts', (d) => (d.active.sentiment = 1), 'sentiment'],
   ['models: unknown provider', 'models', (d) => (d.chat.provider = 'acme'), 'chat.provider'],

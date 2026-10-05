@@ -9,16 +9,18 @@ import {
   pingQdrant,
 } from './db';
 import { llmConfigured } from './ai/llm/keys';
+import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
 
-function startupConfig(): AppConfig {
+function startupConfig(): { config: AppConfig; prompts: PromptRegistry } {
   loadDotEnv();
   try {
-    return initConfig();
+    const config = initConfig();
+    return { config, prompts: loadPromptRegistry(config.prompts.active) };
   } catch (err) {
-    if (err instanceof ConfigError) {
+    if (err instanceof ConfigError || err instanceof PromptError) {
       // Plain stderr, not JSON: this message is read by a person fixing their setup.
       console.error(`\nStartup aborted: configuration error\n${err.message}\n`);
       process.exit(1);
@@ -28,8 +30,9 @@ function startupConfig(): AppConfig {
 }
 
 async function main() {
-  const config = startupConfig();
+  const { config, prompts } = startupConfig();
   logger.level = config.env.LOG_LEVEL;
+  logger.info({ prompts: Object.values(prompts.active()).map((p) => p.ref) }, 'prompts loaded');
 
   let database;
   try {

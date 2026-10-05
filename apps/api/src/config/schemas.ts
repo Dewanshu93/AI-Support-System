@@ -225,12 +225,16 @@ export type PromptName = (typeof PROMPT_NAMES)[number];
 
 export const PromptsSchema = z.strictObject({
   version: Version,
-  active: z.strictObject(
-    Object.fromEntries(PROMPT_NAMES.map((name) => [name, PositiveInt])) as Record<
-      PromptName,
-      typeof PositiveInt
-    >,
-  ),
+  active: z
+    .strictObject(
+      Object.fromEntries(PROMPT_NAMES.map((name) => [name, PositiveInt])) as Record<
+        PromptName,
+        typeof PositiveInt
+      >,
+    )
+    // Only prompts built so far are listed; each listed prompt must have its file.
+    .partial()
+    .refine((active) => Object.keys(active).length > 0, 'at least one prompt must be active'),
 });
 
 // --- models.yaml -----------------------------------------------------------

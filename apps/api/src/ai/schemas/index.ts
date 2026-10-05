@@ -1,0 +1,28 @@
+// Zod output schemas for LLM calls (playbook section 6): the single definition
+// of every structured LLM output. Avoid z.literal: Gemini's native structured
+// output rejects JSON Schema `const`; use z.enum instead.
+import type { z } from 'zod';
+import { ClarifyingQuestionSchema } from './clarifyingQuestion';
+import type { SchemaContext } from './common';
+import { GroundedAnswerTrailerSchema } from './groundedAnswer';
+import { RerankAssessmentSchema } from './rerankAssessment';
+import { turnAnalysisSchema } from './turnAnalysis';
+
+export * from './clarifyingQuestion';
+export * from './common';
+export * from './groundedAnswer';
+export * from './rerankAssessment';
+export * from './turnAnalysis';
+
+/** Prompt frontmatter `outputSchema` name → schema factory. */
+export const OUTPUT_SCHEMAS = {
+  TurnAnalysis: (ctx: SchemaContext) => turnAnalysisSchema(ctx),
+  RerankAssessment: () => RerankAssessmentSchema,
+  GroundedAnswerTrailer: () => GroundedAnswerTrailerSchema,
+  ClarifyingQuestion: () => ClarifyingQuestionSchema,
+} as const satisfies Record<string, (ctx: SchemaContext) => z.ZodType>;
+export type OutputSchemaName = keyof typeof OUTPUT_SCHEMAS;
+export const OUTPUT_SCHEMA_NAMES = Object.keys(OUTPUT_SCHEMAS) as [
+  OutputSchemaName,
+  ...OutputSchemaName[],
+];

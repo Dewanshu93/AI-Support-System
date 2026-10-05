@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-12)
+## Repository layout (as of W2-01)
 
 ```
 /
@@ -13,7 +13,7 @@ Living summary of what exists in the code. Target design: playbook sections 2–
 ├── apps/
 │   ├── api/                  Express 5 + TS (CommonJS)
 │   │   ├── src/app.ts        createApp() — no config dependency yet
-│   │   ├── src/server.ts     loads .env → initConfig() → listen; exits 1 on ConfigError
+│   │   ├── src/server.ts     loads .env → initConfig() → prompt registry → listen; exits 1 on config/prompt errors
 │   │   ├── src/config/       env schema, per-file YAML schemas, loader, cross-file checks
 │   │   └── test/helpers/     test-only helpers (typechecked, never built)
 │   └── web/                  Next.js 16 App Router + Tailwind v4; src/app, src/lib
@@ -255,6 +255,26 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - Document references: `slug` matches any version; `slug@version` matches that version's
   stable document ID.
 - The `full` (W2-10) and `judge` (W4-05) suites are not built yet.
+
+## Prompt registry (W2-01)
+
+- Prompts: `apps/api/src/ai/prompts/<name>/v<N>.md`. Each has YAML frontmatter (name, version,
+  modelTier, outputSchema, temperature, description), then `## System` and `## User` sections
+  with mustache `{{variables}}`. Built so far: v1 of `turn_analysis`, `rerank_assess`,
+  `grounded_answer` and `clarifying_question` (P-1 to P-4).
+- `registry.ts` → `loadPromptRegistry(config.prompts.active)`:
+  - loads only the versions listed in `config/prompts.yaml` (the list holds only built prompts;
+    keys are restricted to the nine prompt names);
+  - validates the frontmatter with Zod and checks that name and version match the file path;
+  - hashes the file (SHA-256, 12 hex characters), giving trace ref `name@vN#hash`.
+- `render(name, vars)` rejects missing or unknown variables, because LangChain's mustache
+  silently renders a missing variable as empty. It strips `<untrusted_*>` tags from values and
+  returns LangChain messages (system + human).
+- `server.ts` loads the registry right after config. A missing or invalid prompt prints
+  "Startup aborted: configuration error" and exits 1.
+- Output schemas: `apps/api/src/ai/schemas/` has one file per prompt. `OUTPUT_SCHEMAS` maps the
+  frontmatter `outputSchema` names to them. `turnAnalysisSchema(ctx)` builds its category and
+  subcategory enums from `config/taxonomy.yaml`.
 
 ## Runtime
 

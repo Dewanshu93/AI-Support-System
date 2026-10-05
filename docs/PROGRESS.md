@@ -16,6 +16,7 @@
 | W1-10 | Ingestion pipeline                  | Done                                   | 2026-10-05 |
 | W1-11 | Access filter and hybrid retrieval  | Done                                   | 2026-10-05 |
 | W1-12 | Retrieval eval runner               | Done                                   | 2026-10-05 |
+| W2-01 | Prompt registry                     | Done                                   | 2026-10-05 |
 
 ## Checkpoints
 
@@ -614,3 +615,43 @@ Gemini query embeddings on the LAN index.
 - **The query is the case's user text** (all turns joined); the analysis step's `searchQuery`
   (P-1) replaces it in W2.
 - **No cost is recorded:** embedding cost is not tracked yet (`costUsd: 0`).
+
+## W2-01 Prompt registry — 2026-10-05
+
+**Delivered:**
+
+- `apps/api/src/ai/prompts/registry.ts`:
+  - frontmatter parsing with a Zod-validated header;
+  - mustache rendering with a strict variable check;
+  - `<untrusted_*>` tags stripped from values;
+  - SHA-256 hash and trace ref `name@vN#hash`;
+  - active-version lookup from `config/prompts.yaml`.
+- v1 of P-1 `turn_analysis`, P-2 `rerank_assess`, P-3 `grounded_answer` and
+  P-4 `clarifying_question`, following the section 6 table.
+- Output schemas in `apps/api/src/ai/schemas/`, one file per prompt: `TurnAnalysis` (taxonomy
+  enums injected from config), `RerankAssessment`, `GroundedAnswerTrailer` and
+  `ClarifyingQuestion`.
+- `config/prompts.yaml` now lists only the prompts built (P-1 to P-4). `PromptsSchema` keys
+  are optional but limited to the nine names, and at least one must be listed.
+- `server.ts` loads the registry at startup.
+- Prompt-writing guidelines added to `CLAUDE.md`.
+
+**Verification**
+
+| Check                                                | Result                                                                                                                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Registry returns template, version and hash          | Pass: unit test (`registry.test.ts`) checks version, 12-hex hash, `ref`, variables and rendered system/human messages                                              |
+| Unknown prompt fails at startup                      | Pass: unknown names are rejected by `PromptsSchema` (strict keys); a listed version with no file exits 1 in the child-process test (`server.test.ts`)              |
+| Tests: loading, missing variables, version switching | Pass: 24 registry tests (missing/unknown variables, v1→v2 switch with a different hash, mismatched frontmatter, malformed files, tag stripping) and 7 schema tests |
+| DoD: prompt-writing guidelines in CLAUDE.md          | Pass: section "Writing prompts"                                                                                                                                    |
+| lint, typecheck, tests                               | Pass: shared 31, api 459 (+19 integration skipped without the LAN DB), web 13                                                                                      |
+
+**Notes**
+
+- LangChain's mustache renders a missing variable as an empty string without error, so the
+  registry checks the variables itself and also rejects extra ones.
+- Importing LangChain adds about 10 s to server start under `tsx`. The startup-test spawn
+  timeout was raised to 90 s; the graph (W2-02) makes this import permanent anyway.
+- No model call was made: the prompts are checked against real models in W2-03 / W2-04 and by
+  the full eval (W2-10). The eval `configSnapshot` still stores versions only; hashes reach
+  traces when nodes start calling the registry.

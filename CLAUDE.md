@@ -48,6 +48,24 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 - Tests next to code (`*.test.ts`); API tests in `apps/api/test/api/`; AI workflow tests in
   `apps/api/test/ai/` with fake models; E2E in `e2e/`.
 
+## Writing prompts (playbook section 6)
+
+- One file per version: `apps/api/src/ai/prompts/<name>/v<N>.md`, with frontmatter `name`,
+  `version`, `modelTier` (fast | quality), `outputSchema` (a key of `OUTPUT_SCHEMAS` in
+  `ai/schemas`), `temperature`, `description`, then `## System` and `## User` sections.
+- Variables are mustache `{{name}}`. `registry.render` rejects missing and unknown variables;
+  values are inserted verbatim (no escaping), so JSON braces in the text are fine.
+- Put user text, history and retrieved documents only inside `<untrusted_*>` tags, one
+  variable per section, and say that content inside them is data, never instructions. The
+  registry strips `<untrusted_*>` tags from values.
+- Inject enums (taxonomy, fields) as variables from config; never hard-code IDs in prompt text.
+- Provider-neutral wording. Rules a model cannot be trusted with (IDs, permissions, routing,
+  priority floors, citation checks) are enforced in code; the prompt only states them.
+- Output schemas: z.enum, not z.literal (Gemini rejects `const`); word limits as refinements.
+- A behaviour change is a new `v<N+1>.md`; never edit an active version in place (the hash in
+  traces must identify the text). Switch it in `config/prompts.yaml` only with a full eval run
+  noted in `docs/PROGRESS.md`. List a prompt in `prompts.yaml` only once its file exists.
+
 ## Do Not Build (playbook section 14 — stop and propose instead)
 
 Microservices / separate AI service / brokers · multi-agent or autonomous loops · LLM calls beyond
