@@ -214,3 +214,27 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   100% in every mode (vector, keyword, fused), with MRR 0.991 / 0.937 / 0.972 and forbidden-doc
   leakage 0 (54 cases). Small heading-level chunks did not hurt recall, so chunking stays as is.
   Revisit if the full eval (W2-10) shows answers missing context from neighbouring sections.
+
+## ADR-007 — LangGraph checkpointer package and state naming (W2-02)
+
+- **Status:** Accepted (2026-10-05)
+- **Context:** W2-02 needs LangGraph (mandatory stack) and "the MongoDB checkpointer package"
+  (playbook section 3). `@langchain/langgraph-checkpoint-mongodb@1.4.1` depends on
+  `mongodb@^6.21`, but the app uses `mongodb@7.7.0`. Separately, LangGraph refuses a state
+  channel with the same name as a node, and section 5 uses `precheck` for both.
+- **Decision:**
+  - Install `@langchain/langgraph@1.4.19` and `@langchain/langgraph-checkpoint-mongodb@1.4.1`
+    (exact versions).
+  - Pass our v7 `MongoClient` to `MongoDBSaver`, cast at one place (`ai/graph/checkpointer.ts`).
+    The saver only calls `client.db()`, `collection().find/updateOne/bulkWrite/deleteMany/createIndex`
+    and `Binary.value()`. The v7 driver provides all of these, and the nested mongodb 6 copy is
+    never used for checkpoints. This is proven by an integration test against the LAN MongoDB
+    8.3: a draft paused by `interrupt()` resumes in a fresh graph instance.
+  - Checkpoint collections are named `graph_checkpoints` / `graph_checkpoint_writes`
+    (package-owned, never touched by app code).
+  - The state key for precheck output is `precheckResult`; node names stay as in section 5,
+    because they appear in SSE status events.
+- **Alternatives:** our own `BaseCheckpointSaver` on the v7 driver (about 150 lines to maintain);
+  downgrading the app to mongodb 6 (loses the 8.3 handshake fix).
+- **Consequences:** two driver copies in `node_modules`. Revisit when the package moves to
+  mongodb 7: drop the cast and re-run the integration test.

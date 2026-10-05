@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-01)
+## Repository layout (as of W2-02)
 
 ```
 /
@@ -275,6 +275,93 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - Output schemas: `apps/api/src/ai/schemas/` has one file per prompt. `OUTPUT_SCHEMAS` maps the
   frontmatter `outputSchema` names to them. `turnAnalysisSchema(ctx)` builds its category and
   subcategory enums from `config/taxonomy.yaml`.
+
+## LangGraph workflow (W2-02)
+
+- `ai/graph/graph.ts` → `buildSupportGraph({ checkpointer, nodes? })` compiles
+  `supportTurnGraph`, the one `StateGraph` for every employee turn. `nodes` replaces
+  individual nodes (tests now; the real nodes as W2-03 … W3 build them).
+- `ai/graph/state.ts`: one channel per section 5 key. The precheck output is stored as
+  `precheckResult` because LangGraph forbids a channel with the same name as a node (ADR-007).
+  - Last-value channels persist across turns through the checkpointer.
+  - `newTurn(input)` validates the turn input with Zod and resets the per-turn keys and the
+    trace; profile, history and ticketFlow carry over.
+  - The extra `confirmation` key holds the resume value of `awaitConfirmation`.
+- `ai/graph/edges.ts`: pure routing functions. Each declares its target list, which is used for
+  the path map and the Mermaid export.
+- `ai/nodes/*`: one file per node. All are **stubs**: each keeps a value already present in
+  state, and otherwise returns a fixed output from `nodes/stubs.ts`.
+  - `awaitConfirmation` is real: it calls `interrupt({ draft })` and validates the resume value
+    (`ConfirmationSchema`). Cancel resets the ticket flow.
+- `ai/tracing/traced.ts` wraps every node and appends `{ node, latencyMs }` to `state.trace`.
+  The trace reducer appends lists and sums latency per node.
+- `ai/graph/checkpointer.ts`:
+  - `createMongoCheckpointer(client, dbName)` (`@langchain/langgraph-checkpoint-mongodb`,
+    collections `graph_checkpoints` and `graph_checkpoint_writes`, owned by the package);
+  - `createMemoryCheckpointer()` for tests and evals;
+  - `threadConfig(conversationId)`.
+- Not yet wired into the API: the chat endpoint (W2-08) will invoke the graph.
+
+Topology (the output of `supportGraphMermaid()`; a test fails if this copy goes stale; dotted
+lines are conditional edges):
+
+```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	loadContext(loadContext)
+	precheck(precheck)
+	analyzeTurn(analyzeTurn)
+	retrieve(retrieve)
+	rerankAssess(rerankAssess)
+	decide(decide)
+	answer(answer)
+	validateCitations(validateCitations)
+	clarify(clarify)
+	outOfScope(outOfScope)
+	sensitiveHandoff(sensitiveHandoff)
+	slotFill(slotFill)
+	clarifyForTicket(clarifyForTicket)
+	buildDraft(buildDraft)
+	persist(persist)
+	awaitConfirmation(awaitConfirmation)
+	createTicket(createTicket)
+	agentSummary(agentSummary)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> loadContext;
+	agentSummary --> __end__;
+	answer --> validateCitations;
+	buildDraft --> persist;
+	clarify --> persist;
+	clarifyForTicket --> persist;
+	createTicket --> agentSummary;
+	loadContext --> precheck;
+	outOfScope --> persist;
+	rerankAssess --> decide;
+	retrieve --> rerankAssess;
+	sensitiveHandoff --> persist;
+	precheck -.-> sensitiveHandoff;
+	precheck -.-> analyzeTurn;
+	analyzeTurn -.-> sensitiveHandoff;
+	analyzeTurn -.-> slotFill;
+	analyzeTurn -.-> retrieve;
+	decide -.-> answer;
+	decide -.-> clarify;
+	decide -.-> slotFill;
+	decide -.-> outOfScope;
+	decide -.-> sensitiveHandoff;
+	validateCitations -.-> slotFill;
+	validateCitations -.-> persist;
+	slotFill -.-> clarifyForTicket;
+	slotFill -.-> buildDraft;
+	persist -.-> awaitConfirmation;
+	persist -.-> __end__;
+	awaitConfirmation -.-> createTicket;
+	awaitConfirmation -.-> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2;
+	classDef first fill-opacity:0;
+	classDef last fill:#bfb6fc;
+```
 
 ## Runtime
 

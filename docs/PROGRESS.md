@@ -2,21 +2,22 @@
 
 ## Task status
 
-| Task  | Name                                | Status                                 | Date       |
-| ----- | ----------------------------------- | -------------------------------------- | ---------- |
-| W1-01 | Monorepo scaffold                   | Done (Docker unverified)               | 2026-10-02 |
-| W1-02 | Config and env loading              | Done                                   | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope | Done                                   | 2026-10-02 |
-| W1-04 | Database layer and indexes          | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
-| W1-05 | Users seed and auth                 | Done                                   | 2026-10-05 |
-| W1-06 | Frontend shell and login            | Done                                   | 2026-10-05 |
-| W1-07 | Corpus authoring and validation     | Done (pending owner review of numbers) | 2026-10-05 |
-| W1-08 | Golden set v1                       | Done (pending owner review)            | 2026-10-05 |
-| W1-09 | LLM and embedding provider layer    | Done                                   | 2026-10-05 |
-| W1-10 | Ingestion pipeline                  | Done                                   | 2026-10-05 |
-| W1-11 | Access filter and hybrid retrieval  | Done                                   | 2026-10-05 |
-| W1-12 | Retrieval eval runner               | Done                                   | 2026-10-05 |
-| W2-01 | Prompt registry                     | Done                                   | 2026-10-05 |
+| Task  | Name                                   | Status                                 | Date       |
+| ----- | -------------------------------------- | -------------------------------------- | ---------- |
+| W1-01 | Monorepo scaffold                      | Done (Docker unverified)               | 2026-10-02 |
+| W1-02 | Config and env loading                 | Done                                   | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope    | Done                                   | 2026-10-02 |
+| W1-04 | Database layer and indexes             | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
+| W1-05 | Users seed and auth                    | Done                                   | 2026-10-05 |
+| W1-06 | Frontend shell and login               | Done                                   | 2026-10-05 |
+| W1-07 | Corpus authoring and validation        | Done (pending owner review of numbers) | 2026-10-05 |
+| W1-08 | Golden set v1                          | Done (pending owner review)            | 2026-10-05 |
+| W1-09 | LLM and embedding provider layer       | Done                                   | 2026-10-05 |
+| W1-10 | Ingestion pipeline                     | Done                                   | 2026-10-05 |
+| W1-11 | Access filter and hybrid retrieval     | Done                                   | 2026-10-05 |
+| W1-12 | Retrieval eval runner                  | Done                                   | 2026-10-05 |
+| W2-01 | Prompt registry                        | Done                                   | 2026-10-05 |
+| W2-02 | Graph state, skeleton and checkpointer | Done                                   | 2026-10-05 |
 
 ## Checkpoints
 
@@ -655,3 +656,34 @@ Gemini query embeddings on the LAN index.
 - No model call was made: the prompts are checked against real models in W2-03 / W2-04 and by
   the full eval (W2-10). The eval `configSnapshot` still stores versions only; hashes reach
   traces when nodes start calling the registry.
+
+## W2-02 Graph state, skeleton and checkpointer — 2026-10-05
+
+**Delivered:**
+
+- `ai/graph/{state,graph,edges,checkpointer}.ts`: the full section 5 topology (18 nodes, 7
+  conditional edges) compiled as `supportTurnGraph`.
+- `ai/nodes/*`: one stub per node. Each keeps a value preset in state and otherwise returns a
+  fixed output. `awaitConfirmation` uses the real `interrupt()`.
+- `ai/tracing/traced.ts`: step timings appended to `state.trace`.
+- MongoDB checkpointer (`@langchain/langgraph-checkpoint-mongodb`), with an in-memory saver for
+  tests.
+- New dependencies: `@langchain/langgraph@1.4.19` and
+  `@langchain/langgraph-checkpoint-mongodb@1.4.1` (ADR-007).
+
+**Verification**
+
+| Check                                                     | Result                                                                                                                                                                                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Graph compiles                                            | Pass: test asserts all 18 section 5 nodes are present                                                                                                                                                                                  |
+| A stubbed run reaches each terminal path by setting state | Pass: 11 path tests (precheck sensitive, analysis sensitive, ANSWER, PARTIAL, withdrawn, CLARIFY, OUT_OF_SCOPE, SENSITIVE_HANDOFF, ESCALATE, ESCALATE/SAFETY, forceEscalate), each asserting the exact node sequence                   |
+| Workflow tests for each decision                          | Pass: `test/ai/graph.test.ts` (21 tests) plus edge unit tests (`edges.test.ts`, 18): confirm/cancel resume, malformed resume rejected, two-round ticket clarification across three turns on one thread, per-turn reset, injected nodes |
+| MongoDB checkpointer                                      | Pass: integration test on the LAN MongoDB 8.3 pauses a draft, then resumes it from a fresh graph instance                                                                                                                              |
+| DoD: Mermaid topology in ARCHITECTURE.md                  | Pass: section "LangGraph workflow (W2-02)"; a test fails if it goes stale                                                                                                                                                              |
+
+**Notes**
+
+- **Deviation:** the precheck output is stored as `precheckResult`, because LangGraph forbids a
+  channel named like a node. A `confirmation` key was added for the resume value (ADR-007).
+- No LLM call is made yet; there is no eval impact.
+- The graph is not invoked by the API yet (W2-08).
