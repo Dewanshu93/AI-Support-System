@@ -16,20 +16,21 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 
 ## Commands
 
-| Command                               | What it does                                                            |
-| ------------------------------------- | ----------------------------------------------------------------------- |
-| `npm install`                         | Install all workspaces                                                  |
-| `npm run dev:api` / `npm run dev:web` | Build shared, then run api (:4000) / web (:3000)                        |
-| `npm run lint`                        | ESLint over the whole repo                                              |
-| `npm run typecheck`                   | `tsc` in every workspace (includes tests)                               |
-| `npm test`                            | Jest in shared, api, web                                                |
-| `npm run test:e2e`                    | Playwright (starts web dev server if not running)                       |
-| `npm run db:indexes`                  | Create Mongo indexes + Qdrant collection (idempotent)                   |
-| `npm run seed`                        | Upsert demo users from `seed/users.json` (idempotent)                   |
-| `npm run corpus:validate`             | Validate `corpus/` (`-- --write` refreshes the README inventory)        |
-| `npm run ingest`                      | Chunk, embed and index `corpus/` into MongoDB and Qdrant (idempotent)   |
-| `npm run llm:smoke`                   | Real structured output + embeddings check for every provider with a key |
-| `docker compose up --build`           | web + api + mongodb + qdrant                                            |
+| Command                                    | What it does                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `npm install`                              | Install all workspaces                                                  |
+| `npm run dev:api` / `npm run dev:web`      | Build shared, then run api (:4000) / web (:3000)                        |
+| `npm run lint`                             | ESLint over the whole repo                                              |
+| `npm run typecheck`                        | `tsc` in every workspace (includes tests)                               |
+| `npm test`                                 | Jest in shared, api, web                                                |
+| `npm run test:e2e`                         | Playwright (starts web dev server if not running)                       |
+| `npm run db:indexes`                       | Create Mongo indexes + Qdrant collection (idempotent)                   |
+| `npm run seed`                             | Upsert demo users from `seed/users.json` (idempotent)                   |
+| `npm run corpus:validate`                  | Validate `corpus/` (`-- --write` refreshes the README inventory)        |
+| `npm run ingest`                           | Chunk, embed and index `corpus/` into MongoDB and Qdrant (idempotent)   |
+| `npm run retrieve -- --user <email> "<q>"` | Profile-safe hybrid retrieval on the real index, as a table             |
+| `npm run llm:smoke`                        | Real structured output + embeddings check for every provider with a key |
+| `docker compose up --build`                | web + api + mongodb + qdrant                                            |
 
 ## Core rules
 

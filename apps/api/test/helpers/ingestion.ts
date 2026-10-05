@@ -29,6 +29,8 @@ export function memoryDocumentStores() {
         (chunks.get(key(id)) ?? []).map((c) => ({ ...c, status })),
       );
     },
+    findChunksByIds: async (ids) =>
+      [...chunks.values()].flat().filter((c) => ids.includes(c._id.toHexString())),
   };
 
   const vectors: ChunkVectorStore = {

@@ -14,6 +14,7 @@
 | W1-08 | Golden set v1                       | Deferred by owner: before W1-12        |            |
 | W1-09 | LLM and embedding provider layer    | Done                                   | 2026-10-05 |
 | W1-10 | Ingestion pipeline                  | Done                                   | 2026-10-05 |
+| W1-11 | Access filter and hybrid retrieval  | Done                                   | 2026-10-05 |
 
 ## Checkpoints
 
@@ -468,3 +469,33 @@ Dependency: `@langchain/textsplitters` 1.0.2 (LangChain, approved stack).
 - **Re-ingest after model change:** a different embedding model or dimension changes the hash,
   forcing a full re-index (and `db:indexes` refuses a dimension change on the existing collection).
 - **Deleted corpus documents** are not removed from the stores until W4-04.
+
+## W1-11 Access filter and hybrid retrieval — 2026-10-05
+
+**Delivered:**
+
+- `ai/retrieval/`: `accessRules.ts`, `accessFilter.ts`, `vectorSearch.ts`, `keywordSearch.ts`,
+  `fusion.ts`, `retrieve.ts`.
+- `findChunksByIds` in the documents repository.
+- `scripts/retrieve.ts` (`npm run retrieve`).
+
+No new dependencies.
+
+**Verification**
+
+| Check                                                                        | Result                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **A UK contractor never receives US-only or superseded chunks** (acceptance) | Pass: integration test over the full corpus (10 queries, every raw vector and keyword hit plus every fused candidate checked as UK, contractor and active); real index: Tom's leave/holiday query returns only contractor-applicable documents, 0 violations |
+| Exhaustive access-rule tests                                                 | Pass: 8 profiles × 54 audiences (country set × employment set × access level × status); `isAccessible`, the Qdrant pre-filter (evaluated in code) and `assertAccessible` all agree with an independently written rule                                        |
+| RRF unit tests                                                               | Pass: 1/(k+rank) sums, per-source ranks, dedup, top-K, deterministic ties, k weighting                                                                                                                                                                       |
+| Vector, keyword and fused integration tests                                  | Pass: GlobalProtect keyword top hit; VPN guide hidden from contractor; vector ranking ordered and filtered; fused serves parental leave 3.0, never 2.0; manager guide reaches managers only; domain hint                                                     |
+| Every seeded profile only receives accessible chunks                         | Pass: 8 users × 10 queries over the full corpus                                                                                                                                                                                                              |
+| Retrieval callable from a script with a result table (DoD)                   | Pass: `npm run retrieve` on the real index (Tom: contractor time off first; Priya: parental leave 3.0 sections at ranks 1–6; "GlobalProtect keeps disconnecting" → VPN Troubleshooting first)                                                                |
+
+**Notes**
+
+- Atlas `numCandidates` maps to Qdrant `hnsw_ef` (150).
+- `assertAccessible` violations are reported through `onViolation`; W2 wires this to the logger
+  as ACCESS_FILTER_VIOLATION and the turn trace.
+- Retrieval quality (recall@5, vector vs keyword vs fused) is measured in W1-12, which needs the
+  golden set (W1-08).

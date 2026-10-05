@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-10)
+## Repository layout (as of W1-11)
 
 ```
 /
@@ -205,6 +205,34 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
   `vectorStore.ts` (Qdrant points: `dense`, `bm25`, access payload), `service.ts`
   (`isUpToDate`, `store`, `supersede`).
 - Current index: 35 documents, 168 chunks; mean 62 estimated tokens per chunk (min 13, max 213).
+
+## Retrieval (W1-11)
+
+- `ai/retrieval/retrieve.ts` `retrieve({ query, profile, domainHint? }, deps)` runs section 7,
+  steps 1–6:
+  1. Access filter.
+  2. Query embedding (Gemini `RETRIEVAL_QUERY`).
+  3. Dense search.
+  4. BM25 search; both in parallel, with the same pre-filter.
+  5. RRF fusion (k 60, top 12).
+  6. `assertAccessible` on every fused chunk's MongoDB metadata.
+
+  Violations are dropped and reported via `onViolation` (ACCESS_FILTER_VIOLATION). Points without
+  a MongoDB chunk are dropped as `missing`. A domain hint that empties both searches re-runs once
+  without it. It returns candidates with fused, vector and keyword rank/score, plus a trace
+  (query, filter, vector, keyword, fused, violations). Reranking is W2-04.
+
+- `accessRules.ts`: one rules module for both permission layers: `allowedAccessLevels` (manager
+  ⊇ standard), `accessDenial` / `isAccessible` (status active, country, employment type, access
+  level).
+- `accessFilter.ts`: `buildAccessFilter`, the Qdrant `must` filter built from the same rules, and
+  `assertAccessible`.
+- `vectorSearch.ts` (dense, `hnsw_ef` = `vectorNumCandidates`), `keywordSearch.ts` (BM25 sparse;
+  stopword-only queries skip it), `fusion.ts` (`reciprocalRankFusion`, deterministic ties).
+- Parameters come from `config/thresholds.yaml` `retrieval`. Chunks are loaded through
+  `modules/documents/repository.findChunksByIds`.
+- `npm run retrieve -- --user <email> [--domain IT|HR] "<question>"` prints the result table
+  (real index and embeddings).
 
 ## Runtime
 
