@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-07)
+## Repository layout (as of W1-09)
 
 ```
 /
@@ -162,9 +162,33 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - `scripts/validate-corpus.ts` (`npm run corpus:validate`, with `-- --write` to regenerate the
   inventory). `corpus.test.ts` validates the real corpus on every `npm test`.
 
+## LLM provider layer (W1-09)
+
+- `ai/llm/chatModel.ts`:
+  - `createChatModel(models, keys, tier, provider?)`: Gemini (`ChatGoogleGenerativeAI`) or
+    OpenRouter (`ChatOpenAI` + OpenRouter base URL), tier `fast`/`quality` from
+    `models.yaml`; a missing key raises `LlmError('config')`.
+  - `invokeStructured(handle, zodSchema, messages, { policy, costs })` returns
+    `{ data, usage, costUsd, latencyMs, retries, provider, modelId, mode }`. Native structured
+    output comes first, then one JSON fallback (unsupported, unparseable or HTTP 400).
+  - `llmConfigured`.
+- `ai/llm/retry.ts`: `withCallPolicy` applies the per-attempt timeout (abort signal) and
+  exponential-backoff retries for timeouts, 408/429/5xx and network errors. SDK retries are off.
+- `ai/llm/embeddings.ts`: `createEmbeddings(models, keys, 'document' | 'query')` (Gemini, 768
+  dims, task types); `embedDocuments` (batches of 50) and `embedQuery`, both dimension-checked.
+- `ai/llm/costTable.ts`: USD per call from `models.yaml` `costs`.
+- `ai/llm/fakeModels.ts`: `FakeChatModel` (scripted replies or errors, optional native
+  structured output, usage metadata) and `FakeEmbeddings` (deterministic bag-of-words unit
+  vectors). Used by all AI tests; no network.
+- `config/models.yaml` adds `call` (`timeoutMs` 30000, `maxRetries` 2, `maxOutputTokens` 2048)
+  and `costs`.
+- `GET /api/health` now includes `llmConfigured`.
+- The api `dev`/`start` and `llm:smoke` run Node with `--use-system-ca`, for the corporate TLS
+  proxy (ADR-005).
+
 ## Runtime
 
-- `GET /api/health` → `200 { status, db, vectorStore }`; `llmConfigured` is added in W1-09.
+- `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.
 - The web app has a placeholder home page only. Auth, layouts and the prototype banner come in
   W1-06.
 

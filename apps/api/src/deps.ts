@@ -15,6 +15,8 @@ export interface AppDeps {
     /** Secure cookie flag; true outside local development. */
     secureCookies: boolean;
   };
+  /** True when the configured chat provider and Gemini embeddings both have keys. */
+  llmConfigured?: boolean;
   /** Health probes; omitted fields are left out of GET /api/health. */
   pingDb?: () => Promise<boolean>;
   pingVectorStore?: () => Promise<boolean>;

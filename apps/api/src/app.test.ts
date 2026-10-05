@@ -38,6 +38,13 @@ describe('api smoke', () => {
     });
   });
 
+  it('reports llmConfigured without degrading status', async () => {
+    const off = await request(buildTestApp({ llmConfigured: false }).app).get('/api/health');
+    expect(HealthResponseSchema.parse(off.body)).toEqual({ status: 'ok', llmConfigured: false });
+    const on = await request(buildTestApp({ llmConfigured: true }).app).get('/api/health');
+    expect(on.body).toEqual({ status: 'ok', llmConfigured: true });
+  });
+
   it('does not advertise the framework', async () => {
     const res = await request(buildTestApp().app).get('/api/health');
     expect(res.headers['x-powered-by']).toBeUndefined();

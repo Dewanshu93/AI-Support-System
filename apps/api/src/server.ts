@@ -8,6 +8,7 @@ import {
   pingDatabase,
   pingQdrant,
 } from './db';
+import { llmConfigured } from './ai/llm/keys';
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
@@ -61,6 +62,7 @@ async function main() {
       demoPassword: config.env.DEMO_PASSWORD,
       secureCookies: config.env.NODE_ENV === 'production',
     },
+    llmConfigured: llmConfigured(config.models, config.env),
     pingDb: () => pingDatabase(db),
     pingVectorStore: () => pingQdrant(qdrant),
   });

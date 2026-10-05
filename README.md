@@ -71,6 +71,19 @@ Both run in Docker Compose. Create the Mongo collections and indexes and the Qdr
 npm run db:indexes
 ```
 
+## LLM providers
+
+Set `GEMINI_API_KEY` in `.env` (chat and embeddings; `OPENROUTER_API_KEY` is optional for
+OpenRouter chat). Models, tiers, timeouts, retries and prices live in `config/models.yaml`.
+Check real connectivity with:
+
+```bash
+npm run llm:smoke
+```
+
+Behind a TLS-inspecting corporate proxy, Node needs the corporate CA: the api scripts and
+`llm:smoke` pass `--use-system-ca`, so Node trusts the operating system's certificate store.
+
 ## Checks
 
 ```bash

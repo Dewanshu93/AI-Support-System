@@ -11,6 +11,8 @@
 | W1-05 | Users seed and auth                 | Done                                   | 2026-10-05 |
 | W1-06 | Frontend shell and login            | Done                                   | 2026-10-05 |
 | W1-07 | Corpus authoring and validation     | Done (pending owner review of numbers) | 2026-10-05 |
+| W1-08 | Golden set v1                       | Deferred by owner: before W1-12        |            |
+| W1-09 | LLM and embedding provider layer    | Done                                   | 2026-10-05 |
 
 ## Checkpoints
 
@@ -367,3 +369,61 @@ were checked against the calendar.
 - Frontmatter has no category field, because the playbook's metadata list has none; the
   "taxonomy domains" rule checks `domain` against `taxonomy.yaml`.
 - `supersedes` holds the replaced version of the same slug (e.g. `'2.0'`).
+
+## W1-08 Golden set v1 — deferred (2026-10-05)
+
+Moved by the owner: W1-09, W1-10 and W1-11 do not depend on it. It must be done before W1-12
+(retrieval eval, a W1-08 dependency), the end-of-week checkpoint ("corpus and golden set
+validated") and the section 15 Definition of Done.
+
+## W1-09 LLM and embedding provider layer — 2026-10-05
+
+**Delivered:**
+
+- `apps/api/src/ai/llm/`:
+  - `chatModel.ts`: factory by provider/tier, `invokeStructured` with native output and JSON
+    fallback, `llmConfigured`.
+  - `embeddings.ts`: Gemini, 768 dims, document/query task types, batches of 50.
+  - `retry.ts`: per-call timeout and backoff retries; SDK retries off.
+  - `costTable.ts`.
+  - `fakeModels.ts`: `FakeChatModel`, `FakeEmbeddings`.
+  - `errors.ts`.
+- `config/models.yaml`: `call` policy and `costs` table, required for every configured model.
+- `npm run llm:smoke` (`scripts/llm-smoke.ts`).
+- `/api/health` reports `llmConfigured`.
+- `--use-system-ca` on the api `dev`/`start` scripts and on `llm:smoke`.
+- ADR-005: D-1/D-2 approval (DoD), model choice, proxy approach.
+
+Dependencies (LangChain, approved stack): `@langchain/core` 1.2.14, `@langchain/google-genai`
+2.3.2, `@langchain/openai` 1.6.2.
+
+**Verification**
+
+| Check                                         | Result                                                                                                                                                                                                     |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run llm:smoke` (acceptance)              | Pass: Gemini and OpenRouter, fast (`gemini-3.1-flash-lite`) and quality (`gemini-3.8-flash`), all native structured output (`sum 42`, `Paris`); Gemini embeddings 768 dims with correct relevance ordering |
+| Factory selection (unit)                      | Pass: provider/tier → model ID and class; OpenRouter base URL; config-only switch; missing key → config error; SDK retries 0                                                                               |
+| Fallback structured-output path (unit, fakes) | Pass: native; fallback when unsupported, schema-invalid, or HTTP 400; invalid output → `invalid_output`; provider errors retried, not fallen back                                                          |
+| Timeout/retry, cost, embeddings (unit)        | Pass: backoff timing, abort on timeout, 4xx not retried, max retries; cost per 1M tokens; batches of 50; dimension check                                                                                   |
+| D-1/D-2 approvals recorded (DoD)              | Pass: ADR-005                                                                                                                                                                                              |
+
+**Found during acceptance and fixed**
+
+- **HTTP 400 from native structured output:** Gemini rejects JSON Schema `const` (from
+  `z.literal`). A native-path 400 now falls back to the JSON path; prompt schemas should prefer
+  `z.enum`.
+- **Retired models:** the playbook's `gemini-2.5-*` models return 404 for new keys, and Pro has no
+  quota on this key. The config now uses `gemini-3.1-flash-lite` (fast) and `gemini-3.8-flash`
+  (quality).
+- **Gemini 503 "high demand":** seen on `gemini-3.8-flash`; three attempts failed, and a re-run 30
+  s later passed. Capacity can be bursty on this tier.
+- **OpenRouter 402:** no output cap made OpenRouter reserve credit for 65,536 tokens. Added
+  `call.maxOutputTokens: 2048` for both providers.
+
+**Risks / follow-ups**
+
+- **Embedding price** (`gemini-embedding-001`, $0.15/1M) is unverified; chat prices come from
+  the OpenRouter catalogue.
+- **OpenRouter key is free tier** with a small credit limit; long eval runs may need more.
+- **Free-tier limits** (rate limits, 503s) may slow ingestion of 35 documents and the eval runs; a
+  paid key removes this.

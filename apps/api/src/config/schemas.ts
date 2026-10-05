@@ -239,20 +239,56 @@ export const CHAT_PROVIDERS = ['gemini', 'openrouter'] as const;
 const ModelId = z.string().trim().min(1);
 const ModelTiers = z.strictObject({ fast: ModelId, quality: ModelId });
 
-export const ModelsSchema = z.strictObject({
-  version: Version,
-  chat: z.strictObject({
-    provider: z.enum(CHAT_PROVIDERS),
-    // Both providers are always configured so switching is a one-line change.
-    models: z.strictObject({ gemini: ModelTiers, openrouter: ModelTiers }),
-  }),
-  embeddings: z.strictObject({
-    // D-2: do not assume OpenRouter serves embeddings.
-    provider: z.enum(['gemini']),
-    model: ModelId,
-    dimension: z.number().int().min(64).max(4096),
-  }),
+export const MODEL_TIERS = ['fast', 'quality'] as const;
+/** USD per 1M tokens; output is optional for embedding models. */
+const ModelCost = z.strictObject({
+  input: z.number().min(0),
+  output: z.number().min(0).optional(),
 });
+
+export const ModelsSchema = z
+  .strictObject({
+    version: Version,
+    chat: z.strictObject({
+      provider: z.enum(CHAT_PROVIDERS),
+      // Both providers are always configured so switching is a one-line change.
+      models: z.strictObject({ gemini: ModelTiers, openrouter: ModelTiers }),
+    }),
+    embeddings: z.strictObject({
+      // D-2: do not assume OpenRouter serves embeddings.
+      provider: z.enum(['gemini']),
+      model: ModelId,
+      dimension: z.number().int().min(64).max(4096),
+    }),
+    /** Per-call policy applied to every LLM and embedding call. */
+    call: z.strictObject({
+      timeoutMs: z.number().int().min(1000).max(300_000),
+      maxRetries: z.number().int().min(0).max(5),
+      /** Output cap per chat call; also stops OpenRouter reserving credit for the model maximum. */
+      maxOutputTokens: z.number().int().min(64).max(65_536),
+    }),
+    /** Cost table keyed by model ID (USD per 1M tokens). */
+    costs: z.record(ModelId, ModelCost),
+  })
+  .superRefine((m, ctx) => {
+    const chatModels = Object.values(m.chat.models).flatMap((tiers) => Object.values(tiers));
+    for (const model of chatModels) {
+      if (m.costs[model]?.output === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['costs', model],
+          message: 'chat model needs input and output costs',
+        });
+      }
+    }
+    if (!m.costs[m.embeddings.model]) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['costs', m.embeddings.model],
+        message: 'embedding model needs an input cost',
+      });
+    }
+  });
 
 // --- templates.yaml --------------------------------------------------------
 

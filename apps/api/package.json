@@ -7,13 +7,16 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc -b",
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "tsx watch --use-system-ca src/server.ts",
+    "start": "node --use-system-ca dist/server.js",
     "typecheck": "tsc -b && tsc -p tsconfig.spec.json",
     "pretest": "tsc -b ../../packages/shared",
     "test": "jest"
   },
   "dependencies": {
+    "@langchain/core": "1.2.14",
+    "@langchain/google-genai": "2.3.2",
+    "@langchain/openai": "1.6.2",
     "@qdrant/js-client-rest": "1.19.0",
     "@sd/shared": "0.1.0",
     "cookie-parser": "1.4.7",

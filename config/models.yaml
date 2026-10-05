@@ -1,5 +1,8 @@
 # LLM provider and models. Switching provider is a config-only change.
-# Model IDs are placeholders until verified by `npm run llm:smoke` (W1-09).
+# Gemini IDs verified by calling them on 2026-10-05 (W1-09): the 2.5 models are
+# closed to new API keys and no Pro model has quota on the current key, so the
+# quality tier uses the newest Flash. OpenRouter IDs verified in its catalogue.
+# `npm run llm:smoke` re-checks every provider with a key.
 # Changing the embedding model or dimension requires a full re-index and a
 # new vector index (D-2).
 version: 1
@@ -7,12 +10,30 @@ chat:
   provider: gemini # gemini | openrouter
   models:
     gemini:
-      fast: gemini-2.5-flash
-      quality: gemini-2.5-pro
+      fast: gemini-3.1-flash-lite
+      quality: gemini-3.8-flash
     openrouter:
-      fast: google/gemini-2.5-flash
-      quality: google/gemini-2.5-pro
+      fast: google/gemini-3.1-flash-lite
+      quality: google/gemini-3.8-flash
 embeddings:
   provider: gemini # D-2: Gemini embeddings, configured separately from chat
   model: gemini-embedding-001
   dimension: 768
+
+# Applied to every chat and embedding call: abort after timeoutMs, then retry
+# with exponential backoff (rate limits, timeouts, 5xx) up to maxRetries.
+# maxOutputTokens caps every chat response.
+call:
+  timeoutMs: 30000
+  maxRetries: 2
+  maxOutputTokens: 2048
+
+# USD per 1M tokens, used for trace and eval cost reporting. Chat prices are
+# from the OpenRouter model catalogue (2026-10-05), which passes Google's list
+# price through; the embedding price is not yet verified.
+costs:
+  gemini-3.1-flash-lite: { input: 0.25, output: 1.50 }
+  gemini-3.8-flash: { input: 0.75, output: 3.75 }
+  google/gemini-3.1-flash-lite: { input: 0.25, output: 1.50 }
+  google/gemini-3.8-flash: { input: 0.75, output: 3.75 }
+  gemini-embedding-001: { input: 0.15 }

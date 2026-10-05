@@ -124,3 +124,44 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     tests.
   - Another service to run: compose gains `qdrant`, and the LAN PC needs
     `docker run -p 6333:6333 qdrant/qdrant:v1.19.1`.
+
+## ADR-005 — D-1 and D-2 approved; LLM provider layer
+
+- **Status:** Accepted by the project owner (2026-10-05, W1-09)
+- **D-1 (reranker), approved:** reranking uses the fast chat model in one listwise call, combined
+  with the context-sufficiency verdict (prompt P-2). No dedicated rerank provider is added.
+- **D-2 (embeddings), approved:** Gemini `gemini-embedding-001` at 768 dimensions
+  (`outputDimensionality`), configured in `config/models.yaml` separately from the chat
+  provider. `RETRIEVAL_DOCUMENT` / `RETRIEVAL_QUERY` task types are used for chunks and queries.
+  Changing the model or dimension needs a full re-index, and `db:indexes` refuses a dimension
+  change.
+- **Provider layer (`apps/api/src/ai/llm`):**
+  - LangChain `ChatGoogleGenerativeAI` for `gemini`, and `ChatOpenAI` with the OpenRouter base
+    URL for `openrouter`, selected by `chat.provider` and tier (`fast` / `quality`). Switching is
+    config-only.
+  - SDK retries are disabled (`maxRetries: 0`). `withCallPolicy` is the single retry layer: a
+    per-attempt timeout that aborts the call, then exponential backoff with jitter for timeouts,
+    408/429/5xx and network errors. 4xx errors are not retried.
+  - `invokeStructured` tries the provider's native structured output first and falls back once to
+    a JSON-instructed plain call when native output is unsupported, does not parse, or is rejected
+    with HTTP 400. Gemini rejects JSON Schema `const`, which `z.literal` produces. Timeouts, auth,
+    rate-limit and server errors never fall back.
+  - Token usage is captured from `usage_metadata`; cost comes from the `costs` table in
+    `models.yaml`, which config validation requires for every configured model.
+  - Every chat call is capped at `call.maxOutputTokens` (2048). Without a cap, OpenRouter
+    reserves credit for the model maximum (65,536 tokens) and returns 402 on low-credit keys.
+- **Models (verified 2026-10-05):**
+  - The playbook's Gemini 2.5 models return 404 ("no longer available to new users") for this
+    key, and `gemini-3.1-pro-preview` has no quota on it (429).
+  - `fast` = `gemini-3.1-flash-lite`; `quality` = `gemini-3.8-flash`.
+  - OpenRouter `google/gemini-3.1-flash-lite` and `google/gemini-3.8-flash` were verified in its
+    catalogue and by `llm:smoke`. Chat prices come from that catalogue; the embedding price is
+    still unverified.
+- **Corporate TLS inspection:**
+  - Node's bundled CA list does not trust the HTC proxy, and `NODE_EXTRA_CA_CERTS` can only be set
+    before Node starts.
+  - The api `dev`/`start` scripts and `llm:smoke` run Node with `--use-system-ca`, which trusts
+    the OS certificate store, where IT installs the corporate CA. On other networks the OS store
+    holds the usual public CAs, so the flag is harmless.
+- **Consequences:** prompt schemas should prefer `z.enum` over `z.literal`, so the native path is
+  used. If quality-tier answers are weak, a Pro model needs a paid key; that is config-only.

@@ -42,6 +42,7 @@ export interface TestAppOptions extends CreateAppOptions {
   auth?: Partial<AppDeps['auth']>;
   pingDb?: AppDeps['pingDb'];
   pingVectorStore?: AppDeps['pingVectorStore'];
+  llmConfigured?: boolean;
 }
 
 export function buildTestApp(options: TestAppOptions = {}): TestContext {
@@ -53,6 +54,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     auth: { jwtSecret: TEST_JWT_SECRET, secureCookies: false, ...options.auth },
     pingDb: options.pingDb,
     pingVectorStore: options.pingVectorStore,
+    llmConfigured: options.llmConfigured,
   };
   return {
     app: createApp(deps, { extraRoutes: options.extraRoutes }),
