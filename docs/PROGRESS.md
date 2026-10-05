@@ -2,14 +2,15 @@
 
 ## Task status
 
-| Task  | Name                                | Status                          | Date       |
-| ----- | ----------------------------------- | ------------------------------- | ---------- |
-| W1-01 | Monorepo scaffold                   | Done (Docker unverified)        | 2026-10-02 |
-| W1-02 | Config and env loading              | Done                            | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope | Done                            | 2026-10-02 |
-| W1-04 | Database layer and indexes          | Done (amended: Qdrant, ADR-004) | 2026-10-05 |
-| W1-05 | Users seed and auth                 | Done                            | 2026-10-05 |
-| W1-06 | Frontend shell and login            | Done                            | 2026-10-05 |
+| Task  | Name                                | Status                                 | Date       |
+| ----- | ----------------------------------- | -------------------------------------- | ---------- |
+| W1-01 | Monorepo scaffold                   | Done (Docker unverified)               | 2026-10-02 |
+| W1-02 | Config and env loading              | Done                                   | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope | Done                                   | 2026-10-02 |
+| W1-04 | Database layer and indexes          | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
+| W1-05 | Users seed and auth                 | Done                                   | 2026-10-05 |
+| W1-06 | Frontend shell and login            | Done                                   | 2026-10-05 |
+| W1-07 | Corpus authoring and validation     | Done (pending owner review of numbers) | 2026-10-05 |
 
 ## Checkpoints
 
@@ -317,3 +318,52 @@ Dependency: `zod` 4.6.5 added to the web app (already used by shared; approved).
 | lint / typecheck / tests green                    | Pass: lint, typecheck, 297 Jest tests (with integration), 9 Playwright                                                                          |
 
 **CP-1 status: passed (local run).** The run used the existing working tree, not a clean clone.
+
+## W1-07 Corpus authoring and validation — 2026-10-05
+
+**Delivered:**
+
+- **35 synthetic policies** in `corpus/it` (14) and `corpus/hr` (21): 33 active, 2 superseded.
+- `DocumentMetadataSchema` and `compareVersions` in `@sd/shared`.
+- Corpus loader and validator in `apps/api/src/ai/ingestion/corpus.ts`.
+- `npm run corpus:validate` (`scripts/validate-corpus.ts`), with `-- --write` to regenerate the
+  README inventory.
+- `corpus/README.md`: authoring rules, composition, deliberately missing topics, planted injection,
+  key-facts sheet, inventory table (DoD).
+
+**Section Q composition** (summarised on the card; the contract text itself is still missing):
+
+| Requirement                  | Delivered                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 30–40 documents              | 35                                                                                                                                                |
+| 6 US/UK topic pairs          | annual leave, parental leave, sick leave, public holidays, health benefits, retirement plan                                                       |
+| 2 superseded versions        | `hr-parental-leave-us` 2.0 (12 weeks) → 3.0 (16 weeks); `it-password-mfa-policy` 1.0 (90-day expiry) → 2.0 (no expiry)                            |
+| 3 documents with tables      | 7 (holidays US/UK, expenses, standard hardware, US annual leave, access approvals, Wi-Fi)                                                         |
+| Battery-safety policy        | `it-battery-safety`                                                                                                                               |
+| Access-request policy        | `it-access-requests`                                                                                                                              |
+| 3–4 missing topics in README | 4: home office allowance, sabbatical, company car, tuition reimbursement                                                                          |
+| Planted injection            | `it-office-printing`, "Contributor notes" section                                                                                                 |
+| Profile variants (for eval)  | contractor-only: `hr-contractor-time-off`, `it-contractor-device-access`; manager-only: `hr-manager-leave-approval`, `hr-performance-improvement` |
+
+**Verification**
+
+| Check                             | Result                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Validation script passes          | Pass: `npm run corpus:validate` → "Corpus is valid."                                                |
+| Frontmatter schema                | Pass: all 35 parse with `DocumentMetadataSchema`; strict (unknown keys, unquoted versions rejected) |
+| Unique slugs / one active version | Pass: unique slug@version; one active per slug; `supersedes` chains valid                           |
+| Taxonomy domains                  | Pass: every domain is used by `config/taxonomy.yaml` and matches its folder                         |
+| Validation runs in `npm test`     | Pass: `corpus.test.ts` (36 tests: real corpus, plus fixtures for each rule)                         |
+| Inventory table in README (DoD)   | Pass: generated and checked cell by cell                                                            |
+
+**Owner review needed (per the card, "the developer reviews for consistency of numbers"):**
+the numbers are invented but internally consistent; the key-facts table in `corpus/README.md`
+summarises them for review and for writing golden-set expectations in W1-08. The 2026 holiday dates
+were checked against the calendar.
+
+**Deviations / notes**
+
+- `docs/BUILD_CONTRACT.md` section Q is still a placeholder; the corpus follows the card's summary.
+- Frontmatter has no category field, because the playbook's metadata list has none; the
+  "taxonomy domains" rule checks `domain` against `taxonomy.yaml`.
+- `supersedes` holds the replaced version of the same slug (e.g. `'2.0'`).

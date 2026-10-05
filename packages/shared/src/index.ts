@@ -3,6 +3,7 @@
 
 export * from './api/auth';
 export * from './api/common';
+export * from './api/documents';
 export * from './api/health';
 export * from './enums';
 export * from './errors';

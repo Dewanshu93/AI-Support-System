@@ -2,13 +2,14 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W1-06)
+## Repository layout (as of W1-07)
 
 ```
 /
 ├── CLAUDE.md                 standing instructions + session protocol
 ├── docs/                     contract (placeholder), playbook, ADRs, progress, gaps
 ├── config/                   nine behaviour YAML files, validated at startup
+├── corpus/                   synthetic IT/HR policies (Markdown + frontmatter), README inventory
 ├── apps/
 │   ├── api/                  Express 5 + TS (CommonJS)
 │   │   ├── src/app.ts        createApp() — no config dependency yet
@@ -143,6 +144,23 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - UI primitives in `components/ui`: Button, Badge, Card, Spinner, Skeleton/SkeletonCards,
   EmptyState and ErrorState (retry plus request ID). Table, Tabs, Dialog, Textarea, Select and
   Toast are added when a screen first needs them.
+
+## Knowledge corpus (W1-07)
+
+- `corpus/it` (14) and `corpus/hr` (21): 35 synthetic Markdown policies (33 active, 2
+  superseded) with YAML frontmatter validated by `DocumentMetadataSchema`
+  (`packages/shared/src/api/documents.ts`; also used by the W4-04 upload endpoint).
+  `corpus/README.md` has the authoring rules, composition, deliberately missing topics, the
+  planted injection, a key-facts sheet and a generated inventory.
+- `apps/api/src/ai/ingestion/corpus.ts`:
+  - `parseCorpusFile` (reused by ingestion in W1-10) and `loadCorpus`;
+  - per-document rules: folder matches domain, taxonomy domain, file naming, at least one H2 and
+    no H1, `-us`/`-uk` countries, unique slug@version, one active version per slug, and valid
+    `supersedes` chains;
+  - section Q composition and README checks (inventory compared cell by cell, so Prettier padding
+    is ignored).
+- `scripts/validate-corpus.ts` (`npm run corpus:validate`, with `-- --write` to regenerate the
+  inventory). `corpus.test.ts` validates the real corpus on every `npm test`.
 
 ## Runtime
 
