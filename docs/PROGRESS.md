@@ -11,7 +11,7 @@
 | W1-05 | Users seed and auth                 | Done                                   | 2026-10-05 |
 | W1-06 | Frontend shell and login            | Done                                   | 2026-10-05 |
 | W1-07 | Corpus authoring and validation     | Done (pending owner review of numbers) | 2026-10-05 |
-| W1-08 | Golden set v1                       | Deferred by owner: before W1-12        |            |
+| W1-08 | Golden set v1                       | Done (pending owner review)            | 2026-10-05 |
 | W1-09 | LLM and embedding provider layer    | Done                                   | 2026-10-05 |
 | W1-10 | Ingestion pipeline                  | Done                                   | 2026-10-05 |
 | W1-11 | Access filter and hybrid retrieval  | Done                                   | 2026-10-05 |
@@ -499,3 +499,68 @@ No new dependencies.
   as ACCESS_FILTER_VIOLATION and the turn trace.
 - Retrieval quality (recall@5, vector vs keyword vs fused) is measured in W1-12, which needs the
   golden set (W1-08).
+
+## W1-08 Golden set v1 — 2026-10-05
+
+**Delivered:**
+
+- `evals/golden/golden.v1.jsonl`: 80 cases, dataset version `v1`.
+- `evals/runner/schema.ts`: `GoldenCaseSchema`, categories, tags, category → decision.
+- `evals/runner/golden.ts`: loader, validator, composition.
+- `scripts/validate-golden.ts` (`npm run golden:validate`).
+- `evals/runner/golden.test.ts` runs in `npm test`: the api Jest config and spec tsconfig now
+  include `evals/`.
+
+**Composition** (printed by the validator; matches section 8):
+
+| Item                         | Count                                                                                                  | Section 8    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ | ------------ |
+| answerable                   | 35 (IT 18, HR 17)                                                                                      | 35 (~18/~17) |
+| partial                      | 10                                                                                                     | 10           |
+| clarify                      | 10                                                                                                     | 10           |
+| escalate                     | 12                                                                                                     | 12           |
+| sensitive                    | 8                                                                                                      | 8            |
+| out_of_scope                 | 5                                                                                                      | 5            |
+| profile-variant pairs        | 8 (vacation ×3 profiles, parental, sick, retirement, health, December holidays, laptop, remote access) | ≥ 8          |
+| multi-document               | 4                                                                                                      | 4            |
+| table lookups                | 6                                                                                                      | 3            |
+| escalate multi-turn          | 4                                                                                                      | 4            |
+| safety (battery, electrical) | 2                                                                                                      | 2            |
+| sensitive, indirect          | 2                                                                                                      | 2            |
+| injection                    | 5, across 5 categories (incl. the planted `it-office-printing`)                                        | 5            |
+| superseded_trap              | 4 (parental leave 2.0; password policy 1.0 ×3)                                                         | 4            |
+| holdout                      | 15, across all 6 categories                                                                            | 15           |
+
+**Validator rules** (beyond the schema):
+
+- Every `docSlugs` / `forbiddenDocSlugs` entry exists in the corpus (`slug` or `slug@version`).
+- Every `userEmail` is a seeded user.
+- **Every expected document is readable by that user's profile** (same `accessRules` as
+  retrieval), so no case is impossible.
+- **Every key fact appears verbatim in an expected document**: the consistency check on numbers.
+- Category ↔ decision ↔ id code agree; `multi_turn` ⇔ more than one turn; superseded traps
+  forbid a specific version.
+- Escalation tickets use a taxonomy category/subcategory of the right domain and
+  `ticket-schemas.yaml` fields, with all required fields.
+- **Deterministic prechecks fire exactly where intended:**
+  - direct sensitive cases match `sensitive.yaml`; indirect ones do not;
+  - no other case matches it;
+  - safety cases match `priority-rules.yaml` safety patterns with `minPriority: critical`, and no
+    other case does.
+
+**Verification**
+
+| Check                                          | Result                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------- |
+| Validator passes, prints section 8 composition | Pass: `npm run golden:validate` → "Golden set is valid."              |
+| Validator in `npm test`                        | Pass: 23 tests (real set, 18 broken-case rules, composition, parsing) |
+| Golden set committed; dataset version v1 (DoD) | Pass                                                                  |
+
+**Notes / owner review**
+
+- **Holdout marker:** holdout is marked with a `holdout` tag. The playbook lists the count but
+  not the mechanism; threshold tuning (W4-06) excludes these cases.
+- **Extra tags:** `multi_doc`, `safety` and `indirect` are additional tags used to check
+  composition.
+- **Review:** cases were drafted from the corpus key facts. Please review the expected decisions,
+  especially the partial-coverage boundaries and the escalation ticket fields.

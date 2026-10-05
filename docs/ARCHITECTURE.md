@@ -234,6 +234,16 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - `npm run retrieve -- --user <email> [--domain IT|HR] "<question>"` prints the result table
   (real index and embeddings).
 
+## Golden set (W1-08)
+
+- `evals/golden/golden.v1.jsonl`: 80 labelled cases (one JSON object per line), validated by
+  `GoldenCaseSchema` (`evals/runner/schema.ts`).
+- `evals/runner/golden.ts` checks schema, corpus and seed cross-references, document access for
+  each case's user, verbatim key facts, ticket taxonomy/fields, deterministic precheck behaviour
+  and section 8 composition. `npm run golden:validate` prints the composition.
+- `evals/` is typechecked and tested through the api workspace (`apps/api/tsconfig.spec.json`,
+  `jest.config.cjs` roots).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

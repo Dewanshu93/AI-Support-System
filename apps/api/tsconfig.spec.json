@@ -3,9 +3,9 @@
   "compilerOptions": {
     "composite": false,
     "noEmit": true,
-    "rootDir": ".",
+    "rootDir": "../..",
     "types": ["node", "jest"]
   },
-  "include": ["src", "test"],
+  "include": ["src", "test", "../../evals"],
   "exclude": []
 }
