@@ -11,9 +11,11 @@ export function traced(node: string, fn: NodeFn, now: () => number = () => perfo
     const started = now();
     const update = await fn(state);
     const latencyMs = Math.round(now() - started);
+    // Keep whatever the node itself traced (llmCalls, outputs, flags).
+    const own = update.trace && !('reset' in update.trace) ? update.trace : {};
     return {
       ...update,
-      trace: { steps: [{ node, latencyMs }], stepLatencyMs: { [node]: latencyMs } },
+      trace: { ...own, steps: [{ node, latencyMs }], stepLatencyMs: { [node]: latencyMs } },
     };
   };
 }

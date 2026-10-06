@@ -114,8 +114,13 @@ export interface LlmCallTrace {
   latencyMs: number;
   inputTokens?: number;
   outputTokens?: number;
+  /** Provider-level retries inside this call (timeouts, 429, 5xx). */
   retries: number;
-  fallback: boolean;
+  /** native structured output, or the JSON-mode fallback. */
+  mode: 'native' | 'json_fallback';
+  costUsd: number;
+  /** Set when this call's output failed validation. */
+  error?: string;
 }
 
 export interface Trace {
@@ -124,8 +129,19 @@ export interface Trace {
   stepLatencyMs: Record<string, number>;
   llmCalls: LlmCallTrace[];
   errors: { node: string; code: string; message: string }[];
+  /** Per-node outputs logged to turn_traces (precheck, analysis, …); last write wins. */
+  outputs: Record<string, unknown>;
+  /** Degradation flags, e.g. ANALYSIS_FALLBACK. */
+  flags: string[];
 }
-export const EMPTY_TRACE: Trace = { steps: [], stepLatencyMs: {}, llmCalls: [], errors: [] };
+export const EMPTY_TRACE: Trace = {
+  steps: [],
+  stepLatencyMs: {},
+  llmCalls: [],
+  errors: [],
+  outputs: {},
+  flags: [],
+};
 
 /** Sent through the trace channel to clear it at the start of a turn. */
 export const RESET_TRACE = { reset: true } as const;
@@ -143,6 +159,8 @@ export function traceReducer(current: Trace, update: TraceUpdate): Trace {
     stepLatencyMs: latency,
     llmCalls: [...current.llmCalls, ...(update.llmCalls ?? [])],
     errors: [...current.errors, ...(update.errors ?? [])],
+    outputs: { ...current.outputs, ...update.outputs },
+    flags: [...current.flags, ...(update.flags ?? [])],
   };
 }
 

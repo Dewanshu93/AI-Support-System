@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-02)
+## Repository layout (as of W2-03)
 
 ```
 /
@@ -362,6 +362,31 @@ graph TD;
 	classDef first fill-opacity:0;
 	classDef last fill:#bfb6fc;
 ```
+
+## Turn understanding (W2-03)
+
+- `ai/guards/precheckRules.ts` → `compilePrecheckRules(sensitive, priorityRules)`: a pure,
+  case-insensitive regex matcher over the raw message, with whitespace collapsed. It uses the
+  topics in `sensitive.yaml` and the `kind: safety` floors in `priority-rules.yaml`, and
+  returns `{ sensitiveHit, safetyHit, matchedRules }`.
+- Real nodes are factories with injected dependencies; the graph defaults still use the stubs
+  in `nodes/stubs.ts` until the API wires the real nodes (W2-08).
+  - `createLoadContext({ users, conversations })`: the profile comes from the user record; the
+    history is the last 8 user/assistant messages, oldest first, excluding the current turn's
+    message (`modules/conversations/repository.ts`). A missing user or a DB error throws.
+  - `createPrecheck(rules)`: writes `precheckResult` and `trace.outputs.precheck`. A sensitive
+    hit routes to `sensitiveHandoff` before any LLM call.
+  - `createAnalyzeTurn({ prompts, chatFor, taxonomy, policy, costs })`: renders P-1 with the
+    taxonomy, a profile summary (country, employment type and department only: no name, email
+    or IDs), the history and the message. It calls `invokeStructured` with the
+    `TurnAnalysis` schema built from the taxonomy.
+    - Invalid output: one retry with the validation error appended.
+    - A second failure, or any provider error: the section 5 fallback analysis plus the
+      `ANALYSIS_FALLBACK` flag.
+    - Every attempt is recorded in `trace.llmCalls` (prompt ref, model, latency, tokens, cost,
+      mode, error).
+- The trace gains `outputs` (per-node results for `turn_traces`, last write wins) and `flags`.
+  `traced()` merges a node's own trace with its step timing.
 
 ## Runtime
 

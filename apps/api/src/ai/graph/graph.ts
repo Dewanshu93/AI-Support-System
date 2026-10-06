@@ -8,7 +8,6 @@ import {
   StateGraph,
 } from '@langchain/langgraph';
 import { agentSummary } from '../nodes/agentSummary';
-import { analyzeTurn } from '../nodes/analyzeTurn';
 import { answer } from '../nodes/answer';
 import { awaitConfirmation } from '../nodes/awaitConfirmation';
 import { buildDraft } from '../nodes/buildDraft';
@@ -16,14 +15,13 @@ import { clarify } from '../nodes/clarify';
 import { clarifyForTicket } from '../nodes/clarifyForTicket';
 import { createTicket } from '../nodes/createTicket';
 import { decide } from '../nodes/decide';
-import { loadContext } from '../nodes/loadContext';
 import { outOfScope } from '../nodes/outOfScope';
 import { persist } from '../nodes/persist';
-import { precheck } from '../nodes/precheck';
 import { rerankAssess } from '../nodes/rerankAssess';
 import { retrieve } from '../nodes/retrieve';
 import { sensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { slotFill } from '../nodes/slotFill';
+import { stubAnalyzeTurn, stubLoadContext, stubPrecheck } from '../nodes/stubs';
 import { validateCitations } from '../nodes/validateCitations';
 import { type NodeFn, traced } from '../tracing/traced';
 import {
@@ -47,9 +45,9 @@ import { GraphState } from './state';
 export const GRAPH_NAME = 'supportTurnGraph';
 
 export const DEFAULT_NODES = {
-  loadContext,
-  precheck,
-  analyzeTurn,
+  loadContext: stubLoadContext,
+  precheck: stubPrecheck,
+  analyzeTurn: stubAnalyzeTurn,
   retrieve,
   rerankAssess,
   decide,
