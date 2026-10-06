@@ -213,6 +213,8 @@ export const GraphState = Annotation.Root({
   decision: lastValue<DecisionResult | null>(null),
   output: lastValue<Output | null>(null),
   confirmation: lastValue<Confirmation | null>(null),
+  /** Set by decide when it asks a clarifying question; cleared by any other decision. Persists across turns. */
+  topicClarified: lastValue<boolean>(false),
   trace: Annotation<Trace, TraceUpdate>({ reducer: traceReducer, default: () => EMPTY_TRACE }),
 });
 export type State = typeof GraphState.State;

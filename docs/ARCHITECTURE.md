@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-04)
+## Repository layout (as of W2-05)
 
 ```
 /
@@ -418,6 +418,39 @@ graph TD;
   decide (W2-05).
 - The retrieval eval reranks every case (`reranked` mode). Its gate adds: reranked recall@5 ≥
   fused, and no reranked leakage. Run cost is recorded.
+
+## Decision rules (W2-05)
+
+`domain/decisionRules.ts` → `decideTurn(input, thresholds)`: pure, with no I/O (a test
+enforces the `domain/` import boundary) and 100% branch coverage. The rules are evaluated
+top to bottom and **the first match decides**. `rulesFired` lists every rule whose condition
+holds, in order; the first is the deciding rule.
+
+| #   | Rule id            | Condition                                                     | Decision                             | Reason code      |
+| --- | ------------------ | ------------------------------------------------------------- | ------------------------------------ | ---------------- |
+| 1   | `sensitive`        | `precheck.sensitiveHit` or `analysis.sensitivity = sensitive` | SENSITIVE_HANDOFF                    | SENSITIVE_TOPIC  |
+| 2   | `out_of_scope`     | `intent = out_of_scope`                                       | OUT_OF_SCOPE                         | OUT_OF_SCOPE     |
+| 3   | `safety`           | `precheck.safetyHit`                                          | ESCALATE (safety-steps answer first) | SAFETY           |
+| 4   | `user_requested`   | `forceEscalate` or `intent = talk_to_human`                   | ESCALATE                             | USER_REQUESTED   |
+| 5   | `action_required`  | `intent = request_action`                                     | ESCALATE                             | ACTION_REQUIRED  |
+| 6   | `ambiguous`        | `ambiguity = high` and `!topicClarified`                      | CLARIFY                              | AMBIGUOUS        |
+| 7   | `evidence_strong`  | `topRelevance ≥ T_answer` and `coverage = full`               | ANSWER                               | EVIDENCE_STRONG  |
+| 8   | `evidence_partial` | `topRelevance ≥ T_partial` and `coverage ∈ {full, partial}`   | PARTIAL                              | EVIDENCE_PARTIAL |
+| 9   | `no_evidence`      | otherwise                                                     | ESCALATE                             | NO_EVIDENCE      |
+
+- `T_answer` and `T_partial` are `thresholds.yaml` → `decision.answerMinRelevance` (2) and
+  `partialMinRelevance` (1); they are tuned in W4-06.
+- Coverage `unknown` (rerank fallback) never satisfies rules 7–8.
+- **One clarification per topic:** `state.topicClarified` persists across turns. `decide`
+  sets it when the decision is CLARIFY and clears it for any other decision, so a reply that
+  is still ambiguous falls through to the evidence rules.
+- `createDecide(thresholds)` maps state onto the rule input; missing upstream results count as
+  "nothing found" (relevance 0, coverage `unknown`). It writes `state.decision` and
+  `trace.outputs.decision` (`value`, `reasonCode`, `rulesFired`, the input and a
+  thresholds snapshot).
+- Turns flagged sensitive by precheck or analysis are routed by the edges before `decide`.
+  Rule 1 still exists, so the table is complete and the decision eval can score it.
+- A withdrawn answer is re-recorded as ESCALATE / CITATION_INVALID by `validateCitations`.
 
 ## Runtime
 

@@ -85,3 +85,13 @@ export function stubRetrieve(state: State): StateUpdate {
 export function stubRerankAssess(state: State): StateUpdate {
   return { retrieval: state.retrieval };
 }
+
+export function stubDecide(state: State): StateUpdate {
+  return {
+    decision: state.decision ?? {
+      value: 'ANSWER',
+      reasonCode: 'EVIDENCE_STRONG',
+      rulesFired: ['evidence_strong'],
+    },
+  };
+}

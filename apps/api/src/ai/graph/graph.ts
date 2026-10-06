@@ -14,13 +14,13 @@ import { buildDraft } from '../nodes/buildDraft';
 import { clarify } from '../nodes/clarify';
 import { clarifyForTicket } from '../nodes/clarifyForTicket';
 import { createTicket } from '../nodes/createTicket';
-import { decide } from '../nodes/decide';
 import { outOfScope } from '../nodes/outOfScope';
 import { persist } from '../nodes/persist';
 import { sensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { slotFill } from '../nodes/slotFill';
 import {
   stubAnalyzeTurn,
+  stubDecide,
   stubLoadContext,
   stubPrecheck,
   stubRerankAssess,
@@ -54,7 +54,7 @@ export const DEFAULT_NODES = {
   analyzeTurn: stubAnalyzeTurn,
   retrieve: stubRetrieve,
   rerankAssess: stubRerankAssess,
-  decide,
+  decide: stubDecide,
   answer,
   validateCitations,
   clarify,

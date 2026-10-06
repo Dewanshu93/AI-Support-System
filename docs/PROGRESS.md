@@ -20,6 +20,7 @@
 | W2-02 | Graph state, skeleton and checkpointer | Done                                   | 2026-10-05 |
 | W2-03 | loadContext, precheck, analyzeTurn     | Done                                   | 2026-10-06 |
 | W2-04 | retrieve and rerankAssess nodes        | Done                                   | 2026-10-06 |
+| W2-05 | Decision rules and decide node         | Done                                   | 2026-10-06 |
 
 ## Checkpoints
 
@@ -791,3 +792,33 @@ Gemini query embeddings on the LAN index.
 - **Follow-up:** `HISTORY_LIMIT` (8) in loadContext and `MAX_TICKET_CLARIFY_ROUNDS` (2) in
   edges duplicate `thresholds.yaml` (`conversation.historyMessages`,
   `ticket.maxClarifyRounds`). Read them from config when the API wires the nodes (W2-08).
+
+## W2-05 Decision rules and decide node — 2026-10-06
+
+**Delivered:**
+
+- `domain/decisionRules.ts`: the ordered section 5 rules table, first-match evaluation and
+  `rulesFired`.
+- `ai/nodes/decide.ts`: `createDecide(thresholds)`, with thresholds from config and a snapshot
+  in the trace.
+- New persisted state key `topicClarified` (at most one clarification per topic).
+- The decide stub moved to `nodes/stubs.ts`.
+
+**Verification**
+
+| Check                                    | Result                                                                                                                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Every rule reachable                     | Pass: table-driven test per rule (11 cases; rules 1 and 4 via both conditions), each asserting the decision, reason code and deciding rule                                                                                     |
+| First-match semantics                    | Pass: everything true → SENSITIVE_HANDOFF with all 8 matching rules recorded in order; pairwise precedence (out of scope > safety > user request; safety, request action and ambiguity > strong evidence)                      |
+| Boundary values                          | Pass: relevance 3 / 2 / 1.99 / 1 / 0.99 / 0 against T_answer 2 and T_partial 1; partial coverage never ANSWER; coverage `unknown` / `none` never rules 7–8; thresholds read from the argument                                  |
+| Branch coverage of `domain/`             | Pass: 100% statements, branches, functions and lines (`decisionRules.ts`)                                                                                                                                                      |
+| Workflow tests                           | Pass: `test/ai/decide.test.ts` (12): the real decide node routes each decision to the right next node; trace snapshot; the safety path drafts a ticket; clarify once, then answer, then clarify a new topic across three turns |
+| DoD: rules documented in ARCHITECTURE.md | Pass: section "Decision rules (W2-05)"                                                                                                                                                                                         |
+
+**Notes**
+
+- **Design choice:** a "topic" is "since the last clarifying question". This is the simplest
+  rule that guarantees at most one clarification before the bot answers or escalates; there is
+  no topic detection.
+- There is no LLM in this task. Decision accuracy is measured by the full eval (W2-10) and
+  thresholds are tuned in W4-06.
