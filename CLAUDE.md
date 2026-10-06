@@ -16,23 +16,23 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 
 ## Commands
 
-| Command                                    | What it does                                                            |
-| ------------------------------------------ | ----------------------------------------------------------------------- |
-| `npm install`                              | Install all workspaces                                                  |
-| `npm run dev:api` / `npm run dev:web`      | Build shared, then run api (:4000) / web (:3000)                        |
-| `npm run lint`                             | ESLint over the whole repo                                              |
-| `npm run typecheck`                        | `tsc` in every workspace (includes tests)                               |
-| `npm test`                                 | Jest in shared, api, web                                                |
-| `npm run test:e2e`                         | Playwright (starts web dev server if not running)                       |
-| `npm run db:indexes`                       | Create Mongo indexes + Qdrant collection (idempotent)                   |
-| `npm run seed`                             | Upsert demo users from `seed/users.json` (idempotent)                   |
-| `npm run corpus:validate`                  | Validate `corpus/` (`-- --write` refreshes the README inventory)        |
-| `npm run golden:validate`                  | Validate `evals/golden/golden.v1.jsonl` and print its composition       |
-| `npm run eval -- --suite retrieval`        | Retrieval eval: recall@5 per mode, leakage, report in `evals/reports/`  |
-| `npm run ingest`                           | Chunk, embed and index `corpus/` into MongoDB and Qdrant (idempotent)   |
-| `npm run retrieve -- --user <email> "<q>"` | Profile-safe hybrid retrieval on the real index, as a table             |
-| `npm run llm:smoke`                        | Real structured output + embeddings check for every provider with a key |
-| `docker compose up --build`                | web + api + mongodb + qdrant                                            |
+| Command                                    | What it does                                                                                                                |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `npm install`                              | Install all workspaces                                                                                                      |
+| `npm run dev:api` / `npm run dev:web`      | Build shared, then run api (:4000) / web (:3000)                                                                            |
+| `npm run lint`                             | ESLint over the whole repo                                                                                                  |
+| `npm run typecheck`                        | `tsc` in every workspace (includes tests)                                                                                   |
+| `npm test`                                 | Jest in shared, api, web                                                                                                    |
+| `npm run test:e2e`                         | Playwright on its own API (:4100) and web build (:3100); replays recorded LLM replies (`E2E_LLM=record` / `live` to change) |
+| `npm run db:indexes`                       | Create Mongo indexes + Qdrant collection (idempotent)                                                                       |
+| `npm run seed`                             | Upsert demo users from `seed/users.json` (idempotent)                                                                       |
+| `npm run corpus:validate`                  | Validate `corpus/` (`-- --write` refreshes the README inventory)                                                            |
+| `npm run golden:validate`                  | Validate `evals/golden/golden.v1.jsonl` and print its composition                                                           |
+| `npm run eval -- --suite retrieval`        | Retrieval eval: recall@5 per mode, leakage, report in `evals/reports/`                                                      |
+| `npm run ingest`                           | Chunk, embed and index `corpus/` into MongoDB and Qdrant (idempotent)                                                       |
+| `npm run retrieve -- --user <email> "<q>"` | Profile-safe hybrid retrieval on the real index, as a table                                                                 |
+| `npm run llm:smoke`                        | Real structured output + embeddings check for every provider with a key                                                     |
+| `docker compose up --build`                | web + api + mongodb + qdrant                                                                                                |
 
 ## Core rules
 

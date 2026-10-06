@@ -25,6 +25,7 @@ describe('parseEnv', () => {
       WEB_ORIGIN: 'http://localhost:3000',
       LOG_LEVEL: 'info',
       QDRANT_URL: 'http://localhost:6333',
+      LLM_MODE: 'live',
     });
   });
 

@@ -1,6 +1,7 @@
+import path from 'node:path';
 import { APP_NAME } from '@sd/shared';
 import { createApp } from './app';
-import { type AppConfig, ConfigError, initConfig, loadDotEnv } from './config';
+import { type AppConfig, ConfigError, initConfig, loadDotEnv, REPO_ROOT } from './config';
 import {
   connectDatabase,
   createQdrantClient,
@@ -9,8 +10,9 @@ import {
   pingQdrant,
 } from './db';
 import { createMongoCheckpointer } from './ai/graph/checkpointer';
-import { buildTurnGraph } from './ai/graph/runtime';
-import { createChatModel, createEmbeddings, embedQuery } from './ai/llm';
+import { buildTurnGraph, type TurnGraphDeps } from './ai/graph/runtime';
+import { createChatModel, createEmbeddings, embedQuery, resolveChatModel } from './ai/llm';
+import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
 import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
 import { mongoConversationsRepository } from './modules/conversations/repository';
@@ -74,24 +76,49 @@ async function main() {
 
   // Created on first use, so the API boots without a Gemini key (turns then fail with an error event).
   let queryEmbeddings: ReturnType<typeof createEmbeddings> | undefined;
+  const liveEmbedQuery = (text: string) => {
+    queryEmbeddings ??= createEmbeddings(config.models, config.env, 'query');
+    return embedQuery(queryEmbeddings, text, {
+      policy: config.models.call,
+      dimension: config.models.embeddings.dimension,
+    });
+  };
+  const liveChat: TurnGraphDeps['chatFor'] = (tier, options) =>
+    createChatModel(config.models, config.env, tier, undefined, options);
+
+  // End-to-end tests: recorded LLM replies instead of (or captured from) the provider.
+  const mode = config.env.LLM_MODE;
+  const recordings =
+    mode === 'live'
+      ? null
+      : new LlmRecordings(
+          config.env.LLM_RECORDINGS_FILE ??
+            path.join(REPO_ROOT, 'e2e', 'fixtures', 'llm-recordings.json'),
+        );
+  if (recordings)
+    logger.warn({ mode, recordings: recordings.size }, 'LLM_MODE is not live (tests only)');
+
   const graph = buildTurnGraph({
     config,
     prompts,
-    chatFor: (tier, options) =>
-      createChatModel(config.models, config.env, tier, undefined, options),
+    chatFor:
+      mode === 'live'
+        ? liveChat
+        : (tier, options) =>
+            recordedChatHandle(
+              mode,
+              recordings!,
+              () => liveChat(tier, options),
+              resolveChatModel(config.models, tier),
+            ),
     users,
     conversations,
     checkpointer,
     retrieve: (input) =>
       retrieve(input, {
         qdrant,
-        embedQuery: (text) => {
-          queryEmbeddings ??= createEmbeddings(config.models, config.env, 'query');
-          return embedQuery(queryEmbeddings, text, {
-            policy: config.models.call,
-            dimension: config.models.embeddings.dimension,
-          });
-        },
+        embedQuery:
+          mode === 'live' ? liveEmbedQuery : recordedEmbedQuery(mode, recordings!, liveEmbedQuery),
         loadChunks: (ids) => documents.findChunksByIds(ids),
         params: config.thresholds.retrieval,
         onViolation: (v) => logger.error({ violation: v }, 'ACCESS_FILTER_VIOLATION'),

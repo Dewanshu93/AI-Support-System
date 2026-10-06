@@ -3,9 +3,15 @@
 // Every response is validated with the shared Zod schemas.
 import {
   AuthUserResponseSchema,
+  ConversationDetailResponseSchema,
+  ConversationListResponseSchema,
+  ConversationResponseSchema,
   DemoUsersResponseSchema,
   ErrorEnvelopeSchema,
+  type FeedbackRequest,
+  FeedbackResponseSchema,
   type LoginRequest,
+  SourceChunkResponseSchema,
 } from '@sd/shared';
 import type { z } from 'zod';
 
@@ -75,4 +81,23 @@ export const api = {
   login: async (body: LoginRequest) =>
     (await apiRequest('/auth/login', AuthUserResponseSchema, { method: 'POST', body }))!.user,
   logout: () => apiRequest('/auth/logout', null, { method: 'POST' }),
+  conversations: async (limit = 30) =>
+    (await apiRequest(`/conversations?limit=${limit}`, ConversationListResponseSchema))!,
+  createConversation: async () =>
+    (await apiRequest('/conversations', ConversationResponseSchema, { method: 'POST', body: {} }))!
+      .conversation,
+  conversation: async (id: string) =>
+    (await apiRequest(`/conversations/${id}`, ConversationDetailResponseSchema))!,
+  resolve: async (id: string, messageId: string, resolved: boolean) =>
+    (await apiRequest(`/conversations/${id}/resolution`, ConversationResponseSchema, {
+      method: 'POST',
+      body: { messageId, resolved },
+    }))!.conversation,
+  feedback: async (messageId: string, body: FeedbackRequest) =>
+    (await apiRequest(`/messages/${messageId}/feedback`, FeedbackResponseSchema, {
+      method: 'POST',
+      body,
+    }))!.feedback,
+  source: async (chunkId: string) =>
+    (await apiRequest(`/sources/chunks/${chunkId}`, SourceChunkResponseSchema))!,
 };

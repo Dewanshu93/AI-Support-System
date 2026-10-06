@@ -24,13 +24,15 @@
 | W2-06 | Grounded answer and citation validation           | Done                                   | 2026-10-06 |
 | W2-07 | Clarify, out-of-scope and sensitive handoff nodes | Done                                   | 2026-10-06 |
 | W2-08 | Persist node and chat API with SSE                | Done                                   | 2026-10-06 |
+| W2-09 | Chat UI                                           | Done                                   | 2026-10-06 |
 
 ## Checkpoints
 
-| Checkpoint      | Status                             | Notes                                                                                                                                           |
-| --------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| CP-1 Foundation | **Passed (2026-10-05)**, local run | Compose criterion deferred by the owner; checked as a local run instead. See the CP-1 section below                                             |
-| CP-2 Retrieval  | **Passed (2026-10-05)**            | Corpus and golden set valid; full corpus ingested idempotently; fused recall@5 100% (gate 75%); leakage 0; exhaustive access-filter tests green |
+| Checkpoint         | Status                             | Notes                                                                                                                                                        |
+| ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CP-1 Foundation    | **Passed (2026-10-05)**, local run | Compose criterion deferred by the owner; checked as a local run instead. See the CP-1 section below                                                          |
+| CP-2 Retrieval     | **Passed (2026-10-05)**            | Corpus and golden set valid; full corpus ingested idempotently; fused recall@5 100% (gate 75%); leakage 0; exhaustive access-filter tests green              |
+| CP-4 Employee flow | **Passed (2026-10-06)**            | Flows 1, 2, 3, 6 (offer step), 7 in the browser (Playwright); TTFT measured (4.7–13.4 s live); a trace for every turn; Playwright 16/16 green twice (replay) |
 
 ## W1-01 Monorepo scaffold — 2026-10-02
 
@@ -988,6 +990,78 @@ or running P-2 on fewer candidates.
   stub draft, after which the conversation returns 409 until the W3 confirm/cancel endpoints
   exist. Conversation status stays `open` (W3 sets escalated / handed_off / restricted).
 - The turn lock is in process memory (ADR-010).
-- A stray API process (PID 20072, `tsx src/server.ts`, started 10:07) was listening on port 4000
-  during this session. It was not stopped because it may belong to the owner; the curl
-  acceptance ran on port 4100.
+- Port 4000 was in use by the `tsx watch` dev server started on 2026-10-05 (the "run the app" request); its child process restarts on every file change. It was left running; the curl acceptance ran on port 4100. (Corrected in W2-09: an earlier note called it a stray process.)
+
+## W2-09 Chat UI — 2026-10-06
+
+**Delivered:**
+
+- `apps/web`:
+  - `/chat` and `/chat/[conversationId]` (`components/chat/ChatWorkspace.tsx`);
+  - `AssistantMessage`, `HandoffCard`, `TicketDraftCard` (stub), `SourceDrawer`, `ChatParts`;
+  - `lib/sse.ts`, `lib/chatTurn.ts` (state machine), `hooks/useChatTurn.ts`;
+  - chat endpoints in `lib/api.ts`.
+- `next.config.ts`: `proxyTimeout` 300 s (fix, see below) and an optional `distDir` for E2E.
+- API: recorded LLM mode (`LLM_MODE=record|replay`, `ai/llm/recording.ts`, env
+  `LLM_MODE` / `LLM_RECORDINGS_FILE`) and `npm run start:e2e`.
+- `e2e`: isolated ports (4100/3100), `E2E_LLM` modes, `tests/chat.spec.ts`, recordings in
+  `e2e/fixtures/llm-recordings.json`.
+
+**Contract flows used** (the Build Contract is still missing; inferred from the playbook and
+CP-4, please confirm):
+
+| Flow           | Interpretation                                                                           | Spec                |
+| -------------- | ---------------------------------------------------------------------------------------- | ------------------- |
+| 1              | Policy question → cited, profile-specific answer; source drawer; resolution and feedback | Priya and Tom tests |
+| 2              | Partial answer states what is not covered; "No" → escalation offer                       | flow 2              |
+| 3              | Ambiguous question → one clarifying question                                             | flow 3              |
+| 6 (offer step) | Sensitive message → HR handoff with the private-contact offer                            | flow 6              |
+| 7              | Out-of-scope question → templated reply                                                  | flow 7              |
+
+**Verification**
+
+| Check                                                          | Result                                                                                                                                                                                              |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Priya and Tom get different cited answers to the same question | Pass: Priya cites "Annual Leave (US)" (15/20 days); Tom cites "Time Off for Contractors" (leave comes from the agency)                                                                              |
+| Citations open the source drawer                               | Pass: chip → drawer with the document title and the cited passage                                                                                                                                   |
+| Resolution and feedback persist                                | Pass: feedback POST returns 200 and the button stays pressed; "Marked as resolved" survives a page reload                                                                                           |
+| Playwright flows 1, 2, 3 (live or recorded LLM)                | Pass: recorded from the live provider (`E2E_LLM=record`), replayed by default; **16/16 green twice** (auth, home, chat)                                                                             |
+| Component tests for the SSE state machine                      | Pass: `chatTurn.test.ts` (answer, pending citations, withdrawn, handoff, ticket draft, error, reset, marker splitting) and `sse.test.ts` (chunk boundaries, CRLF, schema rejection, error envelope) |
+| DoD: CP-4 employee flow checklist                              | Pass: flows 1, 2, 3, 6 (offer step), 7 in the browser; TTFT measured; a trace for every turn; Playwright green                                                                                      |
+
+**Streaming TTFT (CP-4), live run through OpenRouter (`google/gemini-3.8-flash`), traces in MongoDB:**
+
+| Turn                       | Total  | TTFT (answer)  |
+| -------------------------- | ------ | -------------- |
+| Flow 1 Priya (ANSWER)      | 19.9 s | 4.7 s          |
+| Flow 1 Tom (ANSWER)        | 21.6 s | 13.4 s         |
+| Flow 2 (PARTIAL)           | 19.1 s | 8.9 s          |
+| Monitor question (ANSWER)  | 12.6 s | 5.1 s          |
+| Flow 3 (CLARIFY)           | 8.5 s  | n/a            |
+| Flow 7 (OUT_OF_SCOPE)      | 1.8 s  | n/a (P-1 only) |
+| Flow 6 (SENSITIVE_HANDOFF) | 7 ms   | n/a (no LLM)   |
+
+**Bugs found and fixed:**
+
+1. **The Next.js `/api` proxy cut off streams after 30 s** (its default): every real answer
+   turn died in the browser with "Cannot reach the service" even though the API finished and
+   stored it. Fixed with `experimental.proxyTimeout: 300_000`.
+2. The state machine ignored the `done` event after `withdrawn`, so the decision was lost
+   (unit test).
+3. "New chat" did nothing after the first message (the router still thought the page was
+   `/chat` after `replaceState`); now a full navigation.
+4. A connection dropped mid-turn showed "Cannot reach the service"; it now says the reply was
+   interrupted (the server still stores it).
+
+**Notes**
+
+- **Gemini quota:** `gemini-3.8-flash` returned **429 quota exceeded** today, after the evals
+  and live checks. The recordings were made through **OpenRouter** with a temporary config copy
+  (`CONFIG_DIR`, `chat.provider: openrouter`); the repo config is unchanged. Replays do not
+  depend on the provider.
+- **Latency:** OpenRouter turns took 12.6–21.6 s, against 44 s on Gemini direct in W2-08, so
+  OpenRouter as the default provider is a cheap first step for W4-02.
+- The ticket draft card is a stub, and the private-contact "Yes" is disabled until W3-03.
+- Replay keys are hashes of the prompt messages: changing a prompt, the corpus or retrieval
+  results requires re-recording (`E2E_LLM=record`); a missing recording fails the turn loudly.
+- E2E data (conversations, messages, traces) is written to the `servicedesk` database.

@@ -1,11 +1,7 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { ChatWorkspace } from '@/components/chat/ChatWorkspace';
+
+export const metadata = { title: 'Chat' };
 
 export default function ChatPage() {
-  return (
-    <PlaceholderPage
-      title="Chat"
-      description="Ask IT or HR questions and get cited answers or a ready-to-confirm ticket."
-      task="W2-09"
-    />
-  );
+  return <ChatWorkspace />;
 }

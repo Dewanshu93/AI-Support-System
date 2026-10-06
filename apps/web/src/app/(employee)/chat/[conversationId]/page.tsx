@@ -1,11 +1,13 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { ChatWorkspace } from '@/components/chat/ChatWorkspace';
 
-export default function ConversationPage() {
-  return (
-    <PlaceholderPage
-      title="Conversation"
-      description="A single conversation with streamed answers, citations and the source drawer."
-      task="W2-09"
-    />
-  );
+export const metadata = { title: 'Conversation' };
+
+export default async function ConversationPage({
+  params,
+}: {
+  params: Promise<{ conversationId: string }>;
+}) {
+  const { conversationId } = await params;
+  // key: a different conversation starts from a fresh workspace.
+  return <ChatWorkspace key={conversationId} initialConversationId={conversationId} />;
 }

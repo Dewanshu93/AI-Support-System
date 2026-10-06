@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-08)
+## Repository layout (as of W2-09)
 
 ```
 /
@@ -553,6 +553,45 @@ out_of_scope }`. No LLM call.
     active ticket flow).
 - **Conversation status** stays `open` except `resolved`; `escalated`, `handed_off` and
   `restricted` are set by the W3 ticket tasks.
+
+## Chat UI (W2-09)
+
+- Routes `/chat` and `/chat/[conversationId]` render `components/chat/ChatWorkspace.tsx`
+  (client). It contains the conversation sidebar, the message list (stored messages plus the
+  live streamed turn), the composer with "Talk to a human", the resolution prompt, feedback
+  buttons and the source drawer.
+  - **First message:** `POST /conversations`, then `history.replaceState` to
+    `/chat/[id]`, so the stream is not interrupted by a navigation. "New chat" is therefore a
+    full page load.
+- **Streaming:** `lib/sse.ts` (`streamChat` reads the POST response body;
+  `createSseParser` validates each event with the shared `ChatEventSchema`) drives
+  `hooks/useChatTurn.ts`.
+- **State machine:** `lib/chatTurn.ts` (`turnReducer`, pure and unit-tested):
+  - `idle → streaming` (request sent, stage updates) `→ awaiting_citations` (answer text
+    arriving; [Sx] markers show as pending chips) `→ done | withdrawn | error`;
+  - a withdrawn turn still accepts its `done` event;
+  - when a turn finishes, the stored messages replace the live view.
+- **Components:**
+  - `AssistantMessage`: citation chips, decision badge, safety notice for ESCALATE/SAFETY,
+    "Answer withdrawn";
+  - `HandoffCard`: sensitive (contact plus the private-contact offer, disabled until W3-03) and
+    out of scope;
+  - `TicketDraftCard`: a stub until W3; a pending draft replaces the composer with a note;
+  - `SourceDrawer`: title, version, effective date, owner, section path, chunk text,
+    previous/next; a 404 shows "Source not available";
+  - `ChatParts`: StageIndicator, Composer, ResolutionPrompt, FeedbackButtons, EmptyChat with 4
+    example prompts.
+- **Proxy:** `next.config.ts` sets `experimental.proxyTimeout` to 300 s. The default of 30 s
+  cut off real answer turns, which take 20–45 s, in the middle of the SSE stream.
+- **E2E** (`e2e/`):
+  - Playwright starts its own API (port 4100, `npm run start:e2e`) and a production web build
+    (port 3100, `NEXT_DIST_DIR=.next-e2e`), so a developer's running servers are untouched.
+  - `E2E_LLM=replay` (default) serves recorded LLM replies and query embeddings from
+    `e2e/fixtures/llm-recordings.json` through the API's `LLM_MODE`
+    (`ai/llm/recording.ts`, keyed by a hash of the prompt messages; a missing recording is an
+    error, never a live call).
+  - `E2E_LLM=record` re-records from the configured provider; `E2E_LLM=live` runs without
+    saving.
 
 ## Runtime
 

@@ -36,6 +36,12 @@ export const EnvSchema = z.object({
   OPENROUTER_API_KEY: optionalString,
   /** Overrides the config/ directory (tests, alternative deployments). */
   CONFIG_DIR: optionalString,
+  /**
+   * End-to-end tests only (W2-09): `record` saves every LLM reply and query
+   * embedding to LLM_RECORDINGS_FILE; `replay` serves them and never calls a provider.
+   */
+  LLM_MODE: z.preprocess(blankToUndefined, z.enum(['live', 'record', 'replay']).default('live')),
+  LLM_RECORDINGS_FILE: optionalString,
 });
 
 export type Env = z.output<typeof EnvSchema>;
