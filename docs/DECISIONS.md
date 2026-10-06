@@ -301,7 +301,7 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 
 ## ADR-011 — Build Contract missing: the playbook is the working reference
 
-- **Status:** Accepted (2026-10-06), owner confirmation of the assumptions below pending
+- **Status:** Superseded (2026-10-06) by `docs/BUILD_CONTRACT.md` v1.0, written by the owner at the manager's request (approval pending). Kept for history.
 - **Context:** `docs/BUILD_CONTRACT.md` is a placeholder; the owner does not have the approved
   contract. The playbook quotes or summarises parts of it (flows 1–9, section Q corpus rules,
   section S targets, NFR-1–NFR-3), but not all of the text.
