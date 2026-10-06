@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-06)
+## Repository layout (as of W2-07)
 
 ```
 /
@@ -344,6 +344,7 @@ graph TD;
 	precheck -.-> analyzeTurn;
 	analyzeTurn -.-> sensitiveHandoff;
 	analyzeTurn -.-> slotFill;
+	analyzeTurn -.-> decide;
 	analyzeTurn -.-> retrieve;
 	decide -.-> answer;
 	decide -.-> clarify;
@@ -486,6 +487,25 @@ holds, in order; the first is the deciding rule.
     section, date).
   - `trace.outputs.citations` holds proposed, valid, rejected, numericViolations and withdrawn.
 - `domain/templates.ts` → `fillTemplate` (pure; throws on an unfilled placeholder).
+
+## Clarify, out-of-scope and sensitive handoff (W2-07)
+
+- `createClarify(deps)`: P-4 `clarifying_question` in **ambiguity** mode (fast tier, prompt
+  temperature), with `analysis.ambiguityReason` as "what needs clarifying". It uses the shared
+  `structuredCallWithRetry`; failure → the `clarify_generic` template (new in
+  `templates.yaml`) plus the `CLARIFY_FALLBACK` flag. `decide` sets `topicClarified` (W2-05),
+  so the bot clarifies at most once per topic.
+- `createOutOfScope({ templates })`: the `out_of_scope` template, `handoff: { kind:
+out_of_scope }`. No LLM call.
+- `createSensitiveHandoff({ templates })`: built from templates only (`sensitive_handoff`
+  with `sensitive_contact`). It ends with "Would you like HR to contact you privately?" and
+  sets `handoff: { kind: sensitive, contact, offerPrivateContact: true }`. It never reads
+  `retrieval`, so no retrieved policy text can appear (tested even when a sensitive decision
+  comes after retrieval). Creating the restricted ticket on "Yes" is W3-03.
+- **Out-of-scope shortcut (ADR-009):** `routeAfterAnalysis` sends `intent = out_of_scope`
+  straight to `decide` (rule 2 → OUT_OF_SCOPE), skipping embedding, search and P-2. Sensitive
+  and out-of-scope replies therefore make no LLM call beyond P-1 (a sensitive keyword makes
+  none at all).
 
 ## Runtime
 

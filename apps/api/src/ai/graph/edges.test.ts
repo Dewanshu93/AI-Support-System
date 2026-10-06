@@ -63,6 +63,21 @@ describe('routeAfterAnalysis', () => {
   });
 });
 
+describe('routeAfterAnalysis: out of scope (ADR-009)', () => {
+  const oos = { ...stubAnalysis('pizza'), intent: 'out_of_scope' as const };
+  it('goes straight to decide, skipping retrieval and P-2', () => {
+    expect(routeAfterAnalysis(at({ analysis: oos }))).toBe('decide');
+  });
+  it('sensitivity and an active ticket flow still take precedence', () => {
+    expect(routeAfterAnalysis(at({ analysis: { ...oos, sensitivity: 'sensitive' } }))).toBe(
+      'sensitiveHandoff',
+    );
+    expect(
+      routeAfterAnalysis(at({ analysis: oos, ticketFlow: { ...EMPTY_TICKET_FLOW, active: true } })),
+    ).toBe('slotFill');
+  });
+});
+
 describe('routeAfterSlotFill', () => {
   it.each([
     [['device'], 0, 'clarifyForTicket'],

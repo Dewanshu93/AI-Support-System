@@ -1,13 +1,23 @@
-// outOfScope (code, template). Stub until W2-07.
+// outOfScope (code, template; playbook section 5). A fixed reply that says
+// what the assistant can help with. No LLM call, no retrieved text.
+import type { ConfigFiles } from '../../config/schemas';
+import { fillTemplate } from '../../domain/templates';
 import type { State, StateUpdate } from '../graph/state';
-import { STUB_OUTPUT } from './stubs';
 
-export function outOfScope(_state: State): StateUpdate {
-  return {
-    output: {
-      ...STUB_OUTPUT,
-      text: 'Stub out-of-scope reply.',
-      handoff: { kind: 'out_of_scope', contact: 'stub' },
-    },
+export interface TemplateDeps {
+  templates: ConfigFiles['templates']['templates'];
+}
+
+export function createOutOfScope({ templates }: TemplateDeps) {
+  return function outOfScope(_state: State): StateUpdate {
+    return {
+      output: {
+        text: fillTemplate(templates.out_of_scope),
+        citations: [],
+        uncovered: [],
+        withdrawn: false,
+        handoff: { kind: 'out_of_scope' },
+      },
+    };
   };
 }

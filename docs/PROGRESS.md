@@ -2,26 +2,27 @@
 
 ## Task status
 
-| Task  | Name                                    | Status                                 | Date       |
-| ----- | --------------------------------------- | -------------------------------------- | ---------- |
-| W1-01 | Monorepo scaffold                       | Done (Docker unverified)               | 2026-10-02 |
-| W1-02 | Config and env loading                  | Done                                   | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope     | Done                                   | 2026-10-02 |
-| W1-04 | Database layer and indexes              | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
-| W1-05 | Users seed and auth                     | Done                                   | 2026-10-05 |
-| W1-06 | Frontend shell and login                | Done                                   | 2026-10-05 |
-| W1-07 | Corpus authoring and validation         | Done (pending owner review of numbers) | 2026-10-05 |
-| W1-08 | Golden set v1                           | Done (pending owner review)            | 2026-10-05 |
-| W1-09 | LLM and embedding provider layer        | Done                                   | 2026-10-05 |
-| W1-10 | Ingestion pipeline                      | Done                                   | 2026-10-05 |
-| W1-11 | Access filter and hybrid retrieval      | Done                                   | 2026-10-05 |
-| W1-12 | Retrieval eval runner                   | Done                                   | 2026-10-05 |
-| W2-01 | Prompt registry                         | Done                                   | 2026-10-05 |
-| W2-02 | Graph state, skeleton and checkpointer  | Done                                   | 2026-10-05 |
-| W2-03 | loadContext, precheck, analyzeTurn      | Done                                   | 2026-10-06 |
-| W2-04 | retrieve and rerankAssess nodes         | Done                                   | 2026-10-06 |
-| W2-05 | Decision rules and decide node          | Done                                   | 2026-10-06 |
-| W2-06 | Grounded answer and citation validation | Done                                   | 2026-10-06 |
+| Task  | Name                                              | Status                                 | Date       |
+| ----- | ------------------------------------------------- | -------------------------------------- | ---------- |
+| W1-01 | Monorepo scaffold                                 | Done (Docker unverified)               | 2026-10-02 |
+| W1-02 | Config and env loading                            | Done                                   | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope               | Done                                   | 2026-10-02 |
+| W1-04 | Database layer and indexes                        | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
+| W1-05 | Users seed and auth                               | Done                                   | 2026-10-05 |
+| W1-06 | Frontend shell and login                          | Done                                   | 2026-10-05 |
+| W1-07 | Corpus authoring and validation                   | Done (pending owner review of numbers) | 2026-10-05 |
+| W1-08 | Golden set v1                                     | Done (pending owner review)            | 2026-10-05 |
+| W1-09 | LLM and embedding provider layer                  | Done                                   | 2026-10-05 |
+| W1-10 | Ingestion pipeline                                | Done                                   | 2026-10-05 |
+| W1-11 | Access filter and hybrid retrieval                | Done                                   | 2026-10-05 |
+| W1-12 | Retrieval eval runner                             | Done                                   | 2026-10-05 |
+| W2-01 | Prompt registry                                   | Done                                   | 2026-10-05 |
+| W2-02 | Graph state, skeleton and checkpointer            | Done                                   | 2026-10-05 |
+| W2-03 | loadContext, precheck, analyzeTurn                | Done                                   | 2026-10-06 |
+| W2-04 | retrieve and rerankAssess nodes                   | Done                                   | 2026-10-06 |
+| W2-05 | Decision rules and decide node                    | Done                                   | 2026-10-06 |
+| W2-06 | Grounded answer and citation validation           | Done                                   | 2026-10-06 |
+| W2-07 | Clarify, out-of-scope and sensitive handoff nodes | Done                                   | 2026-10-06 |
 
 ## Checkpoints
 
@@ -876,3 +877,49 @@ questions, 3 ANSWER and 1 PARTIAL.
   (ADR-008); measure in W2-10.
 - In safety mode, a withdrawn safety answer shows the generic "raise a ticket?" template even
   though the draft follows automatically. Refine the copy in W2-07/W3.
+
+## W2-07 Clarify, out-of-scope and sensitive handoff nodes — 2026-10-06
+
+**Delivered:**
+
+- Real nodes:
+  - `ai/nodes/clarify.ts` (P-4 ambiguity mode, falling back to the new `clarify_generic`
+    template);
+  - `ai/nodes/outOfScope.ts`;
+  - `ai/nodes/sensitiveHandoff.ts` (templates only; contact plus the "Would you like HR to
+    contact you privately?" offer).
+- `config/templates.yaml`: `clarify_generic` added (also listed in `TEMPLATE_PLACEHOLDERS`).
+- `Output.handoff`: optional `contact` and `offerPrivateContact`.
+- `routeAfterAnalysis`: out of scope → decide, skipping retrieval and P-2 (ADR-009). The Mermaid
+  topology in ARCHITECTURE.md was regenerated.
+- The stubs for these three nodes moved to `nodes/stubs.ts`.
+
+**Verification**
+
+| Check                                                                 | Result                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sensitive and out-of-scope replies make no generation call beyond P-1 | Pass: graph tests with real precheck, P-1, rerank (P-2), decide and templates on one counting fake model. Sensitive keyword → **0** calls; sensitive by analysis → **1** (P-1); out of scope → **1** (P-1), path loadContext → precheck → analyzeTurn → decide → outOfScope → persist |
+| Node tests                                                            | Pass: `test/ai/handoffs.test.ts`: clarify (valid; invalid twice → template; provider error → template without a retry; missing reason), out of scope, sensitive                                                                                                                       |
+| Template rendering tests                                              | Pass: every template in `templates.yaml` renders with its declared placeholders, leaving none unfilled                                                                                                                                                                                |
+| DoD: sensitive path never includes retrieved policy text              | Pass: the node output never contains a planted retrieved paragraph, including a SENSITIVE_HANDOFF decision reached **after** retrieval and rerank; citations are always `[]`                                                                                                          |
+| Edge unit tests                                                       | Pass: out of scope → decide; sensitivity and an active ticket flow take precedence                                                                                                                                                                                                    |
+
+**Live P-4 check** (`gemini-3.1-flash-lite`, UK full-time profile):
+
+| Message              | Clarifying question                                                         | Latency |
+| -------------------- | --------------------------------------------------------------------------- | ------- |
+| "it is broken"       | "…which device or system is currently giving you trouble?"                  | 6.9 s   |
+| "I need access"      | "…which specific system or resource you need access to?"                    | 1.3 s   |
+| "how much do I get?" | "…asking about your salary, expense reimbursements, or leave entitlements?" | 4.0 s   |
+
+All three were valid on the first attempt with native structured output, about $0.0001 each,
+and each asked exactly one question.
+
+**Notes**
+
+- **Deviation (ADR-009):** out-of-scope turns go analyzeTurn → decide, which section 5 does
+  not have; it is needed for the card's acceptance criterion. Risk: if P-1 wrongly marks an
+  in-scope question out of scope, no evidence can override it (measure in W2-10).
+- P-4 receives the raw message and the ambiguity reason, not the history (per P-4 v1's
+  inputs). If the eval shows repeated questions, add history in a v2 prompt.
+- Nothing is persisted yet (the persist stub); W2-08 stores replies and handoffs.

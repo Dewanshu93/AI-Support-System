@@ -10,21 +10,21 @@ import {
 import { agentSummary } from '../nodes/agentSummary';
 import { awaitConfirmation } from '../nodes/awaitConfirmation';
 import { buildDraft } from '../nodes/buildDraft';
-import { clarify } from '../nodes/clarify';
 import { clarifyForTicket } from '../nodes/clarifyForTicket';
 import { createTicket } from '../nodes/createTicket';
-import { outOfScope } from '../nodes/outOfScope';
 import { persist } from '../nodes/persist';
-import { sensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { slotFill } from '../nodes/slotFill';
 import {
   stubAnalyzeTurn,
   stubAnswer,
+  stubClarify,
   stubDecide,
   stubLoadContext,
+  stubOutOfScope,
   stubPrecheck,
   stubRerankAssess,
   stubRetrieve,
+  stubSensitiveHandoff,
   stubValidateCitations,
 } from '../nodes/stubs';
 import { type NodeFn, traced } from '../tracing/traced';
@@ -57,9 +57,9 @@ export const DEFAULT_NODES = {
   decide: stubDecide,
   answer: stubAnswer,
   validateCitations: stubValidateCitations,
-  clarify,
-  outOfScope,
-  sensitiveHandoff,
+  clarify: stubClarify,
+  outOfScope: stubOutOfScope,
+  sensitiveHandoff: stubSensitiveHandoff,
   slotFill,
   clarifyForTicket,
   buildDraft,

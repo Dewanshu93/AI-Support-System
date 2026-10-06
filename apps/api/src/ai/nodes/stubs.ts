@@ -135,3 +135,23 @@ export function stubValidateCitations(state: State): StateUpdate {
     },
   };
 }
+
+export function stubClarify(_state: State): StateUpdate {
+  return { output: { ...STUB_OUTPUT, text: 'Stub clarifying question?' } };
+}
+
+export function stubOutOfScope(_state: State): StateUpdate {
+  return {
+    output: { ...STUB_OUTPUT, text: 'Stub out-of-scope reply.', handoff: { kind: 'out_of_scope' } },
+  };
+}
+
+export function stubSensitiveHandoff(_state: State): StateUpdate {
+  return {
+    output: {
+      ...STUB_OUTPUT,
+      text: 'Stub sensitive handoff.',
+      handoff: { kind: 'sensitive', contact: 'stub', offerPrivateContact: true },
+    },
+  };
+}

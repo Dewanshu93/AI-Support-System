@@ -9,11 +9,14 @@ export function routeAfterPrecheck(state: State): (typeof AFTER_PRECHECK)[number
   return state.precheckResult?.sensitiveHit ? 'sensitiveHandoff' : 'analyzeTurn';
 }
 
-export const AFTER_ANALYSIS = ['sensitiveHandoff', 'slotFill', 'retrieve'] as const;
+export const AFTER_ANALYSIS = ['sensitiveHandoff', 'slotFill', 'decide', 'retrieve'] as const;
 export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number] {
   if (state.analysis?.sensitivity === 'sensitive') return 'sensitiveHandoff';
   // The employee is answering a ticket clarification, or pressed "talk to a person".
   if (state.ticketFlow.active || state.input.forceEscalate) return 'slotFill';
+  // W2-07 (ADR-009): out of scope is known after P-1; skip retrieval and P-2 and let
+  // decide record OUT_OF_SCOPE (rule 2), so the reply makes no LLM call beyond P-1.
+  if (state.analysis?.intent === 'out_of_scope') return 'decide';
   return 'retrieve';
 }
 

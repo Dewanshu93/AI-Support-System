@@ -17,3 +17,6 @@ templates:
     follow it under My tickets.
   generic_error: >-
     Something went wrong on our side while handling that message. Please try again in a moment.
+  clarify_generic: >-
+    Could you tell me a bit more so I can help? For example, which device, system or policy is
+    this about, and what have you already tried?

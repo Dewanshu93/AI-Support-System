@@ -137,7 +137,12 @@ export interface Output {
   /** Why the generated answer was withdrawn (validateCitations). */
   withdrawnReason?: 'NO_VALID_CITATIONS' | 'NUMERIC_MISMATCH';
   draft?: TicketDraftState;
-  handoff?: { kind: 'out_of_scope' | 'sensitive'; contact: string };
+  handoff?: {
+    kind: 'out_of_scope' | 'sensitive';
+    contact?: string;
+    /** Sensitive: the reply ends with "Would you like HR to contact you privately?" (W3-03 acts on Yes). */
+    offerPrivateContact?: boolean;
+  };
   ticketId?: string;
 }
 

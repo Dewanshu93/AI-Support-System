@@ -304,6 +304,7 @@ export const TEMPLATE_PLACEHOLDERS = {
   withdrawn_answer: ['domain'],
   ticket_confirmed: ['ticketHumanId', 'queueLabel'],
   generic_error: [],
+  clarify_generic: [],
 } as const satisfies Record<string, readonly string[]>;
 export type TemplateName = keyof typeof TEMPLATE_PLACEHOLDERS;
 

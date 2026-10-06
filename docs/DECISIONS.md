@@ -265,3 +265,21 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** a correct answer that paraphrases a number ("twenty-five days" in the source,
   "25" in the answer) is withdrawn. Measure the withdrawal rate in the full eval (W2-10) and
   relax the rule only with evidence.
+
+## ADR-009 — Out-of-scope turns skip retrieval (W2-07)
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** W2-07's acceptance criterion requires that out-of-scope replies make no
+  generation call beyond P-1. Section 5's node sequence sends every non-sensitive,
+  non-ticket turn through retrieve → rerankAssess (P-2) → decide, so an out-of-scope turn
+  would still embed the query and call P-2.
+- **Decision:** `routeAfterAnalysis` gains a branch: `analysis.intent = out_of_scope` → `decide`.
+  The order is: sensitive → sensitiveHandoff; active ticket flow or forceEscalate → slotFill;
+  out of scope → decide; otherwise → retrieve. `decide` still records OUT_OF_SCOPE /
+  OUT_OF_SCOPE through rule 2, so the decision record and the evals are unchanged.
+- **Alternatives:** keep section 5's sequence and accept the P-2 call (fails the acceptance
+  criterion); or route directly to `outOfScope` (no recorded decision, bypasses the rules
+  table).
+- **Consequences:** out-of-scope turns are faster and cheaper (no embedding, no search, no P-2).
+  If P-1 wrongly marks an in-scope question as out of scope, no retrieval evidence can override
+  it. The decision eval (W2-10) measures this.
