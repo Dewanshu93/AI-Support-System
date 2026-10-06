@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-10)
+## Repository layout (as of W3-01)
 
 ```
 /
@@ -615,6 +615,20 @@ out_of_scope }`. No LLM call.
     100%); decision accuracy is reported (its target applies at CP-8).
 - Ticket metrics (category, fields, invented values, priority floor) are added in week 3.
 - Each run stores `eval_runs` and `eval_results` and writes `evals/reports/<date>-full-<id>.md`.
+
+## Ticketing domain rules (W3-01)
+
+Pure modules in `domain/`, all at 100% branch coverage:
+
+- `routing.ts` (category → queue from `routing.yaml`; restricted → `hr_case`);
+- `priorityFloors.ts` (AI urgency raised to the highest applicable floor from
+  `priority-rules.yaml`; safety rules from the precheck, impact rules from the scope);
+- `ticketStateMachine.ts` (transitions per ADR-012; `isOpen`);
+- `ticketSchemas.ts` (fields per category, `requiredMissing`, `normaliseFields`);
+- `duplicateCheck.ts` (same requester and category, open, within
+  `ticket.duplicateWindowDays`).
+
+The ticket nodes (W3-02) and the API (W3-04) use these.
 
 ## Runtime
 

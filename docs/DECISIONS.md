@@ -332,3 +332,27 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** if the approved contract appears later, compare it against this list and
   fix any differences; until the owner confirms the list, a mismatch may only show at final
   acceptance.
+
+## ADR-012 — Ticket status transitions (W3-01)
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** The playbook and the Build Contract name five statuses (new, in_progress,
+  waiting_on_employee, resolved, closed) and require a state machine, but do not list the
+  allowed transitions.
+- **Decision** (`domain/ticketStateMachine.ts`):
+
+  | From                | Allowed to                                 |
+  | ------------------- | ------------------------------------------ |
+  | new                 | in_progress, waiting_on_employee, resolved |
+  | in_progress         | waiting_on_employee, resolved              |
+  | waiting_on_employee | in_progress, resolved                      |
+  | resolved            | closed, in_progress (reopen)               |
+  | closed              | none (final)                               |
+
+  No status returns to `new`, and nothing transitions to itself. Any other change gets 409.
+  "Open" (duplicate check, queues) means new, in_progress or waiting_on_employee.
+
+- **Alternatives:** allow any change (no audit value); also allow resolved → waiting_on_employee
+  (reopen covers it).
+- **Consequences:** an agent cannot close an unresolved ticket directly. If that is needed, add
+  it as a contract amendment.

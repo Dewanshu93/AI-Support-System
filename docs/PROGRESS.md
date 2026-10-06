@@ -26,6 +26,7 @@
 | W2-08 | Persist node and chat API with SSE                | Done                                             | 2026-10-06 |
 | W2-09 | Chat UI                                           | Done                                             | 2026-10-06 |
 | W2-10 | Full-graph eval suite                             | Code complete; baseline pending (provider quota) | 2026-10-06 |
+| W3-01 | Ticketing domain rules                            | Done                                             | 2026-10-06 |
 
 ## Checkpoints
 
@@ -1099,3 +1100,29 @@ sensitive cases still handed off. The two indirectly phrased ones need P-1, so t
   under load, not a bug.
 - **To finish W2-10:** `npm run eval -- --suite full` (Gemini, about 15 minutes), record the
   metrics here and mark CP-3.
+
+## W3-01 Ticketing domain rules — 2026-10-06
+
+**Delivered:** five pure modules in `apps/api/src/domain/`:
+
+- `routing.ts`: category → queue; restricted cases → `hr_case`.
+- `priorityFloors.ts`: AI urgency raised to the highest applicable floor; safety rules from
+  the precheck, impact rules from the stated scope; the rule that raised it is recorded.
+- `ticketStateMachine.ts`: allowed transitions (ADR-012) and `isOpen`.
+- `ticketSchemas.ts`: fields per category, `requiredMissing`, and `normaliseFields` (exactly
+  the schema keys; absent → "unknown").
+- `duplicateCheck.ts`: same requester and category, open, within 7 days → the newest match.
+
+**Verification**
+
+| Check                                                             | Result                                                                                                                                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every taxonomy category maps to exactly one queue (startup check) | Pass: already enforced at startup by `config/crossChecks.ts` (W1-02); the new tests route every committed category (queue domain = category domain) and show the startup check rejecting a category without a queue |
+| Table-driven unit tests for all five modules                      | Pass: `domain/ticketing.test.ts`: routing 13, priority floors 10, state machine 18, ticket schemas 9, duplicate check 9                                                                                             |
+| DoD: 100% branch coverage on `domain/`                            | Pass: 100% statements, branches, functions and lines on all 7 files in `domain/`                                                                                                                                    |
+
+**Notes**
+
+- The transitions are a new decision (ADR-012); the playbook lists statuses only.
+- `employee_relations` has an empty field schema by design: no AI extraction for sensitive
+  cases (contract flow 6).
