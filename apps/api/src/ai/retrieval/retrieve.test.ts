@@ -98,6 +98,20 @@ describe('retrieve', () => {
     expect(deps.filters[0]).toEqual(deps.filters[1]);
   });
 
+  it('falls back to keyword-only search when the query cannot be embedded', async () => {
+    const [a, b] = [chunk(), chunk()];
+    const deps = fakeDeps({ chunks: [a!, b!], dense: [[a!]], sparse: [[b!]] });
+    deps.embedQuery = async () => {
+      throw new Error('embedding 503');
+    };
+    const { candidates, trace } = await retrieve({ query: 'holidays', profile: tom }, deps);
+    expect(candidates.map((x) => x.chunk._id)).toEqual([b!._id]);
+    expect(trace.embeddingError).toBe('embedding 503');
+    expect(trace.vector).toEqual([]);
+    // Only the keyword search reached Qdrant.
+    expect(deps.filters).toHaveLength(1);
+  });
+
   it('drops a chunk whose stored metadata fails the re-check and reports ACCESS_FILTER_VIOLATION', async () => {
     const ok = chunk();
     const leaked = chunk({ countries: ['US'] }); // index drift: the pre-filter should have excluded it

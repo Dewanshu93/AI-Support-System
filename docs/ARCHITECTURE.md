@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-03)
+## Repository layout (as of W2-04)
 
 ```
 /
@@ -387,6 +387,37 @@ graph TD;
       mode, error).
 - The trace gains `outputs` (per-node results for `turn_traces`, last write wins) and `flags`.
   `traced()` merges a node's own trace with its step timing.
+
+## Retrieval and rerank nodes (W2-04)
+
+- `createRetrieve({ retrieve })` runs `ai/retrieval/retrieve` with:
+  - the query: `analysis.searchQuery` (the raw text if there is no analysis);
+  - the profile;
+  - a **domain hint**, only when the analysis is confident (domain known and ambiguity low).
+
+  It writes `retrieval.candidates` (sources with chunk ID, document, title, section path,
+  ISO effective date, text, RRF score and rank) and `trace.outputs.retrieval`.
+  - An embedding failure → keyword-only search (`retrieve.ts` catches it) plus the
+    `RETRIEVAL_KEYWORD_ONLY` flag.
+  - A domain hint that empties the results → `DOMAIN_HINT_DROPPED`.
+  - Access violations → trace errors `ACCESS_FILTER_VIOLATION`.
+
+- `createRerankAssess(deps)` → `assessCandidates()`, which the retrieval eval also uses:
+  - P-2 on the fast model, through `nodes/structuredCall.ts` (shared with analyzeTurn: one retry
+    with the validation error, then null).
+  - No candidates → no LLM call, coverage `none`.
+  - Fallback → fused order, relevance = RRF scaled to 0–3, coverage `unknown`, plus the
+    `RERANK_FALLBACK` flag.
+- `ai/retrieval/rerank.ts` (pure):
+  - `applyRanking` drops unknown and duplicate chunk IDs, appends omitted candidates with
+    relevance 0, and sorts by relevance;
+  - `fallbackRanking`;
+  - `buildContext`: the top `contextTopK` (5) with relevance ≥ `contextMinRelevance` (1),
+    grouped by document and labelled S1…Sn → `retrieval.context` for P-3.
+- `retrieval.topRelevance` is the maximum relevance; `coverage` and `missingAspects` feed
+  decide (W2-05).
+- The retrieval eval reranks every case (`reranked` mode). Its gate adds: reranked recall@5 ≥
+  fused, and no reranked leakage. Run cost is recorded.
 
 ## Runtime
 

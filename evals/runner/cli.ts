@@ -9,7 +9,10 @@ import { ConfigError, loadConfig, loadDotEnv, REPO_ROOT } from '../../apps/api/s
 import { connectDatabase, createQdrantClient, getCollections } from '../../apps/api/src/db';
 import type { EvalResultDoc } from '../../apps/api/src/db/schemas';
 import { documentId } from '../../apps/api/src/ai/ingestion/identity';
-import { createEmbeddings, embedQuery } from '../../apps/api/src/ai/llm';
+import { createChatModel, createEmbeddings, embedQuery } from '../../apps/api/src/ai/llm';
+import { assessCandidates } from '../../apps/api/src/ai/nodes/rerankAssess';
+import { toSourceChunk } from '../../apps/api/src/ai/nodes/retrieve';
+import { loadPromptRegistry } from '../../apps/api/src/ai/prompts/registry';
 import { retrieve } from '../../apps/api/src/ai/retrieval/retrieve';
 import { mongoDocumentsRepository } from '../../apps/api/src/modules/documents/repository';
 import { loadSeedUsers } from '../../apps/api/src/modules/users/seed';
@@ -95,6 +98,15 @@ async function main(): Promise<number> {
   }
 
   const users = new Map(loadSeedUsers().map((u) => [u.email, u]));
+  const prompts = loadPromptRegistry(config.prompts.active);
+  const rerankDeps = {
+    prompts,
+    chatFor: (tier: 'fast' | 'quality') => createChatModel(config.models, config.env, tier),
+    policy: config.models.call,
+    costs: config.models.costs,
+    retrieval: config.thresholds.retrieval,
+  };
+  const rerankModel = rerankDeps.chatFor(prompts.get('rerank_assess').modelTier).modelId;
   const embeddings = createEmbeddings(config.models, config.env, 'query');
   const { client, db } = await connectDatabase(config.env.MONGODB_URI, { appName: 'eval' });
   const collections = getCollections(db);
@@ -107,7 +119,7 @@ async function main(): Promise<number> {
     datasetVersion: DATASET_VERSION,
     configSnapshot: {
       thresholds: config.thresholds as unknown as Record<string, unknown>,
-      promptVersions: config.prompts.active,
+      promptVersions: config.prompts.active as Record<string, number>,
       models: config.models as unknown as Record<string, unknown>,
       gitCommit: gitCommit(),
     },
@@ -145,6 +157,26 @@ async function main(): Promise<number> {
           },
         ),
       loadChunks: (ids) => repo.findChunksByIds(ids),
+      rerank: async (query, userEmail, candidates) => {
+        const u = users.get(userEmail)!;
+        const result = await assessCandidates(rerankDeps, {
+          question: query,
+          profile: {
+            country: u.country,
+            employmentType: u.employmentType,
+            accessLevel: u.accessLevel,
+            department: u.department,
+            jobTitle: u.jobTitle,
+          },
+          candidates: candidates.map(toSourceChunk),
+        });
+        return {
+          chunkIds: result.reranked.map((r) => r.chunkId),
+          coverage: result.coverage,
+          fallback: result.fallback,
+          costUsd: result.llmCalls.reduce((sum, c) => sum + c.costUsd, 0),
+        };
+      },
       log: (line) => console.log(`  ${line}`),
     });
 
@@ -190,10 +222,12 @@ async function main(): Promise<number> {
         traceRef: {
           vector: r.retrieval.results.vector.map((d) => d.slug),
           keyword: r.retrieval.results.keyword.map((d) => d.slug),
+          reranked: r.retrieval.results.reranked.map((d) => d.slug),
+          ...(r.rerank && { coverage: r.rerank.coverage, rerankFallback: r.rerank.fallback }),
           ...(r.error && { error: r.error }),
         },
         latencyMs: r.latencyMs,
-        costUsd: 0,
+        costUsd: r.rerank?.costUsd ?? 0,
       };
     });
     await store.saveResults(resultDocs);
@@ -214,12 +248,16 @@ async function main(): Promise<number> {
       ]),
     );
     const durationMs = Date.now() - startedAt.getTime();
+    const costUsd = results.reduce((sum, r) => sum + (r.rerank?.costUsd ?? 0), 0);
+    const coverage: Record<string, number> = {};
+    for (const r of results)
+      if (r.rerank) coverage[r.rerank.coverage] = (coverage[r.rerank.coverage] ?? 0) + 1;
     await store.finishRun(run._id, {
       metrics,
       perCategory,
       targets: summary.targets,
       passed,
-      costUsd: 0,
+      costUsd,
       durationMs,
     });
 
@@ -235,6 +273,15 @@ async function main(): Promise<number> {
       summary,
       scores,
       errors,
+      rerankedSlugs: Object.fromEntries(
+        results.map((r) => [r.goldenCase.id, r.retrieval.results.reranked.map((d) => d.slug)]),
+      ),
+      rerank: {
+        model: rerankModel,
+        fallbacks: results.filter((r) => r.rerank?.fallback).length,
+        coverage,
+        costUsd,
+      },
       fusedSlugs: Object.fromEntries(
         results.map((r) => [r.goldenCase.id, r.retrieval.results.fused.map((d) => d.slug)]),
       ),
@@ -259,7 +306,7 @@ async function main(): Promise<number> {
     for (const m of RETRIEVAL_MODES) {
       const x = summary.byMode[m];
       console.log(
-        `  ${m.padEnd(8)} recall@5 ${(x.recallAt5 * 100).toFixed(1).padStart(5)}% (${x.recallHits}/${x.recallCases}), MRR ${x.mrr.toFixed(3)}, leakage ${x.leakageCases}`,
+        `  ${m.padEnd(9)} recall@5 ${(x.recallAt5 * 100).toFixed(1).padStart(5)}% (${x.recallHits}/${x.recallCases}), MRR ${x.mrr.toFixed(3)}, leakage ${x.leakageCases}`,
       );
     }
     console.log(

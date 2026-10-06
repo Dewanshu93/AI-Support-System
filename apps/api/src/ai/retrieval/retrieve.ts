@@ -45,6 +45,8 @@ export interface RetrievalTrace {
   domainHint: Domain | null;
   /** True when the domain hint removed everything and the search re-ran without it. */
   domainHintDropped: boolean;
+  /** Set when the query could not be embedded; only keyword search ran. */
+  embeddingError: string | null;
   vector: RankedHit[];
   keyword: RankedHit[];
   fused: { chunkId: string; score: number; rank: number }[];
@@ -64,15 +66,24 @@ export async function retrieve(
 ): Promise<RetrievalResult> {
   const collection = deps.collection ?? QDRANT_COLLECTIONS.chunks;
   const p = deps.params;
-  const queryVector = await deps.embedQuery(input.query);
+  // Section 5: an embedding failure degrades to keyword-only search (flagged), not an error.
+  let queryVector: number[] | null = null;
+  let embeddingError: string | null = null;
+  try {
+    queryVector = await deps.embedQuery(input.query);
+  } catch (err) {
+    embeddingError = err instanceof Error ? err.message : String(err);
+  }
 
   const search = async (domain: Domain | undefined) => {
     const filter = buildAccessFilter(input.profile, { domain });
     const [vector, keyword] = await Promise.all([
-      vectorSearch(deps.qdrant, collection, queryVector, filter, {
-        limit: p.vectorLimit,
-        numCandidates: p.vectorNumCandidates,
-      }),
+      queryVector
+        ? vectorSearch(deps.qdrant, collection, queryVector, filter, {
+            limit: p.vectorLimit,
+            numCandidates: p.vectorNumCandidates,
+          })
+        : Promise.resolve([]),
       keywordSearch(deps.qdrant, collection, input.query, filter, { limit: p.keywordLimit }),
     ]);
     return { filter, vector, keyword };
@@ -118,6 +129,7 @@ export async function retrieve(
       filter: result.filter,
       domainHint: input.domainHint ?? null,
       domainHintDropped,
+      embeddingError,
       vector: result.vector,
       keyword: result.keyword,
       fused: fused.map((h) => ({ chunkId: h.chunkId, score: h.fusedScore, rank: h.rank })),

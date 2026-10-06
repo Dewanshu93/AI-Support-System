@@ -1,6 +1,6 @@
 // Retrieval scorers (playbook section 8). Pure: synthetic results in tests.
 
-export const RETRIEVAL_MODES = ['vector', 'keyword', 'fused'] as const;
+export const RETRIEVAL_MODES = ['vector', 'keyword', 'fused', 'reranked'] as const;
 export type RetrievalMode = (typeof RETRIEVAL_MODES)[number];
 
 /** Recall is measured on the first K retrieved chunks (the final context size). */
@@ -41,7 +41,7 @@ export interface CaseScore {
   category: string;
   tags: string[];
   modes: Record<RetrievalMode, ModeScore>;
-  /** Fused mode decides pass/fail: recall (when applicable) and no leakage. */
+  /** Fused recall and leakage decide pass/fail, plus the reranker not losing a fused hit. */
   passed: boolean;
   failureReasons: string[];
 }
@@ -60,6 +60,11 @@ export function scoreCase(c: CaseRetrieval, matches: RefMatcher, k: number = REC
   const failureReasons: string[] = [];
   if (modes.fused.recall === false) failureReasons.push('MISSED_DOC');
   if (modes.fused.leaked.length > 0) failureReasons.push('FORBIDDEN_DOC');
+  // W2-04: the reranker must not lose a document fusion found, nor surface a forbidden one.
+  if (modes.reranked.recall === false && modes.fused.recall === true)
+    failureReasons.push('RERANK_MISSED_DOC');
+  if (modes.reranked.leaked.length > 0 && modes.fused.leaked.length === 0)
+    failureReasons.push('FORBIDDEN_DOC_RERANKED');
   return {
     caseId: c.caseId,
     category: c.category,
@@ -97,7 +102,10 @@ export function modeMetrics(scores: CaseScore[], mode: RetrievalMode): ModeMetri
   };
 }
 
-/** Week 1 gate (CP-2): fused recall@5 ≥ 75% and zero forbidden-document leakage. */
+/**
+ * CP-2 gate: fused recall@5 ≥ 75% and zero forbidden-document leakage.
+ * W2-04 adds: reranked recall@5 ≥ fused recall@5, and zero reranked leakage.
+ */
 export const RETRIEVAL_TARGETS = { fusedRecallAt5: 0.75, fusedLeakageCases: 0 } as const;
 
 export function retrievalSummary(scores: CaseScore[]) {
@@ -123,6 +131,14 @@ export function retrievalSummary(scores: CaseScore[]) {
     fusedLeakageCases: {
       target: RETRIEVAL_TARGETS.fusedLeakageCases,
       met: byMode.fused.leakageCases <= RETRIEVAL_TARGETS.fusedLeakageCases,
+    },
+    rerankedRecallAtLeastFused: {
+      target: byMode.fused.recallAt5,
+      met: byMode.reranked.recallAt5 >= byMode.fused.recallAt5,
+    },
+    rerankedLeakageCases: {
+      target: RETRIEVAL_TARGETS.fusedLeakageCases,
+      met: byMode.reranked.leakageCases <= RETRIEVAL_TARGETS.fusedLeakageCases,
     },
   };
   return {

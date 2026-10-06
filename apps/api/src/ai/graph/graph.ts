@@ -17,11 +17,15 @@ import { createTicket } from '../nodes/createTicket';
 import { decide } from '../nodes/decide';
 import { outOfScope } from '../nodes/outOfScope';
 import { persist } from '../nodes/persist';
-import { rerankAssess } from '../nodes/rerankAssess';
-import { retrieve } from '../nodes/retrieve';
 import { sensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { slotFill } from '../nodes/slotFill';
-import { stubAnalyzeTurn, stubLoadContext, stubPrecheck } from '../nodes/stubs';
+import {
+  stubAnalyzeTurn,
+  stubLoadContext,
+  stubPrecheck,
+  stubRerankAssess,
+  stubRetrieve,
+} from '../nodes/stubs';
 import { validateCitations } from '../nodes/validateCitations';
 import { type NodeFn, traced } from '../tracing/traced';
 import {
@@ -48,8 +52,8 @@ export const DEFAULT_NODES = {
   loadContext: stubLoadContext,
   precheck: stubPrecheck,
   analyzeTurn: stubAnalyzeTurn,
-  retrieve,
-  rerankAssess,
+  retrieve: stubRetrieve,
+  rerankAssess: stubRerankAssess,
   decide,
   answer,
   validateCitations,

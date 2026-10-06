@@ -28,15 +28,31 @@ export function stubAnalysis(text: string): TurnAnalysis {
 }
 
 export function stubRetrieval(query: string): Retrieval {
+  const source = {
+    chunkId: 'stub-chunk',
+    documentId: 'stub-doc',
+    docSlug: 'stub-doc',
+    docTitle: 'Stub document',
+    sectionPath: ['Stub'],
+    effectiveDate: '2026-01-01T00:00:00.000Z',
+    text: 'Stub text.',
+    fusedScore: 1 / 61,
+    rank: 1,
+  };
   return {
     query,
+    domainHint: null,
     filter: {},
+    keywordOnly: false,
     vector: [],
     keyword: [],
-    fused: [{ chunkId: 'stub-chunk', score: 1 }],
+    fused: [{ chunkId: 'stub-chunk', score: 1 / 61 }],
+    candidates: [source],
     reranked: [{ chunkId: 'stub-chunk', relevance: 3, reason: 'stub' }],
     coverage: 'full',
+    missingAspects: [],
     topRelevance: 3,
+    context: [{ ...source, marker: 'S1', relevance: 3 }],
   };
 }
 
@@ -58,4 +74,14 @@ export function stubPrecheck(state: State): StateUpdate {
 
 export function stubAnalyzeTurn(state: State): StateUpdate {
   return { analysis: state.analysis ?? stubAnalysis(state.input.text) };
+}
+
+export function stubRetrieve(state: State): StateUpdate {
+  return {
+    retrieval: state.retrieval ?? stubRetrieval(state.analysis?.searchQuery ?? state.input.text),
+  };
+}
+
+export function stubRerankAssess(state: State): StateUpdate {
+  return { retrieval: state.retrieval };
 }

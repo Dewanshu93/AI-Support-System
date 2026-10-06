@@ -29,7 +29,7 @@ function retrieval(
     tags: [],
     expectedRefs: ['hr-a'],
     forbiddenRefs: [],
-    results: { vector: fused, keyword: fused, fused },
+    results: { vector: fused, keyword: fused, fused, reranked: fused },
     ...overrides,
   };
 }
@@ -97,7 +97,15 @@ describe('scoreCase', () => {
     expect(s.passed).toBe(true);
   });
 
-  it('scores each mode independently; only fused decides pass/fail', () => {
+  it('fails a case when the reranker loses a document fusion found', () => {
+    const r = retrieval({ fused: [doc('hr-a')] });
+    r.results.reranked = filler(5);
+    const s = scoreCase(r, refMatcher);
+    expect(s.modes.reranked.recall).toBe(false);
+    expect(s.failureReasons).toEqual(['RERANK_MISSED_DOC']);
+  });
+
+  it('scores each mode independently; vector and keyword never decide pass/fail', () => {
     const r = retrieval({ fused: [doc('hr-a')] });
     r.results.vector = filler(5);
     const s = scoreCase(r, refMatcher);
@@ -137,8 +145,19 @@ describe('metrics', () => {
     const summary = retrievalSummary(scores);
     expect(summary.targets.fusedRecallAt5).toEqual({ target: 0.75, met: true });
     expect(summary.targets.fusedLeakageCases).toEqual({ target: 0, met: false });
+    expect(summary.targets.rerankedRecallAtLeastFused).toEqual({ target: 0.75, met: true });
     expect(summary.passed).toBe(false);
     expect(retrievalSummary(scores.slice(0, 2)).passed).toBe(true);
+  });
+
+  it('gates reranked recall@5 against fused recall@5', () => {
+    const worse = scores.map((sc) => ({
+      ...sc,
+      modes: { ...sc.modes, reranked: { recall: false, firstHitRank: null, leaked: [] } },
+    }));
+    const summary = retrievalSummary(worse);
+    expect(summary.byMode.reranked.recallAt5).toBe(0);
+    expect(summary.targets.rerankedRecallAtLeastFused.met).toBe(false);
   });
 
   it('breaks metrics down by category', () => {
@@ -162,12 +181,20 @@ describe('metrics', () => {
       scores,
       errors: [],
       fusedSlugs: { d: ['hr-a', 'hr-bad'] },
+      rerankedSlugs: { d: ['hr-bad', 'hr-a'] },
+      rerank: {
+        model: 'gemini-3.1-flash-lite',
+        fallbacks: 1,
+        coverage: { full: 3, partial: 1 },
+        costUsd: 0.0123,
+      },
       expected: { d: { docs: ['hr-a'], forbidden: ['hr-bad'] } },
     });
     expect(md).toContain('**Result:** FAIL');
-    for (const mode of ['vector', 'keyword', 'fused'])
+    for (const mode of ['vector', 'keyword', 'fused', 'reranked'])
       expect(md).toMatch(new RegExp(`\\| ${mode} \\| `));
-    expect(md).toContain('| d | FORBIDDEN_DOC | hr-a | hr-bad |');
+    expect(md).toContain('| d | FORBIDDEN_DOC | hr-a | hr-bad | hr-a, hr-bad | hr-bad, hr-a |');
+    expect(md).toContain('1 fallbacks; coverage full 3, partial 1; LLM cost $0.0123');
   });
 });
 
@@ -208,6 +235,12 @@ describe('retrieval suite', () => {
     const results = await runRetrievalSuite([golden(), golden({ id: 'HR-ANS-002' })], {
       profileFor: () => ({ country: 'US', employmentType: 'full_time', accessLevel: 'standard' }),
       loadChunks: async (ids) => [a, b].filter((c) => ids.includes(c._id.toHexString())),
+      rerank: async (_query, _email, candidates) => ({
+        chunkIds: ['unknown-id', ...candidates.map((x) => x.chunk._id.toHexString())],
+        coverage: 'full',
+        fallback: false,
+        costUsd: 0.0004,
+      }),
       retrieve: async () => {
         if (++call === 2) throw new Error('quota');
         return {
@@ -217,6 +250,7 @@ describe('retrieval suite', () => {
             filter: { must: [] },
             domainHint: null,
             domainHintDropped: false,
+            embeddingError: null,
             vector: [{ chunkId: a._id.toHexString(), score: 0.9, rank: 1 }],
             keyword: [{ chunkId: b._id.toHexString(), score: 3, rank: 1 }],
             fused: [],
@@ -229,7 +263,10 @@ describe('retrieval suite', () => {
     expect(results[0]!.retrieval.results.vector.map((d) => d.slug)).toEqual(['hr-a']);
     expect(results[0]!.retrieval.results.keyword.map((d) => d.slug)).toEqual(['hr-b']);
     expect(results[0]!.retrieval.results.fused.map((d) => d.slug)).toEqual(['hr-b']);
+    expect(results[0]!.retrieval.results.reranked.map((d) => d.slug)).toEqual(['hr-b']);
+    expect(results[0]!.rerank).toEqual({ coverage: 'full', fallback: false, costUsd: 0.0004 });
     expect(results[1]!.error).toBe('quota');
+    expect(results[1]!.rerank).toBeNull();
   });
 });
 

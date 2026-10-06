@@ -56,16 +56,50 @@ export interface ScoredChunk {
   score: number;
 }
 
+/** A fused candidate the employee may see (access already re-checked). */
+export interface SourceChunk {
+  chunkId: string;
+  documentId: string;
+  docSlug: string;
+  docTitle: string;
+  sectionPath: string[];
+  /** ISO date (strings survive checkpoint serialisation unchanged). */
+  effectiveDate: string;
+  text: string;
+  /** RRF score and 1-based fused rank. */
+  fusedScore: number;
+  rank: number;
+}
+
+export interface RankedChunk {
+  chunkId: string;
+  relevance: number;
+  reason: string;
+}
+
+/** One labelled source in the final context ([S1]…[S5]) given to P-3. */
+export interface ContextSource extends SourceChunk {
+  marker: string;
+  relevance: number;
+}
+
 export interface Retrieval {
   query: string;
+  domainHint: Domain | null;
   filter: Record<string, unknown>;
+  /** True when embedding failed and only keyword search ran. */
+  keywordOnly: boolean;
   vector: ScoredChunk[];
   keyword: ScoredChunk[];
   fused: ScoredChunk[];
-  reranked: RerankAssessment['ranked'];
+  candidates: SourceChunk[];
+  /** Set by rerankAssess: every candidate, best first; unknown IDs from the model dropped. */
+  reranked: RankedChunk[];
   /** "unknown" when rerank fell back to fused order (rules 7–8 cannot fire). */
   coverage: RerankAssessment['coverage'] | 'unknown';
+  missingAspects: string[];
   topRelevance: number;
+  context: ContextSource[];
 }
 
 export interface DecisionResult {

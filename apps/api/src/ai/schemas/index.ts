@@ -5,13 +5,13 @@ import type { z } from 'zod';
 import { ClarifyingQuestionSchema } from './clarifyingQuestion';
 import type { SchemaContext } from './common';
 import { GroundedAnswerTrailerSchema } from './groundedAnswer';
-import { RerankAssessmentSchema } from './rerankAssessment';
+import { RerankAssessmentSchema } from './rerank';
 import { turnAnalysisSchema } from './turnAnalysis';
 
 export * from './clarifyingQuestion';
 export * from './common';
 export * from './groundedAnswer';
-export * from './rerankAssessment';
+export * from './rerank';
 export * from './turnAnalysis';
 
 /** Prompt frontmatter `outputSchema` name → schema factory. */

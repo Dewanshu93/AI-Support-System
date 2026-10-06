@@ -19,6 +19,7 @@
 | W2-01 | Prompt registry                        | Done                                   | 2026-10-05 |
 | W2-02 | Graph state, skeleton and checkpointer | Done                                   | 2026-10-05 |
 | W2-03 | loadContext, precheck, analyzeTurn     | Done                                   | 2026-10-06 |
+| W2-04 | retrieve and rerankAssess nodes        | Done                                   | 2026-10-06 |
 
 ## Checkpoints
 
@@ -734,3 +735,59 @@ Gemini query embeddings on the LAN index.
   so it is worth watching in W4-02 (performance) and the full eval.
 - The prompt's frontmatter temperature is not yet passed to the model (`createChatModel` uses 0;
   P-1 is 0 anyway). It will be wired when a prompt needs a non-zero temperature (P-3, W2-06).
+
+## W2-04 retrieve and rerankAssess nodes — 2026-10-06
+
+**Delivered:**
+
+- Real nodes: `ai/nodes/retrieve.ts` and `ai/nodes/rerankAssess.ts` (P-2, with
+  `assessCandidates()` shared with the eval).
+- `ai/retrieval/rerank.ts`: drops unknown IDs, provides the RRF fallback, and builds the
+  final [S1]…[S5] context.
+- `retrieve.ts`: an embedding failure now degrades to keyword-only search (section 5).
+- `nodes/structuredCall.ts`: the retry-then-fallback policy, now shared by analyzeTurn and
+  rerankAssess; `nodes/promptFormat.ts`.
+- `ai/schemas/rerankAssessment.ts` renamed to `rerank.ts`, as the card specifies.
+- Graph state: `retrieval` now carries candidates, reranked, coverage, missingAspects,
+  topRelevance and the labelled context.
+- Retrieval eval: new `reranked` mode, rerank coverage, fallbacks and real LLM cost in the
+  run, report and results; gate extended.
+
+**Retrieval eval with rerank** (`evals/reports/2026-10-06-retrieval-d4ac10e9.md`): 54 cases,
+429 s, rerank on `gemini-3.1-flash-lite`.
+
+| Mode         | Recall@5       | MRR       | Leakage |
+| ------------ | -------------- | --------- | ------- |
+| vector       | 100.0% (54/54) | 0.991     | 0       |
+| keyword      | 100.0% (54/54) | 0.937     | 0       |
+| fused        | 100.0% (54/54) | 0.972     | 0       |
+| **reranked** | 100.0% (54/54) | **0.991** | 0       |
+
+- **Rerank recall (DoD): reranked recall@5 100%, equal to fused (gate met).** MRR improved from
+  0.972 to 0.991: the expected document moves to rank 1 more often.
+- No fallbacks. LLM cost for 54 rerank calls: $0.0842 (about $0.0016 per call).
+- Coverage verdicts: full 45, partial 8, none 1.
+  - All 35 answerable cases were judged `full`.
+  - 8 of the 10 golden "partial" cases were judged `partial`; HR-PAR-002 and IT-PAR-005 were
+    judged `full`, which would produce an ANSWER instead of a PARTIAL. Watch these in the
+    decision eval (W2-10).
+  - IT-ESC-007 was judged `none`.
+
+**Verification**
+
+| Check                              | Result                                                                                                                                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reranked recall@5 ≥ fused recall@5 | Pass: 100% = 100%; enforced as a gate target (`rerankedRecallAtLeastFused`)                                                                                                                    |
+| Node tests with fakes              | Pass: `test/ai/retrievalNodes.test.ts` (10): query and domain hint, mapping, keyword-only/domain/violation flags, missing profile, ranking applied, labelled context, P-2 rendering, graph run |
+| ID-dropping test                   | Pass: an invented chunk ID and a duplicate are dropped and recorded in `droppedIds` (node and pure tests)                                                                                      |
+| Fallback test                      | Pass: double invalid output → fused order, coverage `unknown`, `RERANK_FALLBACK`; provider error → fallback without a retry; empty candidates → no LLM call                                    |
+| Pure rerank tests                  | Pass: `rerank.test.ts` (7): sorting and ties, RRF scaling, top-5 / min-relevance / grouping by document                                                                                        |
+| Keyword-only retrieval             | Pass: `retrieve.test.ts` (only the keyword search reaches Qdrant)                                                                                                                              |
+
+**Notes**
+
+- **Eval caveat:** the eval reranks with the case's raw text, not the P-1 `searchQuery` the
+  live graph uses. The full eval (W2-10) runs the real graph.
+- **Follow-up:** `HISTORY_LIMIT` (8) in loadContext and `MAX_TICKET_CLARIFY_ROUNDS` (2) in
+  edges duplicate `thresholds.yaml` (`conversation.historyMessages`,
+  `ticket.maxClarifyRounds`). Read them from config when the API wires the nodes (W2-08).
