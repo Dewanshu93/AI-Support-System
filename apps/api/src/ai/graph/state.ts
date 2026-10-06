@@ -108,9 +108,15 @@ export interface DecisionResult {
   rulesFired: string[];
 }
 
+/** A validated citation: marker → chunk, resolved by code from the final context. */
 export interface Citation {
   marker: string;
   chunkId: string;
+  documentId: string;
+  docTitle: string;
+  sectionPath: string[];
+  /** ISO date. */
+  effectiveDate: string;
 }
 
 /** Placeholder until buildDraft (W3) defines the full TicketDraft. */
@@ -128,6 +134,8 @@ export interface Output {
   citations: Citation[];
   uncovered: string[];
   withdrawn: boolean;
+  /** Why the generated answer was withdrawn (validateCitations). */
+  withdrawnReason?: 'NO_VALID_CITATIONS' | 'NUMERIC_MISMATCH';
   draft?: TicketDraftState;
   handoff?: { kind: 'out_of_scope' | 'sensitive'; contact: string };
   ticketId?: string;
@@ -153,6 +161,8 @@ export interface LlmCallTrace {
   /** native structured output, or the JSON-mode fallback. */
   mode: 'native' | 'json_fallback';
   costUsd: number;
+  /** Time to first token, for streamed calls. */
+  ttftMs?: number;
   /** Set when this call's output failed validation. */
   error?: string;
 }

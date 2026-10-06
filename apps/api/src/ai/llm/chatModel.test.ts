@@ -44,6 +44,16 @@ describe('factory selection', () => {
     expect((handle.model as ChatGoogleGenerativeAI).maxOutputTokens).toBe(2048);
   });
 
+  it('uses temperature 0 unless the prompt asks for another', () => {
+    expect(
+      (createChatModel(models, keys, 'fast').model as ChatGoogleGenerativeAI).temperature,
+    ).toBe(0);
+    const warm = createChatModel(models, keys, 'quality', 'gemini', { temperature: 0.2 });
+    expect((warm.model as ChatGoogleGenerativeAI).temperature).toBe(0.2);
+    const router = createChatModel(models, keys, 'quality', 'openrouter', { temperature: 0.2 });
+    expect((router.model as ChatOpenAI).temperature).toBe(0.2);
+  });
+
   it('builds an OpenAI-compatible model pointed at OpenRouter', () => {
     const handle = createChatModel(models, keys, 'quality', 'openrouter');
     expect(handle.model).toBeInstanceOf(ChatOpenAI);

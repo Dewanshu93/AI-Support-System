@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-05)
+## Repository layout (as of W2-06)
 
 ```
 /
@@ -451,6 +451,41 @@ holds, in order; the first is the deciding rule.
 - Turns flagged sensitive by precheck or analysis are routed by the edges before `decide`.
   Rule 1 still exists, so the table is complete and the decision eval can score it.
 - A withdrawn answer is re-recorded as ESCALATE / CITATION_INVALID by `validateCitations`.
+
+## Grounded answer and citation validation (W2-06)
+
+- `createAnswer(deps)`: P-3 `grounded_answer` on the quality tier, at the prompt's temperature
+  (0.2; `createChatModel` now takes `{ temperature }`), **streamed** with `model.stream`.
+  - **Mode from the decision:** ESCALATE / SAFETY → `safety_steps`; PARTIAL → `partial`;
+    otherwise `answer`.
+  - **Sources:** `retrieval.context` rendered as `[Sx] title > section (effective date)` plus
+    the text, inside `<untrusted_sources>`.
+  - **Streaming:** tokens appear as `on_chat_model_stream` events in `graph.streamEvents`
+    (with `langgraph_node = answer`); the API maps them to SSE in W2-08.
+  - **Trailer:** `splitTrailer` removes the fenced `{ uncovered }` JSON from the prose. If the
+    trailer is missing or invalid → `uncovered: []` plus the `ANSWER_TRAILER_INVALID` flag.
+  - **Retry boundary (ADR-008):** opening the stream and its first chunk go through
+    `withCallPolicy`, so a 503 or 429 before any text is retried. A failure after the first
+    chunk throws an `LlmError` (error event) and is never retried.
+  - **Trace:** latency, TTFT, tokens and cost.
+  - Empty context → no LLM call.
+- `ai/guards/citations.ts` → `checkCitations(text, context)`: `[Sx]`, `[Sx][Sy]` and
+  `[Sx, Sy]` markers are mapped to chunks **only through the final context**. The model never
+  names chunk IDs, so citing a non-retrieved chunk is impossible. Markers with no source are
+  rejected and removed from the text.
+- `ai/guards/numericCheck.ts` → `numericViolations(answer, citedTexts)`: every number in the
+  answer (thousands separators and decimals normalised; markers and list numbering ignored)
+  must appear in the chunks the answer **cites**.
+- `createValidateCitations({ templates })`: zero valid citations (`NO_VALID_CITATIONS`) or any
+  numeric violation (`NUMERIC_MISMATCH`) withdraws the answer.
+  - The text becomes the `withdrawn_answer` template, with the domain filled in (`IT or HR`
+    when unknown); the flag `ANSWER_WITHDRAWN` is set.
+  - Outside safety mode, the decision becomes ESCALATE / CITATION_INVALID; safety mode keeps
+    SAFETY so the ticket draft still follows.
+  - Valid answers keep the cleaned text plus enriched citations (chunk, document, title,
+    section, date).
+  - `trace.outputs.citations` holds proposed, valid, rejected, numericViolations and withdrawn.
+- `domain/templates.ts` → `fillTemplate` (pure; throws on an unfilled placeholder).
 
 ## Runtime
 

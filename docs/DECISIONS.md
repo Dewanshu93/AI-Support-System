@@ -238,3 +238,30 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   downgrading the app to mongodb 6 (loses the 8.3 handshake fix).
 - **Consequences:** two driver copies in `node_modules`. Revisit when the package moves to
   mongodb 7: drop the cast and re-run the integration test.
+
+## ADR-008 — Answer withdrawal on numeric mismatch; stream retry boundary (W2-06)
+
+- **Status:** Accepted (2026-10-06)
+- **Context:**
+  - Section 5 withdraws an answer with zero valid citations. W2-06 adds a numeric check
+    ("numbers in answer must appear in cited chunks") but does not say what a violation does.
+  - Separately, a live run showed `gemini-3.8-flash` failing with 503 "high demand" before
+    streaming any token, which section 5's "stream failure → error" would turn into a failed
+    turn.
+- **Decision:**
+  - **A numeric violation also withdraws the answer** (`withdrawnReason: NUMERIC_MISMATCH`).
+    P-3 must copy numbers exactly, and an invented leave figure, limit or amount is the most
+    harmful error this product can make. Only numbers from the chunks the answer **cites**
+    count, and only digits are checked.
+  - **Streaming retries happen only before the first chunk:** the stream opening and the first
+    chunk run inside `withCallPolicy` (same timeout, backoff and provider retry hints as other
+    calls). After the first chunk, a failure is an error event and is never retried, because the
+    employee has already seen text.
+- **Alternatives:**
+  - Strip unsupported numbers or sentences instead of withdrawing (risks a misleading
+    half-answer).
+  - Only flag numeric violations (lets wrong numbers through).
+  - Retry mid-stream (duplicates or contradicts text already shown).
+- **Consequences:** a correct answer that paraphrases a number ("twenty-five days" in the source,
+  "25" in the answer) is withdrawn. Measure the withdrawal rate in the full eval (W2-10) and
+  relax the rule only with evidence.

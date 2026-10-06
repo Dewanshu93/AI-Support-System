@@ -95,3 +95,43 @@ export function stubDecide(state: State): StateUpdate {
     },
   };
 }
+
+export function stubAnswer(state: State): StateUpdate {
+  const decision = state.decision;
+  const mode =
+    decision?.value === 'ESCALATE' && decision.reasonCode === 'SAFETY'
+      ? 'safety_steps'
+      : decision?.value === 'PARTIAL'
+        ? 'partial'
+        : 'answer';
+  return {
+    output: {
+      ...STUB_OUTPUT,
+      text: 'Stub answer [S1].',
+      citations: [
+        {
+          marker: 'S1',
+          chunkId: 'stub-chunk',
+          documentId: 'stub-doc',
+          docTitle: 'Stub document',
+          sectionPath: ['Stub'],
+          effectiveDate: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      ...state.output,
+      mode,
+    },
+  };
+}
+
+/** Keeps a preset withdrawal and records it as section 5 specifies. */
+export function stubValidateCitations(state: State): StateUpdate {
+  if (!state.output?.withdrawn) return {};
+  return {
+    decision: {
+      value: 'ESCALATE',
+      reasonCode: 'CITATION_INVALID',
+      rulesFired: [...(state.decision?.rulesFired ?? []), 'citations'],
+    },
+  };
+}

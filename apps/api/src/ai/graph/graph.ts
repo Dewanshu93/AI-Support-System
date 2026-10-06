@@ -8,7 +8,6 @@ import {
   StateGraph,
 } from '@langchain/langgraph';
 import { agentSummary } from '../nodes/agentSummary';
-import { answer } from '../nodes/answer';
 import { awaitConfirmation } from '../nodes/awaitConfirmation';
 import { buildDraft } from '../nodes/buildDraft';
 import { clarify } from '../nodes/clarify';
@@ -20,13 +19,14 @@ import { sensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { slotFill } from '../nodes/slotFill';
 import {
   stubAnalyzeTurn,
+  stubAnswer,
   stubDecide,
   stubLoadContext,
   stubPrecheck,
   stubRerankAssess,
   stubRetrieve,
+  stubValidateCitations,
 } from '../nodes/stubs';
-import { validateCitations } from '../nodes/validateCitations';
 import { type NodeFn, traced } from '../tracing/traced';
 import {
   AFTER_ANALYSIS,
@@ -55,8 +55,8 @@ export const DEFAULT_NODES = {
   retrieve: stubRetrieve,
   rerankAssess: stubRerankAssess,
   decide: stubDecide,
-  answer,
-  validateCitations,
+  answer: stubAnswer,
+  validateCitations: stubValidateCitations,
   clarify,
   outOfScope,
   sensitiveHandoff,

@@ -37,7 +37,10 @@ export function createChatModel(
   keys: LlmKeys,
   tier: ModelTier,
   provider: ChatProvider = config.chat.provider,
+  /** Sampling temperature (prompt frontmatter); default 0. */
+  options: { temperature?: number } = {},
 ): ChatHandle {
+  const temperature = options.temperature ?? 0;
   const { modelId } = resolveChatModel(config, tier, provider);
   const apiKey = keys[KEY_FOR[provider]];
   if (!apiKey) {
@@ -50,14 +53,14 @@ export function createChatModel(
       ? new ChatGoogleGenerativeAI({
           model: modelId,
           apiKey,
-          temperature: 0,
+          temperature,
           maxRetries: 0,
           maxOutputTokens: maxTokens,
         })
       : new ChatOpenAI({
           model: modelId,
           apiKey,
-          temperature: 0,
+          temperature,
           maxRetries: 0,
           maxTokens,
           configuration: {

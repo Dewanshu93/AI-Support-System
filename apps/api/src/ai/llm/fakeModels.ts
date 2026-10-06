@@ -4,14 +4,16 @@ import { createHash } from 'node:crypto';
 import type { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
 import { Embeddings } from '@langchain/core/embeddings';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { AIMessage, type BaseMessage } from '@langchain/core/messages';
-import type { ChatResult } from '@langchain/core/outputs';
+import { AIMessage, AIMessageChunk, type BaseMessage } from '@langchain/core/messages';
+import { ChatGenerationChunk, type ChatResult } from '@langchain/core/outputs';
 import { RunnableLambda } from '@langchain/core/runnables';
 import type { ChatHandle } from './chatModel';
 
-/** One scripted reply: text (usually JSON), or an error to throw. */
+/** One scripted reply: text (usually JSON), or an error to throw. streamError fails a stream before its last chunk. */
 export type FakeReply =
-  string | Error | { text: string; inputTokens?: number; outputTokens?: number };
+  | string
+  | Error
+  | { text: string; inputTokens?: number; outputTokens?: number; streamError?: Error };
 
 export interface FakeChatOptions {
   /** If true, withStructuredOutput works natively (parses the reply as JSON). */
@@ -34,11 +36,7 @@ export class FakeChatModel extends BaseChatModel {
     return 'fake';
   }
 
-  async _generate(
-    messages: BaseMessage[],
-    _options: this['ParsedCallOptions'],
-    _runManager?: CallbackManagerForLLMRun,
-  ): Promise<ChatResult> {
+  private nextReply(messages: BaseMessage[]) {
     this.calls.push(messages);
     const reply = this.replies.shift();
     if (reply === undefined) throw new Error('FakeChatModel: no scripted reply left');
@@ -47,16 +45,46 @@ export class FakeChatModel extends BaseChatModel {
       text,
       inputTokens = 100,
       outputTokens = 20,
-    } = typeof reply === 'string' ? { text: reply } : reply;
-    const message = new AIMessage({
-      content: text,
-      usage_metadata: {
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        total_tokens: inputTokens + outputTokens,
-      },
-    });
+      streamError,
+    } = typeof reply === 'string' ? { text: reply, streamError: undefined } : reply;
+    const usage = {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      total_tokens: inputTokens + outputTokens,
+    };
+    return { text, usage, streamError };
+  }
+
+  async _generate(
+    messages: BaseMessage[],
+    _options: this['ParsedCallOptions'],
+    _runManager?: CallbackManagerForLLMRun,
+  ): Promise<ChatResult> {
+    const { text, usage } = this.nextReply(messages);
+    const message = new AIMessage({ content: text, usage_metadata: usage });
     return { generations: [{ text, message }] };
+  }
+
+  /** Streams the reply in 12-character chunks; usage arrives on the last chunk. */
+  override async *_streamResponseChunks(
+    messages: BaseMessage[],
+    _options: this['ParsedCallOptions'],
+    runManager?: CallbackManagerForLLMRun,
+  ): AsyncGenerator<ChatGenerationChunk> {
+    const { text, usage, streamError } = this.nextReply(messages);
+    const pieces = text.match(/[\s\S]{1,12}/g) ?? [''];
+    for (const [i, piece] of pieces.entries()) {
+      const last = i === pieces.length - 1;
+      if (last && streamError) throw streamError;
+      yield new ChatGenerationChunk({
+        text: piece,
+        message: new AIMessageChunk({
+          content: piece,
+          ...(last && { usage_metadata: usage }),
+        }),
+      });
+      await runManager?.handleLLMNewToken(piece);
+    }
   }
 
   // Native structured output for tests: the scripted reply is parsed as JSON.

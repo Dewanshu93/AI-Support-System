@@ -2,25 +2,26 @@
 
 ## Task status
 
-| Task  | Name                                   | Status                                 | Date       |
-| ----- | -------------------------------------- | -------------------------------------- | ---------- |
-| W1-01 | Monorepo scaffold                      | Done (Docker unverified)               | 2026-10-02 |
-| W1-02 | Config and env loading                 | Done                                   | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope    | Done                                   | 2026-10-02 |
-| W1-04 | Database layer and indexes             | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
-| W1-05 | Users seed and auth                    | Done                                   | 2026-10-05 |
-| W1-06 | Frontend shell and login               | Done                                   | 2026-10-05 |
-| W1-07 | Corpus authoring and validation        | Done (pending owner review of numbers) | 2026-10-05 |
-| W1-08 | Golden set v1                          | Done (pending owner review)            | 2026-10-05 |
-| W1-09 | LLM and embedding provider layer       | Done                                   | 2026-10-05 |
-| W1-10 | Ingestion pipeline                     | Done                                   | 2026-10-05 |
-| W1-11 | Access filter and hybrid retrieval     | Done                                   | 2026-10-05 |
-| W1-12 | Retrieval eval runner                  | Done                                   | 2026-10-05 |
-| W2-01 | Prompt registry                        | Done                                   | 2026-10-05 |
-| W2-02 | Graph state, skeleton and checkpointer | Done                                   | 2026-10-05 |
-| W2-03 | loadContext, precheck, analyzeTurn     | Done                                   | 2026-10-06 |
-| W2-04 | retrieve and rerankAssess nodes        | Done                                   | 2026-10-06 |
-| W2-05 | Decision rules and decide node         | Done                                   | 2026-10-06 |
+| Task  | Name                                    | Status                                 | Date       |
+| ----- | --------------------------------------- | -------------------------------------- | ---------- |
+| W1-01 | Monorepo scaffold                       | Done (Docker unverified)               | 2026-10-02 |
+| W1-02 | Config and env loading                  | Done                                   | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope     | Done                                   | 2026-10-02 |
+| W1-04 | Database layer and indexes              | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
+| W1-05 | Users seed and auth                     | Done                                   | 2026-10-05 |
+| W1-06 | Frontend shell and login                | Done                                   | 2026-10-05 |
+| W1-07 | Corpus authoring and validation         | Done (pending owner review of numbers) | 2026-10-05 |
+| W1-08 | Golden set v1                           | Done (pending owner review)            | 2026-10-05 |
+| W1-09 | LLM and embedding provider layer        | Done                                   | 2026-10-05 |
+| W1-10 | Ingestion pipeline                      | Done                                   | 2026-10-05 |
+| W1-11 | Access filter and hybrid retrieval      | Done                                   | 2026-10-05 |
+| W1-12 | Retrieval eval runner                   | Done                                   | 2026-10-05 |
+| W2-01 | Prompt registry                         | Done                                   | 2026-10-05 |
+| W2-02 | Graph state, skeleton and checkpointer  | Done                                   | 2026-10-05 |
+| W2-03 | loadContext, precheck, analyzeTurn      | Done                                   | 2026-10-06 |
+| W2-04 | retrieve and rerankAssess nodes         | Done                                   | 2026-10-06 |
+| W2-05 | Decision rules and decide node          | Done                                   | 2026-10-06 |
+| W2-06 | Grounded answer and citation validation | Done                                   | 2026-10-06 |
 
 ## Checkpoints
 
@@ -822,3 +823,56 @@ Gemini query embeddings on the LAN index.
   no topic detection.
 - There is no LLM in this task. Decision accuracy is measured by the full eval (W2-10) and
   thresholds are tuned in W4-06.
+
+## W2-06 Grounded answer and citation validation — 2026-10-06
+
+**Delivered:**
+
+- `ai/nodes/answer.ts`: streamed P-3 with labelled sources, mode chosen by code, trailer
+  parsing, TTFT/tokens/cost tracing, and retry before the first chunk only (ADR-008).
+- `ai/guards/citations.ts`: marker → chunk mapping through the final context only; invented
+  markers are rejected and removed.
+- `ai/guards/numericCheck.ts`: numbers in the answer must appear in the cited chunks.
+- `ai/nodes/validateCitations.ts`: withdrawal path (template text, ESCALATE / CITATION_INVALID
+  outside safety mode).
+- `domain/templates.ts` (`fillTemplate`).
+- `createChatModel(…, { temperature })`, so P-3 uses its frontmatter temperature of 0.2.
+- `FakeChatModel` now streams: 12-character chunks, usage on the last chunk, optional mid-stream
+  error.
+- The stubs for answer and validateCitations moved to `nodes/stubs.ts`.
+
+**Verification**
+
+| Check                                                                      | Result                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| An answer citing a non-retrieved ID is impossible                          | Pass: `citations.test.ts`: markers S0, S3, S9, S12 and a raw `[chunkId: …]` against a two-source context → only c1/c2 valid, every valid chunk is in the retrieved set; an empty context yields nothing valid                                                                                    |
+| Zero valid citations → withdrawn                                           | Pass: node test (template text naming the HR team, ESCALATE / CITATION_INVALID, `ANSWER_WITHDRAWN`) plus a graph test (withdrawn, then persist)                                                                                                                                                  |
+| Validator unit tests: valid, invented marker, no markers, numeric mismatch | Pass: 10 guard tests (also grouped and repeated markers, list numbering, thousands separators, distinct violations)                                                                                                                                                                              |
+| Node test with fake streaming model                                        | Pass: `test/ai/answer.test.ts` (19): stream, trailer, TTFT and cost, partial and safety modes, missing trailer, 503 before the first chunk retried, 403 not retried, mid-stream failure not retried, empty context, 7 validator node cases, 3 graph tests including **tokens in `streamEvents`** |
+| DoD: contract item "no citation not retrieved" unit-tested                 | Pass: test "can never produce a citation to a chunk outside the retrieved context"                                                                                                                                                                                                               |
+
+**Live check** (real index, rerank P-2 plus answer P-3 on `gemini-3.8-flash`, validation): 4
+questions, 3 ANSWER and 1 PARTIAL.
+
+- **Citation validity 100%** (9/9 proposed markers valid); 0 rejected, 0 numeric violations,
+  0 withdrawals.
+- Partial mode: "meal allowance and gym membership" → "$65 per day [S1][S3]" plus "The sources
+  do not cover whether you can expense a gym membership", and the trailer lists it as
+  uncovered.
+- Profile-correct answers (Tom, UK contractor: contractor time-off rules; Priya, US full time:
+  15/20 days and the 5-day carry-over until 31 March).
+- One reply had no trailer → `ANSWER_TRAILER_INVALID`, uncovered `[]` (fallback worked).
+- About $0.0025 per answered turn (rerank plus answer).
+- The first attempt hit **503 "high demand"** before any token; this led to the
+  retry-before-first-chunk rule (ADR-008).
+
+**Risks**
+
+- **TTFT 6.3–15.2 s** on `gemini-3.8-flash` (almost all of the latency comes before the first
+  token). With P-1 (up to 7.8 s) and P-2 before it, the first word could take 20 s or more.
+  This is the top item for W4-02 (performance): try the fast tier for P-3, a lower thinking
+  budget, or OpenRouter.
+- Withdrawal on numeric mismatch can withdraw correct answers that paraphrase numbers
+  (ADR-008); measure in W2-10.
+- In safety mode, a withdrawn safety answer shows the generic "raise a ticket?" template even
+  though the draft follows automatically. Refine the copy in W2-07/W3.
