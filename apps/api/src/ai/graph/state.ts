@@ -3,7 +3,16 @@
 // state persists across turns on the same thread via the checkpointer;
 // newTurn() resets the per-turn keys when a turn starts.
 import { Annotation } from '@langchain/langgraph';
-import type { AccessLevel, Country, Decision, Domain, EmploymentType } from '@sd/shared';
+import type {
+  AccessLevel,
+  Country,
+  Decision,
+  Domain,
+  EmploymentType,
+  ImpactScope,
+  Priority,
+  TicketDraft,
+} from '@sd/shared';
 import { z } from 'zod';
 import type { AnswerMode, RerankAssessment, TurnAnalysis } from '../schemas';
 
@@ -31,12 +40,34 @@ export interface HistoryMessage {
   content: string;
 }
 
+/** What slot filling extracted (P-5), kept across clarification turns. */
+export interface TicketExtraction {
+  subcategory: string | null;
+  urgency: Priority;
+  urgencyReason: string;
+  impactScope: ImpactScope;
+  summary: string;
+  description: string;
+  alreadyTried: string[];
+  errorMessages: string[];
+  /** False when P-5 failed and the template fallback was used. */
+  fromModel: boolean;
+}
+
 export interface TicketFlow {
   active: boolean;
   category?: string;
   clarifyRounds: number;
+  /** The category's fields, normalised by code (absent = "unknown"). */
   fields: Record<string, string>;
+  /** Required fields still unknown, computed by code. */
   requiredMissing: string[];
+  extraction?: TicketExtraction;
+  /**
+   * Precheck rules matched on any turn of this ticket flow, so a safety floor
+   * detected on turn 1 still applies when the draft is built on a later turn.
+   */
+  matchedRules?: string[];
 }
 export const EMPTY_TICKET_FLOW: TicketFlow = {
   active: false,
@@ -119,14 +150,6 @@ export interface Citation {
   effectiveDate: string;
 }
 
-/** Placeholder until buildDraft (W3) defines the full TicketDraft. */
-export interface TicketDraftState {
-  domain: Domain | 'unknown';
-  category: string;
-  summary: string;
-  fields: Record<string, string>;
-}
-
 export interface Output {
   text: string;
   /** Which answer prompt mode produced the text, when the answer node ran. */
@@ -136,7 +159,7 @@ export interface Output {
   withdrawn: boolean;
   /** Why the generated answer was withdrawn (validateCitations). */
   withdrawnReason?: 'NO_VALID_CITATIONS' | 'NUMERIC_MISMATCH';
-  draft?: TicketDraftState;
+  draft?: TicketDraft;
   handoff?: {
     kind: 'out_of_scope' | 'sensitive';
     contact?: string;

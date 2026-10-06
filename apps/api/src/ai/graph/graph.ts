@@ -9,14 +9,13 @@ import {
 } from '@langchain/langgraph';
 import { agentSummary } from '../nodes/agentSummary';
 import { awaitConfirmation } from '../nodes/awaitConfirmation';
-import { buildDraft } from '../nodes/buildDraft';
-import { clarifyForTicket } from '../nodes/clarifyForTicket';
 import { createTicket } from '../nodes/createTicket';
-import { slotFill } from '../nodes/slotFill';
 import {
   stubAnalyzeTurn,
   stubAnswer,
+  stubBuildDraft,
   stubClarify,
+  stubClarifyForTicket,
   stubDecide,
   stubLoadContext,
   stubOutOfScope,
@@ -25,6 +24,7 @@ import {
   stubRerankAssess,
   stubRetrieve,
   stubSensitiveHandoff,
+  stubSlotFill,
   stubValidateCitations,
 } from '../nodes/stubs';
 import { type NodeFn, traced } from '../tracing/traced';
@@ -60,9 +60,9 @@ export const DEFAULT_NODES = {
   clarify: stubClarify,
   outOfScope: stubOutOfScope,
   sensitiveHandoff: stubSensitiveHandoff,
-  slotFill,
-  clarifyForTicket,
-  buildDraft,
+  slotFill: stubSlotFill,
+  clarifyForTicket: stubClarifyForTicket,
+  buildDraft: stubBuildDraft,
   persist: stubPersist,
   awaitConfirmation,
   createTicket,

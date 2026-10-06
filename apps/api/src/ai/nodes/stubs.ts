@@ -160,3 +160,52 @@ export function stubSensitiveHandoff(_state: State): StateUpdate {
 export function stubPersist(_state: State): StateUpdate {
   return {};
 }
+
+export function stubSlotFill(state: State): StateUpdate {
+  return {
+    ticketFlow: {
+      ...state.ticketFlow,
+      active: true,
+      category: state.ticketFlow.category ?? state.analysis?.category,
+    },
+  };
+}
+
+export function stubClarifyForTicket(state: State): StateUpdate {
+  const asked = state.ticketFlow.requiredMissing.slice(0, 2).join(', ');
+  return {
+    ticketFlow: { ...state.ticketFlow, clarifyRounds: state.ticketFlow.clarifyRounds + 1 },
+    output: { ...STUB_OUTPUT, ...state.output, text: `Stub question for ${asked}?` },
+  };
+}
+
+/** Keeps any answer text (safety mode); the draft has the TicketDraft shape. */
+export function stubBuildDraft(state: State): StateUpdate {
+  return {
+    ticketFlow: { ...state.ticketFlow, requiredMissing: [] },
+    output: {
+      ...STUB_OUTPUT,
+      text: 'Stub draft ready for review.',
+      ...state.output,
+      draft: {
+        domain: state.analysis?.domain === 'HR' ? 'HR' : 'IT',
+        category: state.ticketFlow.category ?? 'software',
+        subcategory: null,
+        queue: { id: 'it_software', label: 'IT Software' },
+        priority: 'medium',
+        aiUrgency: 'medium',
+        priorityFloorApplied: null,
+        impactScope: 'unknown',
+        summary: 'Stub summary',
+        description: 'Stub description',
+        alreadyTried: [],
+        errorMessages: [],
+        fields: state.ticketFlow.fields,
+        aiFilledFields: [],
+        requiredMissing: [],
+        articlesShown: [],
+        restricted: false,
+      },
+    },
+  };
+}

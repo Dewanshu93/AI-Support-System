@@ -27,6 +27,7 @@
 | W2-09 | Chat UI                                           | Done                                             | 2026-10-06 |
 | W2-10 | Full-graph eval suite                             | Code complete; baseline pending (provider quota) | 2026-10-06 |
 | W3-01 | Ticketing domain rules                            | Done                                             | 2026-10-06 |
+| W3-02 | slotFill and clarifyForTicket nodes               | Done (live P-5 check pending provider quota)     | 2026-10-06 |
 
 ## Checkpoints
 
@@ -1126,3 +1127,34 @@ sensitive cases still handed off. The two indirectly phrased ones need P-1, so t
 - The transitions are a new decision (ADR-012); the playbook lists statuses only.
 - `employee_relations` has an empty field schema by design: no AI extraction for sensitive
   cases (contract flow 6).
+
+## W3-02 slotFill and clarifyForTicket nodes — 2026-10-06
+
+**Delivered:**
+
+- Real nodes:
+  - `ai/nodes/slotFill.ts` (P-5);
+  - `ai/nodes/clarifyForTicket.ts` (P-4 ticket mode);
+  - `ai/nodes/buildDraft.ts` (code).
+- `ai/schemas/slotFill.ts` and prompt `ticket_slot_fill/v1.md` (active in `prompts.yaml`).
+- `TicketDraftSchema` in `@sd/shared`, now also the payload of the `ticket_draft` SSE event.
+- Templates `ticket_draft_ready` and `ticket_fields_question`.
+- `ticketFlow` persists `extraction` and `matchedRules` across turns (checkpointer).
+
+**Verification**
+
+| Check                                                       | Result                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Battery case asks for the device model once, then drafts    | Pass: turn 1 = safety steps + one device-model question (citation kept); turn 2 = draft. clarifyForTicket ran once; **priority critical** via `safety_battery` although the AI said medium                                                                                                                                               |
+| Multi-turn workflow tests with fakes                        | Pass: `test/ai/ticketFlow.test.ts` (10): complete first time; one round (answer merged, earlier value kept); two rounds then a draft with unknowns; invented keys dropped and the model's missing list ignored; category kept; P-5 fallback (redacted, all unknown); P-4 template fallback; domain default category; config = edge limit |
+| DoD: draft schema matches TicketDraft in the shared package | Pass: buildDraft validates with `TicketDraftSchema`; tests parse the draft; the SSE event uses the same schema                                                                                                                                                                                                                           |
+
+**Bug found and fixed:** the safety floor came from the current turn's precheck only, so a
+battery case drafted on turn 2 (after the device question) would have lost its critical
+priority. Matched rules are now kept for the whole ticket flow.
+
+**Notes**
+
+- No live P-5 check yet: both providers are out of quota (see W2-10). Run one with the W2-10
+  baseline.
+- The escalate API test now drives the real slotFill and buildDraft (P-1 + P-5 scripted).

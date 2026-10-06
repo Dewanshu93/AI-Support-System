@@ -1,5 +1,5 @@
 // The runtime turn graph: supportTurnGraph with every real node built so far
-// wired to its dependencies. Nodes not built yet (ticket flow, W3) stay stubs.
+// wired to its dependencies. Nodes not built yet (createTicket, agentSummary: W3) stay stubs.
 // server.ts builds it with real providers; tests build it with fake models.
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { ConfigFiles } from '../../config/schemas';
@@ -9,6 +9,9 @@ import { compilePrecheckRules } from '../guards/precheckRules';
 import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
 import { createAnalyzeTurn } from '../nodes/analyzeTurn';
 import { createAnswer } from '../nodes/answer';
+import { createBuildDraft } from '../nodes/buildDraft';
+import { createClarifyForTicket } from '../nodes/clarifyForTicket';
+import { createSlotFill } from '../nodes/slotFill';
 import { createClarify } from '../nodes/clarify';
 import { createDecide } from '../nodes/decide';
 import { createLoadContext } from '../nodes/loadContext';
@@ -25,7 +28,13 @@ import { buildSupportGraph, type SupportGraph } from './graph';
 export interface TurnGraphDeps {
   config: Pick<
     ConfigFiles,
-    'thresholds' | 'templates' | 'taxonomy' | 'sensitive' | 'priorityRules'
+    | 'thresholds'
+    | 'templates'
+    | 'taxonomy'
+    | 'sensitive'
+    | 'priorityRules'
+    | 'routing'
+    | 'ticketSchemas'
   > & {
     models: { call: CallPolicy; costs: CostTable };
   };
@@ -67,6 +76,22 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
       clarify: createClarify({ ...llm, templates }),
       outOfScope: createOutOfScope({ templates }),
       sensitiveHandoff: createSensitiveHandoff({ templates }),
+      slotFill: createSlotFill({
+        ...llm,
+        taxonomy: config.taxonomy,
+        ticketSchemas: config.ticketSchemas.schemas,
+      }),
+      clarifyForTicket: createClarifyForTicket({
+        ...llm,
+        ticketSchemas: config.ticketSchemas.schemas,
+        templates,
+      }),
+      buildDraft: createBuildDraft({
+        routing: config.routing,
+        priorityRules: config.priorityRules,
+        ticketSchemas: config.ticketSchemas.schemas,
+        templates,
+      }),
       persist: createPersist({
         conversations: deps.conversations,
         thresholds: config.thresholds.decision,

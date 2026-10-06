@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W3-01)
+## Repository layout (as of W3-02)
 
 ```
 /
@@ -629,6 +629,34 @@ Pure modules in `domain/`, all at 100% branch coverage:
   `ticket.duplicateWindowDays`).
 
 The ticket nodes (W3-02) and the API (W3-04) use these.
+
+## Ticket slot filling and drafts (W3-02)
+
+- `TicketDraftSchema` (`packages/shared/src/api/tickets.ts`) is the single draft shape. It is
+  used by buildDraft, the `ticket_draft` SSE event and the web app.
+- **`createSlotFill`** (P-5 `ticket_slot_fill` v1, quality tier):
+  - extracts the category, subcategory, urgency, impact scope, summary (≤ 15 words),
+    description (≤ 120 words), what was tried, verbatim errors and fields from the whole
+    conversation;
+  - **code decides:** the category is kept once chosen; known values from earlier turns are
+    merged; fields are normalised to the category schema (invented keys dropped, absent →
+    "unknown"); `requiredMissing` is computed by `domain/ticketSchemas` (the model's own list
+    is only logged);
+  - precheck rules matched on any turn are kept in `ticketFlow.matchedRules`, so a safety floor
+    from turn 1 still applies to a draft built later;
+  - fallback (P-5 fails twice): nothing invented, a redacted transcript as the description,
+    `SLOT_FILL_FALLBACK`.
+- **`createClarifyForTicket`** (P-4 in `ticket_fields` mode): one question for at most 2 missing
+  required fields, for at most `MAX_TICKET_CLARIFY_ROUNDS` (2, equal to
+  `thresholds.ticket.maxClarifyRounds`) rounds. The fallback is the `ticket_fields_question`
+  template. In safety mode the question is appended after the safety steps, keeping the
+  citations.
+- **`createBuildDraft`** (code): queue from `domain/routing`; priority from
+  `domain/priorityFloors` (AI urgency raised by floors, the rule recorded); `aiFilledFields`;
+  the remaining `requiredMissing`; `articlesShown` from the cited documents. The draft is
+  validated with `TicketDraftSchema`. Text: the `ticket_draft_ready` template (after the
+  safety steps in safety mode).
+- Still stubs: createTicket and agentSummary (W3-03).
 
 ## Runtime
 

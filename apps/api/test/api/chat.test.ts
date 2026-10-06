@@ -226,7 +226,21 @@ describe('other turn outcomes', () => {
 
 describe('POST /api/conversations/:id/escalate', () => {
   it('forces escalation to a ticket draft; the conversation then waits for confirmation (409)', async () => {
-    const { app, cookie, id, conversations, chat } = await setup([analysisReply()]);
+    const { app, cookie, id, conversations, chat } = await setup([
+      analysisReply(),
+      JSON.stringify({
+        category: 'leave',
+        urgency: 'low',
+        urgencyReason: 'question about leave',
+        impactScope: 'me',
+        summary: 'Question about annual leave',
+        description: 'The employee wants to talk to HR about their annual leave.',
+        alreadyTried: [],
+        errorMessages: [],
+        fields: { leave_type: 'annual', question: 'how many days remain' },
+        requiredMissing: [],
+      }),
+    ]);
     const res = await request(app)
       .post(`/api/conversations/${id}/escalate`)
       .set('Cookie', cookie)
@@ -245,7 +259,16 @@ describe('POST /api/conversations/:id/escalate', () => {
       data: { decision: 'ESCALATE', reasonCode: 'USER_REQUESTED' },
     });
     expect(conversations.messages[0]!.content).toBe('Please connect me with a person.');
-    expect(chat.model.calls).toHaveLength(1);
+    expect(chat.model.calls).toHaveLength(2); // P-1, P-5
+    const draftEvent = events.find((e) => e.type === 'ticket_draft') as Extract<
+      ChatEvent,
+      { type: 'ticket_draft' }
+    >;
+    expect(draftEvent.data.draft).toMatchObject({
+      category: 'leave',
+      queue: { id: 'hr_general' },
+      fields: { leave_type: 'annual' },
+    });
 
     const blocked = await send(app, cookie, id, 'hello?');
     expect(blocked.status).toBe(409);
@@ -253,7 +276,7 @@ describe('POST /api/conversations/:id/escalate', () => {
     expect(conversations.messages).toHaveLength(2); // nothing stored for the refused turn
 
     const detail = await request(app).get(`/api/conversations/${id}`).set('Cookie', cookie);
-    expect(detail.body.pendingDraft).toMatchObject({ summary: expect.any(String) });
+    expect(detail.body.pendingDraft).toMatchObject({ summary: 'Question about annual leave' });
   });
 });
 

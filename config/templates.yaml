@@ -22,3 +22,8 @@ templates:
     this about, and what have you already tried?
   resolution_declined: >-
     Sorry that didn't solve it. Would you like me to raise a ticket so a person can help?
+  ticket_draft_ready: >-
+    I've prepared a ticket for the {queueLabel} team. Check the details below and confirm to send
+    it.
+  ticket_fields_question: >-
+    To raise your ticket I need a little more detail: {fields}. Could you tell me?

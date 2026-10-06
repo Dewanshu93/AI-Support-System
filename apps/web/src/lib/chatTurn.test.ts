@@ -113,12 +113,31 @@ describe('turnReducer (SSE state machine)', () => {
   });
 
   it('ticket draft is kept for the draft card', () => {
+    const draft = {
+      domain: 'IT' as const,
+      category: 'network',
+      subcategory: null,
+      queue: { id: 'it_software', label: 'IT Software' },
+      priority: 'medium' as const,
+      aiUrgency: 'medium' as const,
+      priorityFloorApplied: null,
+      impactScope: 'me' as const,
+      summary: 's',
+      description: 'd',
+      alreadyTried: [],
+      errorMessages: [],
+      fields: {},
+      aiFilledFields: [],
+      requiredMissing: [],
+      articlesShown: [],
+      restricted: false,
+    };
     const s = run([
       started,
-      { type: 'ticket_draft', data: { draft: { summary: 'x' }, missingFields: [] } },
+      { type: 'ticket_draft', data: { draft, missingFields: [] } },
       done('ESCALATE', 'USER_REQUESTED'),
     ]);
-    expect(s.ticketDraft).toEqual({ draft: { summary: 'x' }, missingFields: [] });
+    expect(s.ticketDraft).toEqual({ draft, missingFields: [] });
   });
 
   it('error event or transport failure → error; later events are ignored', () => {

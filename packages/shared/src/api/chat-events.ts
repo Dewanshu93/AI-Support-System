@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { DecisionSchema } from '../enums';
 import { CitationDtoSchema } from './conversations';
+import { TicketDraftSchema } from './tickets';
 
 export const CHAT_STAGES = ['analyzing', 'searching', 'writing', 'preparing_ticket'] as const;
 export type ChatStage = (typeof CHAT_STAGES)[number];
@@ -27,7 +28,7 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('ticket_draft'),
     data: z.object({
-      draft: z.record(z.string(), z.unknown()),
+      draft: TicketDraftSchema,
       missingFields: z.array(z.string()),
     }),
   }),

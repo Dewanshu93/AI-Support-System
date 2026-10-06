@@ -6,12 +6,14 @@ import { ClarifyingQuestionSchema } from './clarifyingQuestion';
 import type { SchemaContext } from './common';
 import { GroundedAnswerTrailerSchema } from './groundedAnswer';
 import { RerankAssessmentSchema } from './rerank';
+import { slotFillSchema } from './slotFill';
 import { turnAnalysisSchema } from './turnAnalysis';
 
 export * from './clarifyingQuestion';
 export * from './common';
 export * from './groundedAnswer';
 export * from './rerank';
+export * from './slotFill';
 export * from './turnAnalysis';
 
 /** Prompt frontmatter `outputSchema` name → schema factory. */
@@ -20,6 +22,7 @@ export const OUTPUT_SCHEMAS = {
   RerankAssessment: () => RerankAssessmentSchema,
   GroundedAnswerTrailer: () => GroundedAnswerTrailerSchema,
   ClarifyingQuestion: () => ClarifyingQuestionSchema,
+  SlotFillResult: (ctx: SchemaContext) => slotFillSchema(ctx),
 } as const satisfies Record<string, (ctx: SchemaContext) => z.ZodType>;
 export type OutputSchemaName = keyof typeof OUTPUT_SCHEMAS;
 export const OUTPUT_SCHEMA_NAMES = Object.keys(OUTPUT_SCHEMAS) as [

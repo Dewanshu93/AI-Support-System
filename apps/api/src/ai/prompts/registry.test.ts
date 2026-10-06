@@ -156,6 +156,7 @@ describe('committed prompts', () => {
     rerank_assess: ['passages', 'profile', 'question'],
     grounded_answer: ['mode', 'profile', 'question', 'sources'],
     clarifying_question: ['mode', 'needed', 'profile', 'question'],
+    ticket_slot_fill: ['analysis', 'conversation', 'fieldSchemas', 'profile', 'taxonomy'],
   } as const;
 
   it.each(Object.entries(expected))('%s v1 loads with its documented variables', (name, vars) => {
@@ -174,7 +175,7 @@ describe('committed prompts', () => {
     }
   });
 
-  it('activates exactly the prompts built so far (P-1 to P-4)', () => {
+  it('activates exactly the prompts built so far (P-1 to P-5)', () => {
     expect(Object.keys(registry.active()).sort()).toEqual(Object.keys(expected).sort());
   });
 });

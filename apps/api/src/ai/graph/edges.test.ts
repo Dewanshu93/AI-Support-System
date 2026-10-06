@@ -93,7 +93,25 @@ describe('routeAfterSlotFill', () => {
 });
 
 describe('routeAfterPersist and routeAfterConfirmation', () => {
-  const draft = { domain: 'IT' as const, category: 'network', summary: 's', fields: {} };
+  const draft = {
+    domain: 'IT' as const,
+    category: 'network',
+    subcategory: null,
+    queue: { id: 'it_software', label: 'IT Software' },
+    priority: 'medium' as const,
+    aiUrgency: 'medium' as const,
+    priorityFloorApplied: null,
+    impactScope: 'me' as const,
+    summary: 's',
+    description: 'd',
+    alreadyTried: [],
+    errorMessages: [],
+    fields: {},
+    aiFilledFields: [],
+    requiredMissing: [],
+    articlesShown: [],
+    restricted: false,
+  };
   const output = { text: '', citations: [], uncovered: [], withdrawn: false };
 
   it('pauses only for an unconfirmed draft', () => {

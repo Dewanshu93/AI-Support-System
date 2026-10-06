@@ -11,3 +11,21 @@ export function formatHistory(history: HistoryMessage[]): string {
   if (history.length === 0) return '(no earlier messages)';
   return history.map((m) => `${m.role}: ${m.content}`).join('\n');
 }
+
+/** The conversation for P-5: earlier turns, then the current message. */
+export function formatConversation(history: HistoryMessage[], current: string): string {
+  return [...history.map((m) => `${m.role}: ${m.content}`), `user: ${current}`].join('\n');
+}
+
+/** Ticket fields per category for P-5: "- category: key (description, required)". */
+export function formatFieldSchemas(
+  schemas: Record<string, { fields: { key: string; description: string; required: boolean }[] }>,
+): string {
+  return Object.entries(schemas)
+    .filter(([, s]) => s.fields.length > 0)
+    .map(
+      ([category, s]) =>
+        `- ${category}: ${s.fields.map((f) => `${f.key} (${f.description}, ${f.required ? 'required' : 'optional'})`).join('; ')}`,
+    )
+    .join('\n');
+}
