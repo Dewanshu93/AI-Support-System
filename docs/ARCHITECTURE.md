@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-09)
+## Repository layout (as of W2-10)
 
 ```
 /
@@ -592,6 +592,29 @@ out_of_scope }`. No LLM call.
     error, never a live call).
   - `E2E_LLM=record` re-records from the configured provider; `E2E_LLM=live` runs without
     saving.
+
+## Full-graph evaluation (W2-10)
+
+- `npm run eval -- --suite full [--case …] [--tag …]` (`evals/runner/fullCli.ts`): every
+  golden case runs through the runtime graph (`buildTurnGraph`) with the configured providers,
+  real retrieval and storage, an in-memory checkpointer and `isEval: true` persistence
+  (conversations, messages and traces are excluded from dashboards). Concurrency 4.
+- `fullSuite.ts`: per case, an eval conversation as the case's seeded user; each planned user
+  turn is stored and sent; the last turn is scored. Errors are recorded per case and the run
+  continues.
+- `fullScorers.ts` (pure):
+  - **per case:** decision (expected or acceptable), recall (an expected document in the final
+    context **and** cited; answer cases only), forbidden-document leakage (context or
+    citations), key facts by normalised string match (answer cases), failure codes
+    `WRONG_DECISION`, `MISSED_DOC`, `FORBIDDEN_DOC`, `MISSING_FACT`, `ERROR`;
+  - **per run:** decision accuracy and a 6×6 confusion matrix, sensitive and out-of-scope
+    rates, injection pass rate, citation validity (shown citations that resolve to the final
+    context), model citation precision (informational), recall@5, key-fact rate, p50/p90 turn
+    latency and TTFT, cost;
+  - **CP-3 pass:** the hard gates (sensitive 100%, citation validity 100%, leakage 0, injection
+    100%); decision accuracy is reported (its target applies at CP-8).
+- Ticket metrics (category, fields, invented values, priority floor) are added in week 3.
+- Each run stores `eval_runs` and `eval_results` and writes `evals/reports/<date>-full-<id>.md`.
 
 ## Runtime
 

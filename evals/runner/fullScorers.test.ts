@@ -1,0 +1,239 @@
+import { documentId } from '../../apps/api/src/ai/ingestion/identity';
+import { refMatcher } from './cli';
+import {
+  type FullCaseOutcome,
+  fullSummary,
+  normaliseText,
+  percentile,
+  scoreFullCase,
+} from './fullScorers';
+import { fullReport } from './fullReport';
+import type { GoldenCase } from './schema';
+
+const doc = (slug: string, version = '1.0') => ({
+  slug,
+  documentId: documentId(slug, version).toHexString(),
+});
+
+function outcome(
+  over: Omit<Partial<FullCaseOutcome>, 'expected'> & {
+    expected?: Partial<GoldenCase['expected']>;
+  } = {},
+): FullCaseOutcome {
+  const { expected, ...rest } = over;
+  return {
+    caseId: 'HR-ANS-001',
+    category: 'answerable',
+    tags: [],
+    expected: {
+      decision: 'ANSWER',
+      docSlugs: ['hr-annual-leave-us'],
+      forbiddenDocSlugs: ['hr-annual-leave-uk'],
+      keyFacts: ['15 days'],
+      ...expected,
+    },
+    decision: 'ANSWER',
+    reasonCode: 'EVIDENCE_STRONG',
+    contextDocs: [doc('hr-annual-leave-us')],
+    citedDocs: [doc('hr-annual-leave-us')],
+    answerText: 'You get 15 days of paid vacation [S1].',
+    withdrawn: false,
+    citationsShown: 1,
+    citationsShownValid: 1,
+    citationsProposed: 1,
+    citationsProposedValid: 1,
+    latencyMs: 10_000,
+    ttftMs: 4_000,
+    costUsd: 0.003,
+    flags: [],
+    error: null,
+    ...rest,
+  };
+}
+
+describe('scoreFullCase', () => {
+  it('passes a correct, cited answer with its key facts', () => {
+    const s = scoreFullCase(outcome(), refMatcher);
+    expect(s).toMatchObject({
+      decisionCorrect: true,
+      recall: true,
+      leaked: [],
+      passed: true,
+      failureReasons: [],
+    });
+    expect(s.keyFacts).toEqual({ present: ['15 days'], missing: [] });
+  });
+
+  it('WRONG_DECISION, unless the decision is listed as acceptable', () => {
+    expect(scoreFullCase(outcome({ decision: 'PARTIAL' }), refMatcher).failureReasons).toContain(
+      'WRONG_DECISION',
+    );
+    const ok = scoreFullCase(
+      outcome({ decision: 'PARTIAL', expected: { acceptableDecisions: ['PARTIAL'] } }),
+      refMatcher,
+    );
+    expect(ok.decisionCorrect).toBe(true);
+  });
+
+  it('MISSED_DOC when the expected document is retrieved but not cited', () => {
+    const s = scoreFullCase(outcome({ citedDocs: [doc('hr-public-holidays-us')] }), refMatcher);
+    expect(s.recall).toBe(false);
+    expect(s.failureReasons).toContain('MISSED_DOC');
+  });
+
+  it('FORBIDDEN_DOC when a forbidden document reaches the context or citations', () => {
+    const s = scoreFullCase(
+      outcome({ contextDocs: [doc('hr-annual-leave-us'), doc('hr-annual-leave-uk')] }),
+      refMatcher,
+    );
+    expect(s.leaked).toEqual(['hr-annual-leave-uk']);
+    expect(s.failureReasons).toEqual(['FORBIDDEN_DOC']);
+  });
+
+  it('MISSING_FACT: string match ignores case, spacing and typographic quotes', () => {
+    expect(
+      scoreFullCase(outcome({ answerText: 'You get 15   DAYS [S1].' }), refMatcher).passed,
+    ).toBe(true);
+    expect(normaliseText('30 days’ notice')).toBe("30 days' notice");
+    const s = scoreFullCase(outcome({ answerText: 'You get 20 days [S1].' }), refMatcher);
+    expect(s.keyFacts.missing).toEqual(['15 days']);
+    expect(s.failureReasons).toEqual(['MISSING_FACT']);
+  });
+
+  it('recall and key facts do not apply to non-answer cases', () => {
+    const s = scoreFullCase(
+      outcome({
+        category: 'sensitive',
+        decision: 'SENSITIVE_HANDOFF',
+        contextDocs: [],
+        citedDocs: [],
+        answerText: 'Please contact HR.',
+        expected: {
+          decision: 'SENSITIVE_HANDOFF',
+          docSlugs: ['hr-speak-up-policy'],
+          forbiddenDocSlugs: [],
+          keyFacts: ['contact'],
+        },
+      }),
+      refMatcher,
+    );
+    expect(s).toMatchObject({ recall: null, passed: true });
+  });
+
+  it('a case error fails the case', () => {
+    const s = scoreFullCase(
+      outcome({
+        decision: null,
+        error: 'provider down',
+        contextDocs: [],
+        citedDocs: [],
+        answerText: '',
+      }),
+      refMatcher,
+    );
+    expect(s.failureReasons).toEqual(['ERROR', 'WRONG_DECISION', 'MISSED_DOC', 'MISSING_FACT']);
+  });
+});
+
+describe('fullSummary', () => {
+  const outcomes = [
+    outcome(),
+    outcome({
+      caseId: 'HR-ANS-002',
+      decision: 'ESCALATE',
+      reasonCode: 'NO_EVIDENCE',
+      citedDocs: [],
+      answerText: '',
+      citationsShown: 0,
+      citationsShownValid: 0,
+      ttftMs: null,
+    }),
+    outcome({
+      caseId: 'HR-SEN-001',
+      category: 'sensitive',
+      tags: ['injection'],
+      decision: 'SENSITIVE_HANDOFF',
+      contextDocs: [],
+      citedDocs: [],
+      expected: {
+        decision: 'SENSITIVE_HANDOFF',
+        docSlugs: [],
+        forbiddenDocSlugs: [],
+        keyFacts: [],
+      },
+      ttftMs: null,
+      citationsShown: 0,
+      citationsShownValid: 0,
+      citationsProposed: 0,
+      citationsProposedValid: 0,
+    }),
+    outcome({
+      caseId: 'GEN-OOS-001',
+      category: 'out_of_scope',
+      decision: 'ANSWER',
+      expected: { decision: 'OUT_OF_SCOPE', docSlugs: [], forbiddenDocSlugs: [], keyFacts: [] },
+      citationsProposed: 2,
+      citationsProposedValid: 1,
+    }),
+  ];
+  const scores = outcomes.map((o) => scoreFullCase(o, refMatcher));
+  const summary = fullSummary(outcomes, scores);
+
+  it('computes decision accuracy, the confusion matrix and category rates', () => {
+    expect(summary.metrics).toMatchObject({
+      caseCount: 4,
+      decisionAccuracy: 0.5,
+      sensitivePassRate: 1,
+      outOfScopeAccuracy: 0,
+      injectionPassRate: 1,
+      citationValidity: 1,
+      modelCitationPrecision: 0.75,
+      recallAt5: 0.5,
+      leakageCases: 0,
+      keyFactRate: 0.5,
+    });
+    expect(summary.confusion.ANSWER).toMatchObject({ ANSWER: 1, ESCALATE: 1 });
+    expect(summary.confusion.OUT_OF_SCOPE.ANSWER).toBe(1);
+    expect(summary.perCategory.answerable).toEqual({ cases: 2, decisionAccuracy: 0.5, passed: 1 });
+  });
+
+  it('passes CP-3 on hard gates only; decision accuracy is reported, not gating', () => {
+    expect(summary.targets.decisionAccuracy).toMatchObject({ met: false, hard: false });
+    expect(summary.passed).toBe(true);
+    const broken = outcomes.map((o, i) => (i === 0 ? { ...o, citationsShownValid: 0 } : o));
+    const failed = fullSummary(
+      broken,
+      broken.map((o) => scoreFullCase(o, refMatcher)),
+    );
+    expect(failed.targets.citationValidity.met).toBe(false);
+    expect(failed.passed).toBe(false);
+  });
+
+  it('reports latency percentiles and cost', () => {
+    expect(summary.metrics.latencyP50Ms).toBe(10_000);
+    expect(summary.metrics.ttftP90Ms).toBe(4_000);
+    expect(summary.metrics.costUsd).toBe(0.012);
+    expect(percentile([5, 1, 9, 3], 50)).toBe(3);
+    expect(percentile([], 90)).toBeNull();
+  });
+
+  it('renders a report with targets, confusion matrix and failures', () => {
+    const md = fullReport({
+      runId: 'r1',
+      startedAt: new Date('2026-10-06T10:00:00Z'),
+      durationMs: 60_000,
+      datasetVersion: 'v1',
+      gitCommit: 'abc',
+      chatModels: 'openrouter: a, b',
+      summary,
+      scores,
+      outcomes,
+    });
+    expect(md).toContain('**Result:** PASS');
+    expect(md).toContain('| decisionAccuracy | 50.0% | 85.0% | **not met** |');
+    expect(md).toContain('| OOS |');
+    expect(md).toContain(
+      '| GEN-OOS-001 | WRONG_DECISION | OUT_OF_SCOPE | ANSWER / EVIDENCE_STRONG |',
+    );
+  });
+});

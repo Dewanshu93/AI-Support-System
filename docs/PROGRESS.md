@@ -2,29 +2,30 @@
 
 ## Task status
 
-| Task  | Name                                              | Status                                 | Date       |
-| ----- | ------------------------------------------------- | -------------------------------------- | ---------- |
-| W1-01 | Monorepo scaffold                                 | Done (Docker unverified)               | 2026-10-02 |
-| W1-02 | Config and env loading                            | Done                                   | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope               | Done                                   | 2026-10-02 |
-| W1-04 | Database layer and indexes                        | Done (amended: Qdrant, ADR-004)        | 2026-10-05 |
-| W1-05 | Users seed and auth                               | Done                                   | 2026-10-05 |
-| W1-06 | Frontend shell and login                          | Done                                   | 2026-10-05 |
-| W1-07 | Corpus authoring and validation                   | Done (pending owner review of numbers) | 2026-10-05 |
-| W1-08 | Golden set v1                                     | Done (pending owner review)            | 2026-10-05 |
-| W1-09 | LLM and embedding provider layer                  | Done                                   | 2026-10-05 |
-| W1-10 | Ingestion pipeline                                | Done                                   | 2026-10-05 |
-| W1-11 | Access filter and hybrid retrieval                | Done                                   | 2026-10-05 |
-| W1-12 | Retrieval eval runner                             | Done                                   | 2026-10-05 |
-| W2-01 | Prompt registry                                   | Done                                   | 2026-10-05 |
-| W2-02 | Graph state, skeleton and checkpointer            | Done                                   | 2026-10-05 |
-| W2-03 | loadContext, precheck, analyzeTurn                | Done                                   | 2026-10-06 |
-| W2-04 | retrieve and rerankAssess nodes                   | Done                                   | 2026-10-06 |
-| W2-05 | Decision rules and decide node                    | Done                                   | 2026-10-06 |
-| W2-06 | Grounded answer and citation validation           | Done                                   | 2026-10-06 |
-| W2-07 | Clarify, out-of-scope and sensitive handoff nodes | Done                                   | 2026-10-06 |
-| W2-08 | Persist node and chat API with SSE                | Done                                   | 2026-10-06 |
-| W2-09 | Chat UI                                           | Done                                   | 2026-10-06 |
+| Task  | Name                                              | Status                                           | Date       |
+| ----- | ------------------------------------------------- | ------------------------------------------------ | ---------- |
+| W1-01 | Monorepo scaffold                                 | Done (Docker unverified)                         | 2026-10-02 |
+| W1-02 | Config and env loading                            | Done                                             | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope               | Done                                             | 2026-10-02 |
+| W1-04 | Database layer and indexes                        | Done (amended: Qdrant, ADR-004)                  | 2026-10-05 |
+| W1-05 | Users seed and auth                               | Done                                             | 2026-10-05 |
+| W1-06 | Frontend shell and login                          | Done                                             | 2026-10-05 |
+| W1-07 | Corpus authoring and validation                   | Done (pending owner review of numbers)           | 2026-10-05 |
+| W1-08 | Golden set v1                                     | Done (pending owner review)                      | 2026-10-05 |
+| W1-09 | LLM and embedding provider layer                  | Done                                             | 2026-10-05 |
+| W1-10 | Ingestion pipeline                                | Done                                             | 2026-10-05 |
+| W1-11 | Access filter and hybrid retrieval                | Done                                             | 2026-10-05 |
+| W1-12 | Retrieval eval runner                             | Done                                             | 2026-10-05 |
+| W2-01 | Prompt registry                                   | Done                                             | 2026-10-05 |
+| W2-02 | Graph state, skeleton and checkpointer            | Done                                             | 2026-10-05 |
+| W2-03 | loadContext, precheck, analyzeTurn                | Done                                             | 2026-10-06 |
+| W2-04 | retrieve and rerankAssess nodes                   | Done                                             | 2026-10-06 |
+| W2-05 | Decision rules and decide node                    | Done                                             | 2026-10-06 |
+| W2-06 | Grounded answer and citation validation           | Done                                             | 2026-10-06 |
+| W2-07 | Clarify, out-of-scope and sensitive handoff nodes | Done                                             | 2026-10-06 |
+| W2-08 | Persist node and chat API with SSE                | Done                                             | 2026-10-06 |
+| W2-09 | Chat UI                                           | Done                                             | 2026-10-06 |
+| W2-10 | Full-graph eval suite                             | Code complete; baseline pending (provider quota) | 2026-10-06 |
 
 ## Checkpoints
 
@@ -1065,3 +1066,36 @@ CP-4, please confirm):
 - Replay keys are hashes of the prompt messages: changing a prompt, the corpus or retrieval
   results requires re-recording (`E2E_LLM=record`); a missing recording fails the turn loudly.
 - E2E data (conversations, messages, traces) is written to the `servicedesk` database.
+
+## W2-10 Full-graph eval suite — 2026-10-06 (code complete; baseline pending)
+
+**Delivered:**
+
+- `evals/runner/fullSuite.ts` (runner), `fullScorers.ts` (decision, sensitive, out of scope,
+  citations, key facts, recall, leakage, injection, latency, cost; confusion matrix),
+  `fullReport.ts`, `fullCli.ts`, and `--suite full` in the eval CLI.
+- The persist node and runtime graph take `isEval`: eval conversations, messages and traces
+  are flagged and excluded from dashboards.
+
+**Verification**
+
+| Check                                                     | Result                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scorer unit tests                                         | Pass: `fullScorers.test.ts` (11): correct answer, acceptable decisions, missed doc, forbidden doc, key-fact normalisation, non-answer cases, errors, summary metrics and confusion matrix, CP-3 gating, percentiles and cost, report                                                                                                                      |
+| Runner                                                    | Pass: `fullSuite.test.ts` (3) on the real runtime graph with fake models: outcome extraction, isEval records, multi-turn cases, per-case errors                                                                                                                                                                                                           |
+| Live smoke (3 cases, OpenRouter)                          | Pass: HR-ANS-001 ANSWER, HR-SEN-001 SENSITIVE_HANDOFF, GEN-OOS-001 OUT_OF_SCOPE; $0.0067                                                                                                                                                                                                                                                                  |
+| `npm run eval -- --suite full` completes; baseline stored | **Pending:** the 80-case run started on OpenRouter, but the account ran out of credits (HTTP 402) after about 10 cases, and Gemini's free daily quota was already used (429). The run (`6ac4cee7c85bacbe24b6468a`) is stored but is **not** a baseline; its report was deleted. Owner decision: run the baseline when Gemini's quota resets (2026-10-07). |
+| DoD: CP-3 gate                                            | Pending the baseline run                                                                                                                                                                                                                                                                                                                                  |
+
+**Observed in the aborted run (useful, not a baseline):** with no working model the graph
+failed safe. P-1 and P-2 fell back, every turn escalated or handed off, nothing crashed, no
+answer was invented, citation validity stayed 100% and leakage 0; the six keyword-detected
+sensitive cases still handed off. The two indirectly phrased ones need P-1, so they escalated.
+
+**Notes**
+
+- Two timing-sensitive tests (the chat API answer turn and the server startup test) failed
+  once while the eval loaded the machine, and passed when rerun alone. This is a flakiness risk
+  under load, not a bug.
+- **To finish W2-10:** `npm run eval -- --suite full` (Gemini, about 15 minutes), record the
+  metrics here and mark CP-3.

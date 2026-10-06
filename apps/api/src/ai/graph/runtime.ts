@@ -36,6 +36,8 @@ export interface TurnGraphDeps {
   retrieve: RetrieveNodeDeps['retrieve'];
   checkpointer: BaseCheckpointSaver;
   now?: () => Date;
+  /** Eval runs: persisted records are marked isEval. */
+  isEval?: boolean;
 }
 
 export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
@@ -69,6 +71,7 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         conversations: deps.conversations,
         thresholds: config.thresholds.decision,
         now: deps.now,
+        isEval: deps.isEval,
       }),
     },
   });

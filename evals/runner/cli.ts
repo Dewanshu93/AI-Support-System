@@ -1,4 +1,4 @@
-// npm run eval -- --suite retrieval [--case HR-ANS-007]… [--tag table]…
+// npm run eval -- --suite retrieval|full [--case HR-ANS-007]… [--tag table]…
 // Runs the golden set against the real index, stores eval_runs/eval_results,
 // writes a Markdown report to evals/reports/, and exits 1 if the run fails.
 import { execSync } from 'node:child_process';
@@ -16,6 +16,7 @@ import { loadPromptRegistry } from '../../apps/api/src/ai/prompts/registry';
 import { retrieve } from '../../apps/api/src/ai/retrieval/retrieve';
 import { mongoDocumentsRepository } from '../../apps/api/src/modules/documents/repository';
 import { loadSeedUsers } from '../../apps/api/src/modules/users/seed';
+import { runFullCli } from './fullCli';
 import { validateGolden } from './golden';
 import { retrievalReport } from './report';
 import { retrievalCases, runRetrievalSuite } from './retrievalSuite';
@@ -60,11 +61,11 @@ function gitCommit(): string {
 
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
-  if (args.suite !== 'retrieval') {
+  if (args.suite !== 'retrieval' && args.suite !== 'full') {
     console.error(
       args.suite
-        ? `Suite "${args.suite}" is not available yet (full: W2-10, judge: W4-05). Use --suite retrieval.`
-        : 'Usage: npm run eval -- --suite retrieval [--case <id>]… [--tag <tag>]…',
+        ? `Suite "${args.suite}" is not available yet (judge: W4-05). Use --suite retrieval or full.`
+        : 'Usage: npm run eval -- --suite retrieval|full [--case <id>]… [--tag <tag>]…',
     );
     return 1;
   }
@@ -88,13 +89,21 @@ async function main(): Promise<number> {
     );
     return 1;
   }
-  let cases = retrievalCases(golden.cases);
+  let cases = args.suite === 'full' ? golden.cases : retrievalCases(golden.cases);
   if (args.caseIds.length > 0) cases = cases.filter((c) => args.caseIds.includes(c.id));
   if (args.tags.length > 0)
     cases = cases.filter((c) => args.tags.some((t) => c.tags.includes(t as never)));
   if (cases.length === 0) {
     console.error('No golden cases match the filters.');
     return 1;
+  }
+
+  if (args.suite === 'full') {
+    return runFullCli(config, cases, {
+      refMatcher,
+      gitCommit: gitCommit(),
+      reportsDir: REPORTS_DIR,
+    });
   }
 
   const users = new Map(loadSeedUsers().map((u) => [u.email, u]));

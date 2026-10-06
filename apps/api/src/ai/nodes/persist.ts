@@ -17,6 +17,8 @@ export interface PersistDeps {
   >;
   thresholds: DecisionThresholds;
   now?: () => Date;
+  /** Eval runs (W2-10): stored messages and traces are marked isEval (excluded from dashboards). */
+  isEval?: boolean;
 }
 
 /** `name@vN#hash` → its parts. */
@@ -86,7 +88,7 @@ export function createPersist(deps: PersistDeps) {
       uncovered: output.uncovered,
       ticketDraft: output.draft ? { ...output.draft } : null,
       status: output.withdrawn ? 'withdrawn' : 'complete',
-      isEval: false,
+      isEval: deps.isEval ?? false,
       createdAt: at,
     };
 
@@ -136,7 +138,7 @@ export function createPersist(deps: PersistDeps) {
       totalCostUsd: trace.llmCalls.reduce((sum, c) => sum + c.costUsd, 0),
       errors: trace.errors,
       restricted: conversation?.restricted ?? false,
-      isEval: false,
+      isEval: deps.isEval ?? false,
       createdAt: at,
     };
 
