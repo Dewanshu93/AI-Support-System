@@ -283,3 +283,18 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** out-of-scope turns are faster and cheaper (no embedding, no search, no P-2).
   If P-1 wrongly marks an in-scope question as out of scope, no retrieval evidence can override
   it. The decision eval (W2-10) measures this.
+
+## ADR-010 — In-process turn lock (W2-08)
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Section 4 requires 409 when a turn is already running in a conversation. The
+  prototype runs a single API process, and Redis and job queues are on the Do Not Build list.
+- **Decision:** a `Set` of running conversation IDs inside the turn runner (one per app). It is
+  checked and taken before the user message is stored, and released when the turn ends,
+  successfully or not. The pending-draft 409 is read from the graph checkpoint, so it holds
+  across restarts.
+- **Alternatives:** a MongoDB lease document with an expiry (survives restarts, works with
+  several processes; more code and stale-lease handling).
+- **Consequences:** with more than one API process, two turns in the same conversation could run
+  at once. Production needs a shared lock (for example a MongoDB lease or a unique "running"
+  marker on the conversation); recorded in PRODUCTION_GAPS.md.

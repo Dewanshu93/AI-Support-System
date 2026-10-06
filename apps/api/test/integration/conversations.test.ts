@@ -3,7 +3,7 @@
 import { randomBytes } from 'node:crypto';
 import { ObjectId } from 'mongodb';
 import { connectDatabase, type Database, getCollections } from '../../src/db';
-import type { MessageDoc } from '../../src/db/schemas';
+import type { ConversationDoc, MessageDoc } from '../../src/db/schemas';
 import { mongoConversationsRepository } from '../../src/modules/conversations/repository';
 
 const mongoUri = process.env.MONGODB_TEST_URI;
@@ -46,7 +46,7 @@ jest.setTimeout(120_000);
     const other = { ...make(99, 'user'), conversationId: new ObjectId() };
     await messages.insertMany([...docs, other]);
 
-    const repo = mongoConversationsRepository(messages);
+    const repo = mongoConversationsRepository(getCollections(database.db));
     const current = docs[10]!;
     const recent = await repo.recentMessages(
       conversationId.toHexString(),
@@ -56,5 +56,58 @@ jest.setTimeout(120_000);
     // m0…m9 minus the system event m4 → nine; the last eight are m1…m9 without m4.
     expect(recent.map((m) => m.content)).toEqual(['m1', 'm2', 'm3', 'm5', 'm6', 'm7', 'm8', 'm9']);
     expect(await repo.recentMessages('not-an-id', 8)).toEqual([]);
+  });
+
+  it('conversations: insert, cursor pagination, update with turn increment', async () => {
+    const repo = mongoConversationsRepository(getCollections(database.db));
+    const userId = new ObjectId();
+    const base = Date.UTC(2026, 9, 6, 9, 0);
+    const docs: ConversationDoc[] = [0, 1, 2].map((i) => ({
+      _id: new ObjectId(),
+      userId,
+      title: `c${i}`,
+      status: 'open',
+      resolution: null,
+      ticketId: null,
+      restricted: false,
+      lastDecision: null,
+      turnCount: 0,
+      isEval: false,
+      createdAt: new Date(base),
+      updatedAt: new Date(base + i * 60_000),
+    }));
+    for (const d of docs) await repo.insertConversation(d);
+    const page1 = await repo.listConversations(userId, { limit: 2 });
+    expect(page1.items.map((c) => c.title)).toEqual(['c2', 'c1']);
+    const page2 = await repo.listConversations(userId, { limit: 2, cursor: page1.nextCursor! });
+    expect(page2.items.map((c) => c.title)).toEqual(['c0']);
+    expect(page2.nextCursor).toBeNull();
+
+    await repo.updateConversation(
+      docs[0]!._id,
+      { lastDecision: 'ANSWER' },
+      { incrementTurns: true },
+    );
+    expect(await repo.findConversation(docs[0]!._id.toHexString())).toMatchObject({
+      lastDecision: 'ANSWER',
+      turnCount: 1,
+    });
+    await expect(
+      repo.insertConversation({ ...docs[0]!, _id: new ObjectId(), status: 'nope' as never }),
+    ).rejects.toThrow('Invalid conversations document');
+  });
+
+  it('feedback upserts one rating per user per message', async () => {
+    const repo = mongoConversationsRepository(getCollections(database.db));
+    const base = {
+      messageId: new ObjectId(),
+      conversationId: new ObjectId(),
+      userId: new ObjectId(),
+      createdAt: new Date(),
+    };
+    const first = await repo.upsertFeedback({ _id: new ObjectId(), ...base, rating: 'down' });
+    const second = await repo.upsertFeedback({ _id: new ObjectId(), ...base, rating: 'up' });
+    expect(second._id.equals(first._id)).toBe(true);
+    expect(second.rating).toBe('up');
   });
 });

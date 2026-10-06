@@ -155,3 +155,8 @@ export function stubSensitiveHandoff(_state: State): StateUpdate {
     },
   };
 }
+
+/** Writes nothing; the real persist node needs repositories (runtime.ts). */
+export function stubPersist(_state: State): StateUpdate {
+  return {};
+}

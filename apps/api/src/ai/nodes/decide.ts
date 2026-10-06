@@ -44,3 +44,20 @@ export function createDecide(thresholds: DecisionThresholds) {
     };
   };
 }
+
+/**
+ * The decision to record for a turn. Paths that skip decide (a sensitive
+ * precheck or analysis, forceEscalate, an employee answering a ticket
+ * question) get the rule that applies, so every turn has one.
+ */
+export function recordedDecision(state: State, thresholds: DecisionThresholds) {
+  if (state.decision) return state.decision;
+  if (state.ticketFlow.active && !state.input.forceEscalate) {
+    return {
+      value: 'ESCALATE' as const,
+      reasonCode: 'TICKET_IN_PROGRESS',
+      rulesFired: ['ticket_flow'],
+    };
+  }
+  return decideTurn(decisionInput(state), thresholds);
+}

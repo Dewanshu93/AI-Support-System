@@ -12,7 +12,6 @@ import { awaitConfirmation } from '../nodes/awaitConfirmation';
 import { buildDraft } from '../nodes/buildDraft';
 import { clarifyForTicket } from '../nodes/clarifyForTicket';
 import { createTicket } from '../nodes/createTicket';
-import { persist } from '../nodes/persist';
 import { slotFill } from '../nodes/slotFill';
 import {
   stubAnalyzeTurn,
@@ -21,6 +20,7 @@ import {
   stubDecide,
   stubLoadContext,
   stubOutOfScope,
+  stubPersist,
   stubPrecheck,
   stubRerankAssess,
   stubRetrieve,
@@ -63,7 +63,7 @@ export const DEFAULT_NODES = {
   slotFill,
   clarifyForTicket,
   buildDraft,
-  persist,
+  persist: stubPersist,
   awaitConfirmation,
   createTicket,
   agentSummary,

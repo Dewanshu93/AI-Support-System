@@ -157,6 +157,7 @@ export type Confirmation = z.infer<typeof ConfirmationSchema>;
 export interface LlmCallTrace {
   node: string;
   promptRef: string;
+  provider: string;
   model: string;
   latencyMs: number;
   inputTokens?: number;

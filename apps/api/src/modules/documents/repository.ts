@@ -45,3 +45,32 @@ export function mongoDocumentsRepository(collections: {
     },
   };
 }
+
+/** Read access for the source viewer (GET /api/sources/chunks/:chunkId). */
+export interface SourcesReader {
+  findChunk(id: string): Promise<ChunkDoc | null>;
+  findDocument(id: ObjectId): Promise<DocumentDoc | null>;
+  /** IDs of the previous and next chunk of the same document (by ordinal), or null. */
+  neighbourIds(chunk: ChunkDoc): Promise<[string | null, string | null]>;
+}
+
+export function mongoSourcesReader(collections: {
+  documents: Collection<DocumentDoc>;
+  chunks: Collection<ChunkDoc>;
+}): SourcesReader {
+  const { documents, chunks } = collections;
+  const near = async (chunk: ChunkDoc, ordinal: number) =>
+    (
+      await chunks.findOne({ documentId: chunk.documentId, ordinal }, { projection: { _id: 1 } })
+    )?._id.toHexString() ?? null;
+  return {
+    findChunk: async (id) =>
+      ObjectId.isValid(id) ? chunks.findOne({ _id: new ObjectId(id) }) : null,
+    findDocument: (id) => documents.findOne({ _id: id }),
+    neighbourIds: async (chunk) =>
+      Promise.all([
+        chunk.ordinal > 0 ? near(chunk, chunk.ordinal - 1) : null,
+        near(chunk, chunk.ordinal + 1),
+      ]),
+  };
+}

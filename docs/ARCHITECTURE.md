@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W2-07)
+## Repository layout (as of W2-08)
 
 ```
 /
@@ -506,6 +506,53 @@ out_of_scope }`. No LLM call.
   straight to `decide` (rule 2 → OUT_OF_SCOPE), skipping embedding, search and P-2. Sensitive
   and out-of-scope replies therefore make no LLM call beyond P-1 (a sensitive keyword makes
   none at all).
+
+## Chat API, persistence and the runtime graph (W2-08)
+
+- **Runtime graph** (`ai/graph/runtime.ts` → `buildTurnGraph(deps)`): every real node so far,
+  wired to providers, repositories and config (history length from
+  `thresholds.conversation.historyMessages`). The ticket nodes (slotFill, clarifyForTicket,
+  buildDraft, createTicket, agentSummary) are still stubs until W3. `server.ts` builds it with
+  Gemini or OpenRouter, Qdrant retrieval and the MongoDB checkpointer (`setup()` creates its
+  indexes); embeddings are created on first use.
+- **Endpoints** (all `['employee']`, Zod request schemas in `packages/shared/src/api/conversations.ts`):
+
+  | Endpoint                                 | Module        | Notes                                                                                               |
+  | ---------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+  | `POST /api/conversations`                | conversations | 201 `{ conversation }`                                                                              |
+  | `GET /api/conversations`                 | conversations | own only, `?limit&cursor&status`, cursor over (updatedAt, _id) desc                                 |
+  | `GET /api/conversations/:id`             | conversations | messages, plus `pendingDraft` read from the graph checkpoint                                        |
+  | `POST /api/conversations/:id/messages`   | chat          | SSE turn                                                                                            |
+  | `POST /api/conversations/:id/escalate`   | chat          | SSE turn with `forceEscalate` (default text "Please connect me with a person.")                     |
+  | `POST /api/conversations/:id/resolution` | conversations | only ANSWER/PARTIAL messages (409 otherwise); `false` adds the `resolution_declined` system message |
+  | `POST /api/messages/:id/feedback`        | conversations | upsert per user and message; 409 for non-assistant messages                                         |
+  | `GET /api/sources/chunks/:chunkId`       | documents     | `assertAccessible` re-applied to the caller; inaccessible = 404                                     |
+
+  Another user's conversation or message is **404, not 403**. Agents and admins get 403 (role).
+
+- **SSE** (`modules/chat/turnRunner.ts`, events in `packages/shared/src/api/chat-events.ts`):
+  - Order: `turn_started` → `status` (analyzing / searching / writing / preparing_ticket, from
+    node starts in `graph.streamEvents`) → `token` (answer-node model stream through
+    `ProseFilter`, which never forwards the JSON trailer; non-streamed replies arrive as one
+    token) → `citations` | `withdrawn` → `ticket_draft` → `handoff` → `done`.
+  - On failure: `error { code: LLM_UNAVAILABLE | INTERNAL, retryable: true }`, and the reply is
+    stored with status `error` (`generic_error` template).
+  - If the client disconnects, the turn keeps running and persisting.
+- **409 rules:** one running turn per conversation (an in-process lock, ADR-010); no new turn
+  while a draft awaits confirmation (the checkpoint's `next` includes `awaitConfirmation`).
+  Both are checked before the user message is stored.
+- **persist** (`ai/nodes/persist.ts`) writes three things:
+  - the assistant message (status `withdrawn` or `complete`, citations as ObjectIds);
+  - the `turn_traces` document, validated against `TurnTraceSchema` on write. The user text
+    and the search query are redacted by `ai/guards/redaction.ts` (email, SSN, UK NI, card,
+    phone, long IDs). It also holds llmCalls with prompt name, version and hash, the thresholds
+    snapshot, TTFT and cost;
+  - the conversation update (lastDecision, turnCount + 1, title from the first message, up to
+    60 characters).
+    `recordedDecision()` gives paths that skip decide a decision (sensitive, forceEscalate, an
+    active ticket flow).
+- **Conversation status** stays `open` except `resolved`; `escalated`, `handed_off` and
+  `restricted` are set by the W3 ticket tasks.
 
 ## Runtime
 

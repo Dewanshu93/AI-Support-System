@@ -5,6 +5,11 @@ import type { Role } from '@sd/shared';
 import type { Express, RequestHandler } from 'express';
 import type { AppDeps } from '../deps';
 import { authRoutes } from '../modules/auth/routes';
+import { chatRoutes } from '../modules/chat/routes';
+import { createTurnRunner } from '../modules/chat/turnRunner';
+import { conversationRoutes } from '../modules/conversations/routes';
+import { createConversationService } from '../modules/conversations/service';
+import { sourceRoutes } from '../modules/documents/routes';
 import { healthRoutes } from '../modules/health/routes';
 import { profileRoutes } from '../modules/users/routes';
 import { requireAuth } from './requireAuth';
@@ -23,7 +28,24 @@ export interface RouteDef {
 
 /** The full route table: every module contributes its routes here. */
 export function buildRoutes(deps: AppDeps): RouteDef[] {
-  return [...healthRoutes(deps), ...authRoutes(deps), ...profileRoutes()];
+  const conversations = createConversationService({
+    conversations: deps.conversations,
+    resolutionDeclinedText: deps.templates.resolution_declined,
+  });
+  // One runner per app: it holds the per-conversation turn locks.
+  const runner = createTurnRunner({
+    graph: deps.chat.graph,
+    conversations: deps.conversations,
+    genericErrorText: deps.templates.generic_error,
+  });
+  return [
+    ...healthRoutes(deps),
+    ...authRoutes(deps),
+    ...profileRoutes(),
+    ...conversationRoutes(deps, conversations),
+    ...chatRoutes(conversations, runner),
+    ...sourceRoutes(deps),
+  ];
 }
 
 export function mountRoutes(app: Express, routes: RouteDef[], deps: AppDeps): void {

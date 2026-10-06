@@ -36,6 +36,14 @@ describe('route policy table', () => {
       ['POST', '/api/auth/logout', 'any'],
       ['GET', '/api/auth/me', 'any'],
       ['GET', '/api/profiles/me', 'any'],
+      ['POST', '/api/conversations', ['employee']],
+      ['GET', '/api/conversations', ['employee']],
+      ['GET', '/api/conversations/:id', ['employee']],
+      ['POST', '/api/conversations/:id/resolution', ['employee']],
+      ['POST', '/api/messages/:id/feedback', ['employee']],
+      ['POST', '/api/conversations/:id/messages', ['employee']],
+      ['POST', '/api/conversations/:id/escalate', ['employee']],
+      ['GET', '/api/sources/chunks/:chunkId', ['employee']],
     ]);
   });
 });

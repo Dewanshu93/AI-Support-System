@@ -10,7 +10,7 @@ export const CHECKPOINT_COLLECTIONS = {
   writes: 'graph_checkpoint_writes',
 } as const;
 
-export function createMongoCheckpointer(client: MongoClient, dbName: string): BaseCheckpointSaver {
+export function createMongoCheckpointer(client: MongoClient, dbName: string): MongoDBSaver {
   return new MongoDBSaver({
     // The package is typed against mongodb 6; it only calls client.db() and
     // standard collection methods, which the v7 client provides (ADR-007).

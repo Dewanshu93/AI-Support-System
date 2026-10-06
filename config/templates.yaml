@@ -20,3 +20,5 @@ templates:
   clarify_generic: >-
     Could you tell me a bit more so I can help? For example, which device, system or policy is
     this about, and what have you already tried?
+  resolution_declined: >-
+    Sorry that didn't solve it. Would you like me to raise a ticket so a person can help?

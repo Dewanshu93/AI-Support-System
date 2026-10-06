@@ -8,15 +8,21 @@ export const HISTORY_LIMIT = 8;
 
 export interface LoadContextDeps {
   users: Pick<UsersRepository, 'findById'>;
-  conversations: ConversationsRepository;
+  conversations: Pick<ConversationsRepository, 'recentMessages'>;
+  /** thresholds.yaml conversation.historyMessages (default 8). */
+  historyLimit?: number;
 }
 
-export function createLoadContext({ users, conversations }: LoadContextDeps) {
+export function createLoadContext({
+  users,
+  conversations,
+  historyLimit = HISTORY_LIMIT,
+}: LoadContextDeps) {
   return async function loadContext(state: State): Promise<StateUpdate> {
     const { userId, conversationId, userMessageId } = state.input;
     const [user, messages] = await Promise.all([
       users.findById(userId),
-      conversations.recentMessages(conversationId, HISTORY_LIMIT, userMessageId),
+      conversations.recentMessages(conversationId, historyLimit, userMessageId),
     ]);
     if (!user) throw new Error(`loadContext: user ${userId} not found`);
     const history: HistoryMessage[] = messages.map((m) => ({

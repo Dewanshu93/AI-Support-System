@@ -11,3 +11,8 @@ What the prototype mocks or skips, compared with a production deployment. Filled
 **Deferred by the owner (2026-10-05):** the `undici` advisory and LAN database authentication
 (MongoDB without auth, Qdrant without API key) are accepted for now and revisited only if needed.
 Docker Compose is not used for the time being; the app runs locally.
+
+- **Turn lock (W2-08, ADR-010):** the one-turn-per-conversation lock is in process memory. Running
+  several API instances needs a shared lock (MongoDB lease with expiry).
+- **Rate limiting (W2-08):** the 429 responses in section 4 (login, conversations, messages) are
+  not implemented yet.

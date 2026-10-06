@@ -152,6 +152,7 @@ export function createAnswer(deps: AnswerDeps) {
           {
             node: NODE,
             promptRef: prompt.ref,
+            provider: chat.provider,
             model: chat.modelId,
             latencyMs: Math.round(performance.now() - started),
             ttftMs,

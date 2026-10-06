@@ -201,7 +201,7 @@ describe('loadContext', () => {
     message('assistant', 'first reply', 2),
     message('user', 'second', 3),
   ];
-  const conversations: ConversationsRepository = {
+  const conversations: Pick<ConversationsRepository, 'recentMessages'> = {
     recentMessages: jest.fn(async () => history),
   };
 
@@ -236,7 +236,9 @@ describe('loadContext', () => {
 
 describe('graph with real loadContext, precheck and analyzeTurn', () => {
   const rules = compilePrecheckRules(config.sensitive, config.priorityRules);
-  const conversations: ConversationsRepository = { recentMessages: async () => [] };
+  const conversations: Pick<ConversationsRepository, 'recentMessages'> = {
+    recentMessages: async () => [],
+  };
 
   function graphWith(replies: FakeReply[]) {
     const { chat, node } = analyzeWith(replies, { nativeStructured: true });

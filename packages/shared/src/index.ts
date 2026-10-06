@@ -2,7 +2,9 @@
 // imported by both web and api.
 
 export * from './api/auth';
+export * from './api/chat-events';
 export * from './api/common';
+export * from './api/conversations';
 export * from './api/documents';
 export * from './api/health';
 export * from './enums';

@@ -8,7 +8,13 @@ import {
   pingDatabase,
   pingQdrant,
 } from './db';
+import { createMongoCheckpointer } from './ai/graph/checkpointer';
+import { buildTurnGraph } from './ai/graph/runtime';
+import { createChatModel, createEmbeddings, embedQuery } from './ai/llm';
 import { llmConfigured } from './ai/llm/keys';
+import { retrieve } from './ai/retrieval/retrieve';
+import { mongoConversationsRepository } from './modules/conversations/repository';
+import { mongoDocumentsRepository, mongoSourcesReader } from './modules/documents/repository';
 import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
@@ -57,9 +63,48 @@ async function main() {
   }
 
   const collections = getCollections(db);
+  const users = mongoUsersRepository(collections.users);
+  const conversations = mongoConversationsRepository(collections);
+  const documents = mongoDocumentsRepository(collections);
+
+  // Graph checkpoints (ADR-007): thread_id = conversation ID.
+  const checkpointer = createMongoCheckpointer(client, db.databaseName);
+  const indexErrors = await checkpointer.setup();
+  if (indexErrors.length > 0) logger.warn({ errors: indexErrors }, 'checkpoint index setup failed');
+
+  // Created on first use, so the API boots without a Gemini key (turns then fail with an error event).
+  let queryEmbeddings: ReturnType<typeof createEmbeddings> | undefined;
+  const graph = buildTurnGraph({
+    config,
+    prompts,
+    chatFor: (tier, options) =>
+      createChatModel(config.models, config.env, tier, undefined, options),
+    users,
+    conversations,
+    checkpointer,
+    retrieve: (input) =>
+      retrieve(input, {
+        qdrant,
+        embedQuery: (text) => {
+          queryEmbeddings ??= createEmbeddings(config.models, config.env, 'query');
+          return embedQuery(queryEmbeddings, text, {
+            policy: config.models.call,
+            dimension: config.models.embeddings.dimension,
+          });
+        },
+        loadChunks: (ids) => documents.findChunksByIds(ids),
+        params: config.thresholds.retrieval,
+        onViolation: (v) => logger.error({ violation: v }, 'ACCESS_FILTER_VIOLATION'),
+      }),
+  });
+
   const app = createApp({
-    users: mongoUsersRepository(collections.users),
+    users,
     audit: mongoAuditRepository(collections.auditLog),
+    conversations,
+    sources: mongoSourcesReader(collections),
+    chat: { graph },
+    templates: config.templates.templates,
     auth: {
       jwtSecret: config.env.JWT_SECRET,
       demoPassword: config.env.DEMO_PASSWORD,

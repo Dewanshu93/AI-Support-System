@@ -23,6 +23,7 @@
 | W2-05 | Decision rules and decide node                    | Done                                   | 2026-10-06 |
 | W2-06 | Grounded answer and citation validation           | Done                                   | 2026-10-06 |
 | W2-07 | Clarify, out-of-scope and sensitive handoff nodes | Done                                   | 2026-10-06 |
+| W2-08 | Persist node and chat API with SSE                | Done                                   | 2026-10-06 |
 
 ## Checkpoints
 
@@ -923,3 +924,70 @@ and each asked exactly one question.
 - P-4 receives the raw message and the ambiguity reason, not the history (per P-4 v1's
   inputs). If the eval shows repeated questions, add history in a v2 prompt.
 - Nothing is persisted yet (the persist stub); W2-08 stores replies and handoffs.
+
+## W2-08 Persist node and chat API with SSE — 2026-10-06
+
+**Delivered:**
+
+- `packages/shared/src/api/conversations.ts` (request and response schemas) and
+  `api/chat-events.ts` (event union, `formatSseEvent`, `parseSseEvents`).
+- `modules/conversations`: repository (conversations, messages, turn traces, feedback;
+  validated writes), service (ownership, resolution, feedback), routes.
+- `modules/chat`: turn runner (lock, user message, stream mapping, error path), `ProseFilter`,
+  routes (messages and escalate).
+- `modules/documents/routes.ts`: source chunk endpoint with the access re-check.
+- `ai/nodes/persist.ts` (assistant message, redacted turn trace, conversation update),
+  `ai/guards/redaction.ts`, `ai/graph/runtime.ts` (real nodes wired) and `server.ts` wiring
+  (MongoDB checkpointer with indexes).
+- `templates.yaml`: `resolution_declined`.
+- LLM call traces now carry `provider`; `loadContext` reads the history length from config.
+
+**Acceptance: a curl-driven turn against the real API** (LAN MongoDB, Qdrant, Gemini; Priya,
+"How many vacation days do I get as a full-time US employee, and can I carry unused days over?"):
+
+- **Events, in the documented order:** `turn_started` → `status` ×3 (analyzing, searching,
+  writing) → `token` ×8 → `citations` (S1, S3, S2: Annual Leave (US)) → `done` (ANSWER /
+  EVIDENCE_STRONG). The streamed text is the full cited answer (15 or 20 days by service, 5-day
+  carry-over until 31 March); no trailer leaked.
+- **Persisted:** user message; assistant message (complete, ANSWER, 3 citations); a
+  `turn_traces` document that passes `TurnTraceSchema` and is linked to the assistant message
+  (retrieval query, 12 fused, coverage full, 3/3 citations valid, 0 numeric violations, thresholds
+  snapshot, 3 LLM calls with prompt versions, $0.0032); conversation updated (turnCount 1,
+  lastDecision ANSWER, title); 11 graph checkpoints for the thread.
+- The first attempt hit **Gemini 503 "high demand"** on `gemini-3.8-flash` (3 attempts). The
+  error path worked as specified: `error` event `LLM_UNAVAILABLE`, retryable, and the reply was
+  stored with status `error`.
+
+**Verification**
+
+| Check                                                                 | Result                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Curl-driven turn streams in documented order and persists all records | Pass: see above                                                                                                                                                                                                                                                                                                                                                              |
+| Supertest for each endpoint (ownership, 404 vs 403, 409)              | Pass: `test/api/conversations.test.ts` (create, list with pagination and status, detail, resolution true/false/409/404, feedback upsert/409/404, sources allowed/denied/unknown/agent) and `test/api/chat.test.ts` (answer, history, sensitive, out of scope, clarify, withdrawn, LLM failure, escalate then 409 on a pending draft, 409 on a running turn, 400/401/403/404) |
+| Redaction unit tests                                                  | Pass: 13 (email, SSN, UK NI, cards, UK/US phones, long IDs, ordinary numbers kept, idempotent)                                                                                                                                                                                                                                                                               |
+| Integration test with fake models asserting the persisted trace shape | Pass: the chat API tests run the real runtime graph on fake models; in-memory storage validates every write with the MongoDB schemas, and the test asserts the `turn_traces` fields. LAN MongoDB integration covers repository pagination, turn increment, schema rejection and the feedback upsert                                                                          |
+| DoD: section 4 Chat endpoints implemented exactly                     | Pass: all Chat and Conversation rows; 429 rate limits deferred (PRODUCTION_GAPS)                                                                                                                                                                                                                                                                                             |
+
+**Latency of the real turn (headline risk)**
+
+| Step                           | Time                          |
+| ------------------------------ | ----------------------------- |
+| analyzeTurn (P-1, flash-lite)  | 7.6 s                         |
+| retrieve                       | 0.8 s                         |
+| rerankAssess (P-2, flash-lite) | 12.5 s                        |
+| answer (P-3, 3.8-flash)        | 23.4 s, first token at 21.0 s |
+| **Total**                      | **44.3 s**                    |
+
+An employee waits about **41 s for the first word**. Next to the 503s, this is the main risk
+for the demo and for W4-02. Options: the fast tier for P-3, a lower thinking budget, OpenRouter,
+or running P-2 on fewer candidates.
+
+**Notes**
+
+- **Deviations:** 429 rate limiting is not implemented (PRODUCTION_GAPS). Escalations reach the
+  stub draft, after which the conversation returns 409 until the W3 confirm/cancel endpoints
+  exist. Conversation status stays `open` (W3 sets escalated / handed_off / restricted).
+- The turn lock is in process memory (ADR-010).
+- A stray API process (PID 20072, `tsx src/server.ts`, started 10:07) was listening on port 4000
+  during this session. It was not stopped because it may belong to the owner; the curl
+  acceptance ran on port 4100.

@@ -9,6 +9,11 @@ import type { AppDeps } from '../../src/deps';
 import type { AuditRepository } from '../../src/modules/audit/repository';
 import type { UsersRepository } from '../../src/modules/users/repository';
 import { loadSeedUsers } from '../../src/modules/users/seed';
+import { createMemoryCheckpointer } from '../../src/ai/graph/checkpointer';
+import { buildSupportGraph } from '../../src/ai/graph/graph';
+import { loadConfig } from '../../src/config';
+import { VALID_ENV } from './config';
+import { memoryConversationsRepository, memorySourcesReader } from './conversations';
 
 export const TEST_JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-bytes';
 
@@ -43,6 +48,10 @@ export interface TestAppOptions extends CreateAppOptions {
   pingDb?: AppDeps['pingDb'];
   pingVectorStore?: AppDeps['pingVectorStore'];
   llmConfigured?: boolean;
+  conversations?: AppDeps['conversations'];
+  sources?: AppDeps['sources'];
+  /** Defaults to the all-stub graph (no persistence). */
+  graph?: AppDeps['chat']['graph'];
 }
 
 export function buildTestApp(options: TestAppOptions = {}): TestContext {
@@ -55,6 +64,12 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     pingDb: options.pingDb,
     pingVectorStore: options.pingVectorStore,
     llmConfigured: options.llmConfigured,
+    conversations: options.conversations ?? memoryConversationsRepository(),
+    sources: options.sources ?? memorySourcesReader(),
+    chat: {
+      graph: options.graph ?? buildSupportGraph({ checkpointer: createMemoryCheckpointer() }),
+    },
+    templates: loadConfig(VALID_ENV).templates.templates,
   };
   return {
     app: createApp(deps, { extraRoutes: options.extraRoutes }),

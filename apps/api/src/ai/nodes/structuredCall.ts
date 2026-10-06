@@ -52,6 +52,7 @@ export async function structuredCallWithRetry<S extends z.ZodType>(args: {
       llmCalls.push({
         node,
         promptRef: prompt.ref,
+        provider: result.provider,
         model: result.modelId,
         latencyMs: result.latencyMs,
         inputTokens: result.usage.inputTokens,
@@ -66,6 +67,7 @@ export async function structuredCallWithRetry<S extends z.ZodType>(args: {
       llmCalls.push({
         node,
         promptRef: prompt.ref,
+        provider: chat.provider,
         model: chat.modelId,
         latencyMs: Math.round(performance.now() - started),
         retries: 0,
