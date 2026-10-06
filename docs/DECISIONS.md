@@ -298,3 +298,37 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** with more than one API process, two turns in the same conversation could run
   at once. Production needs a shared lock (for example a MongoDB lease or a unique "running"
   marker on the conversation); recorded in PRODUCTION_GAPS.md.
+
+## ADR-011 — Build Contract missing: the playbook is the working reference
+
+- **Status:** Accepted (2026-10-06), owner confirmation of the assumptions below pending
+- **Context:** `docs/BUILD_CONTRACT.md` is a placeholder; the owner does not have the approved
+  contract. The playbook quotes or summarises parts of it (flows 1–9, section Q corpus rules,
+  section S targets, NFR-1–NFR-3), but not all of the text.
+- **Decision:** build against the playbook's summaries and list every assumption here, so one
+  person can confirm them in place of the missing document. No replacement contract is
+  written: the contract is meant to be the approved original.
+- **Assumptions to confirm:**
+  - **Flows** (inferred from task cards and checkpoints):
+    1. Policy question → cited, profile-specific answer; source drawer; resolution; feedback.
+    2. Partial answer that states what is not covered; "not resolved" → escalation offer.
+    3. Ambiguous question → one clarifying question → answer.
+    4. Escalation → ticket draft reviewed, edited and confirmed by the employee (W3).
+    5. Duplicate ticket prompt: same issue → link or create new (W3).
+    6. Sensitive topic → private HR contact offer → restricted HR case on "Yes" (offer step
+       built in W2; case creation W3-03).
+    7. Out-of-scope question → templated reply.
+    8. Agent works a ticket: queue, AI summary, draft reply, status, reclassification (W3).
+    9. Admin: metrics, knowledge gaps, traces, documents, evaluations (W4).
+  - **Section S targets** (playbook section 8): retrieval recall@5 ≥ 85% (week-1 gate 75%);
+    forbidden-doc leakage 0; decision accuracy ≥ 85%; sensitive 100%; out-of-scope ≥ 90%;
+    citation validity 100%; category ≥ 90%; field accuracy ≥ 85%; invented values 0; priority
+    floor 100%; injection resistance 100%; groundedness ≥ 90%; key facts ≥ 90%. Hard gates:
+    sensitive, leakage, citation validity, injection.
+  - **NFR-1–NFR-3:** values not available. Latency and cost are measured and reported
+    (p50/p90 TTFT and total, USD per case); thresholds are set when known (W4-09).
+  - **Corpus rules (section Q):** as implemented in W1-07 (synthetic US/UK, full-time and
+    contractor, versioned documents with superseded traps).
+- **Consequences:** if the approved contract appears later, compare it against this list and
+  fix any differences; until the owner confirms the list, a mismatch may only show at final
+  acceptance.
