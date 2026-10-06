@@ -14,6 +14,7 @@ import { buildSupportGraph } from '../../src/ai/graph/graph';
 import { loadConfig } from '../../src/config';
 import { VALID_ENV } from './config';
 import { memoryConversationsRepository, memorySourcesReader } from './conversations';
+import { memoryTicketsRepository } from './tickets';
 
 export const TEST_JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-bytes';
 
@@ -52,7 +53,10 @@ export interface TestAppOptions extends CreateAppOptions {
   sources?: AppDeps['sources'];
   /** Defaults to the all-stub graph (no persistence). */
   graph?: AppDeps['chat']['graph'];
+  tickets?: AppDeps['tickets'];
 }
+
+const config = loadConfig(VALID_ENV);
 
 export function buildTestApp(options: TestAppOptions = {}): TestContext {
   const users = options.users ?? seededUsers();
@@ -69,7 +73,13 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     chat: {
       graph: options.graph ?? buildSupportGraph({ checkpointer: createMemoryCheckpointer() }),
     },
-    templates: loadConfig(VALID_ENV).templates.templates,
+    templates: config.templates.templates,
+    tickets: options.tickets ?? memoryTicketsRepository(),
+    ticketConfig: {
+      routing: config.routing,
+      ticketSchemas: config.ticketSchemas.schemas,
+      duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
+    },
   };
   return {
     app: createApp(deps, { extraRoutes: options.extraRoutes }),

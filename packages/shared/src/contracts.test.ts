@@ -36,7 +36,8 @@ describe('enums', () => {
 
 describe('error envelope', () => {
   it('assigns an HTTP status to every error code', () => {
-    expect(ERROR_CODES).toHaveLength(8);
+    expect(ERROR_CODES).toHaveLength(9);
+    expect(ERROR_HTTP_STATUS.DUPLICATE_CANDIDATE).toBe(409);
     for (const code of ERROR_CODES) expect(ERROR_HTTP_STATUS[code]).toBeGreaterThanOrEqual(400);
   });
 

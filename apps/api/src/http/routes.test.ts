@@ -44,6 +44,10 @@ describe('route policy table', () => {
       ['POST', '/api/conversations/:id/messages', ['employee']],
       ['POST', '/api/conversations/:id/escalate', ['employee']],
       ['GET', '/api/sources/chunks/:chunkId', ['employee']],
+      ['POST', '/api/conversations/:id/ticket-draft/confirm', ['employee']],
+      ['POST', '/api/conversations/:id/ticket-draft/cancel', ['employee']],
+      ['GET', '/api/tickets/mine', ['employee']],
+      ['GET', '/api/tickets/:id', ['employee']],
     ]);
   });
 });

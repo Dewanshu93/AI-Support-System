@@ -173,7 +173,7 @@ export interface Output {
 export const ConfirmationSchema = z.strictObject({
   action: z.enum(['confirm', 'cancel']),
   edits: z.record(z.string(), z.string()).optional(),
-  duplicateDecision: z.enum(['create', 'use_existing']).optional(),
+  duplicateDecision: z.enum(['new', 'same']).optional(),
 });
 export type Confirmation = z.infer<typeof ConfirmationSchema>;
 

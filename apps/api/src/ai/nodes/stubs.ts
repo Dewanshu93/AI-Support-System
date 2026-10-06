@@ -1,7 +1,14 @@
 // Fixed outputs for stub nodes (W2-02). Each stub keeps a value already set
 // in state (so tests steer the path by setting state) and otherwise returns
 // these. Each is replaced when its node is built.
-import type { Output, Profile, Retrieval, State, StateUpdate } from '../graph/state';
+import {
+  EMPTY_TICKET_FLOW,
+  type Output,
+  type Profile,
+  type Retrieval,
+  type State,
+  type StateUpdate,
+} from '../graph/state';
 import type { TurnAnalysis } from '../schemas';
 
 export const STUB_PROFILE: Profile = {
@@ -207,5 +214,12 @@ export function stubBuildDraft(state: State): StateUpdate {
         restricted: false,
       },
     },
+  };
+}
+
+export function stubCreateTicket(state: State): StateUpdate {
+  return {
+    ticketFlow: EMPTY_TICKET_FLOW,
+    output: { ...STUB_OUTPUT, ...state.output, ticketId: 'stub-ticket' },
   };
 }

@@ -37,3 +37,12 @@ export function applyPriorityFloor(input: PriorityInput, floors: Floors): Priori
   }
   return { priority, floorApplied };
 }
+
+/**
+ * Priority of a restricted (sensitive) HR case, which has no AI urgency
+ * (ADR-013): critical when the wellbeing rule matched (e.g. self-harm
+ * language), otherwise high.
+ */
+export function restrictedCasePriority(matchedRules: string[]): Priority {
+  return matchedRules.includes('wellbeing') ? 'critical' : 'high';
+}

@@ -356,3 +356,22 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   (reopen covers it).
 - **Consequences:** an agent cannot close an unresolved ticket directly. If that is needed, add
   it as a contract amendment.
+
+## ADR-013 — Confidential HR cases: one-click "Yes" through the draft confirm, and their priority (W3-03)
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Contract flow 6 requires a restricted HR case when the employee says "Yes" to
+  private contact, with no AI extraction and no AI advice. The playbook does not say which
+  endpoint "Yes" calls, nor the priority of such a case (there is no AI urgency).
+- **Decision:**
+  - `sensitiveHandoff` attaches a restricted `TicketDraft` (category `employee_relations`,
+    queue `hr_case`, template summary and description, no fields, no transcript). The graph
+    pauses as for any draft, and "Yes" is `POST …/ticket-draft/confirm`; "No thanks" is cancel.
+    No new endpoint is needed, and the contract's confirmation rule is the same for every ticket.
+  - Priority: **critical** when the precheck matched the `wellbeing` rule (self-harm or
+    crisis language), otherwise **high**.
+- **Alternatives:** a dedicated `POST …/private-contact` endpoint (duplicates the confirm path);
+  a fixed medium priority (too low for crisis language).
+- **Consequences:** after a sensitive handoff, the conversation takes no new messages until the
+  employee answers Yes or No (the same 409 rule as any pending draft). The W3-04 UI must show
+  both buttons on the handoff card.

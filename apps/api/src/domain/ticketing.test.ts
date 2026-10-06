@@ -5,9 +5,15 @@ import { loadConfig } from '../config';
 import { findCrossFileProblems } from '../config/crossChecks';
 import { VALID_ENV } from '../../test/helpers/config';
 import { type DuplicateCandidate, findDuplicate } from './duplicateCheck';
-import { applyPriorityFloor } from './priorityFloors';
+import { applyPriorityFloor, restrictedCasePriority } from './priorityFloors';
 import { routeTicket } from './routing';
-import { fieldsFor, normaliseFields, requiredMissing, UNKNOWN } from './ticketSchemas';
+import {
+  fieldsFor,
+  normaliseFields,
+  requiredMissing,
+  UNKNOWN,
+  unknownEditKeys,
+} from './ticketSchemas';
 import { canTransition, isOpen, TRANSITIONS } from './ticketStateMachine';
 
 const config = loadConfig(VALID_ENV);
@@ -248,5 +254,29 @@ describe('duplicate check', () => {
     ]);
     expect(found?.id).toBe('new');
     expect(check([])).toBeNull();
+  });
+});
+
+describe('W3-03 additions', () => {
+  it('unknownEditKeys: only the category fields may be edited (never requester, queue or priority)', () => {
+    const schemas = config.ticketSchemas.schemas;
+    expect(unknownEditKeys(schemas, 'hardware', { device_model: 'X', symptoms: 'Y' })).toEqual([]);
+    expect(
+      unknownEditKeys(schemas, 'hardware', {
+        requesterId: 'u2',
+        queue: 'hr_case',
+        priority: 'critical',
+        device_model: 'X',
+      }),
+    ).toEqual(['requesterId', 'queue', 'priority']);
+    // Restricted cases have no fields: any edit is rejected.
+    expect(unknownEditKeys(schemas, 'employee_relations', { question: 'x' })).toEqual(['question']);
+  });
+
+  it('restrictedCasePriority: critical for wellbeing, otherwise high (ADR-013)', () => {
+    expect(restrictedCasePriority(['wellbeing'])).toBe('critical');
+    expect(restrictedCasePriority(['harassment', 'wellbeing'])).toBe('critical');
+    expect(restrictedCasePriority(['harassment'])).toBe('high');
+    expect(restrictedCasePriority([])).toBe('high');
   });
 });

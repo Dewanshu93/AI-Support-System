@@ -10,6 +10,8 @@ import { createTurnRunner } from '../modules/chat/turnRunner';
 import { conversationRoutes } from '../modules/conversations/routes';
 import { createConversationService } from '../modules/conversations/service';
 import { sourceRoutes } from '../modules/documents/routes';
+import { ticketRoutes } from '../modules/tickets/routes';
+import { createTicketService } from '../modules/tickets/service';
 import { healthRoutes } from '../modules/health/routes';
 import { profileRoutes } from '../modules/users/routes';
 import { requireAuth } from './requireAuth';
@@ -45,6 +47,19 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
     ...conversationRoutes(deps, conversations),
     ...chatRoutes(conversations, runner),
     ...sourceRoutes(deps),
+    ...ticketRoutes(
+      deps,
+      createTicketService({
+        graph: deps.chat.graph,
+        tickets: deps.tickets,
+        conversations: deps.conversations,
+        getOwned: conversations.getOwned,
+        exclusive: runner.exclusive,
+        ticketSchemas: deps.ticketConfig.ticketSchemas,
+        templates: deps.templates,
+        duplicateWindowDays: deps.ticketConfig.duplicateWindowDays,
+      }),
+    ),
   ];
 }
 

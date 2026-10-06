@@ -11,13 +11,15 @@ async function signInAs(page: Page, name: string) {
 }
 
 /** Sends a message in a new conversation and waits for the turn to finish. */
-async function ask(page: Page, text: string) {
+// `paused`: the turn ends waiting for a confirmation (draft or private contact), so no composer.
+async function ask(page: Page, text: string, { paused = false } = {}) {
   await page.getByTestId('composer').fill(text);
   await page.getByTestId('send').click();
   await expect(page).toHaveURL(/\/chat\/[a-f0-9]{24}$/);
   // The stored reply replaces the live view when the turn is done.
   await expect(page.getByTestId('live-turn')).toHaveCount(0);
-  await expect(page.getByTestId('composer')).toBeEnabled();
+  if (paused) await expect(page.getByTestId('composer')).toHaveCount(0);
+  else await expect(page.getByTestId('composer')).toBeEnabled();
 }
 
 const lastReply = (page: Page) => page.getByTestId('assistant-message').last();
@@ -105,7 +107,7 @@ test('flow 6 (offer step): a sensitive message gets the private HR contact offer
   page,
 }) => {
   await signInAs(page, 'Priya Shah');
-  await ask(page, 'My manager keeps harassing me in team meetings');
+  await ask(page, 'My manager keeps harassing me in team meetings', { paused: true });
   const card = page.getByTestId('handoff-card');
   await expect(card).toHaveAttribute('data-kind', 'sensitive');
   await expect(card).toContainText('Would you like HR to contact you privately?');

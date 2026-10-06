@@ -43,3 +43,17 @@ export function requiredMissing(
     .filter((f) => f.required && !isKnown(values[f.key]))
     .map((f) => f.key);
 }
+
+/**
+ * Edit keys the category schema does not have. A confirm with any of them is
+ * rejected (400): edits can only change fields, never the requester, queue or
+ * priority, which code sets.
+ */
+export function unknownEditKeys(
+  schemas: Schemas,
+  category: string,
+  edits: Record<string, string>,
+): string[] {
+  const keys = new Set(fieldsFor(schemas, category).map((f) => f.key));
+  return Object.keys(edits).filter((k) => !keys.has(k));
+}

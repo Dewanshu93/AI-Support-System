@@ -27,3 +27,12 @@ templates:
     it.
   ticket_fields_question: >-
     To raise your ticket I need a little more detail: {fields}. Could you tell me?
+  ticket_cancelled: >-
+    No problem, I haven't raised a ticket. Ask me anything else whenever you need.
+  ticket_linked: >-
+    I've added this to your existing ticket {ticketHumanId} instead of opening a new one. You can
+    follow it under My tickets.
+  restricted_case_summary: Confidential HR contact request
+  restricted_case_description: >-
+    The employee asked HR to contact them privately about a sensitive matter. The conversation is
+    not attached; contact the employee directly.

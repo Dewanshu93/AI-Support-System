@@ -14,6 +14,7 @@ import {
   retrievalOf,
 } from '../../apps/api/test/helpers/chat';
 import { memoryConversationsRepository } from '../../apps/api/test/helpers/conversations';
+import { memoryTicketsRepository } from '../../apps/api/test/helpers/tickets';
 import { runFullSuite } from './fullSuite';
 import type { GoldenCase } from './schema';
 
@@ -49,6 +50,7 @@ function setup(replies: string[], retrieve = async () => retrievalOf(LEAVE_CHUNK
     chatFor: () => chat,
     users: { findById: async (id) => users.find((u) => u._id.toHexString() === id) ?? null },
     conversations,
+    tickets: memoryTicketsRepository(),
     retrieve,
     checkpointer: createMemoryCheckpointer(),
     isEval: true,

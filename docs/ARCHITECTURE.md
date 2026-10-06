@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W3-02)
+## Repository layout (as of W3-03)
 
 ```
 /
@@ -657,6 +657,41 @@ The ticket nodes (W3-02) and the API (W3-04) use these.
   validated with `TicketDraftSchema`. Text: the `ticket_draft_ready` template (after the
   safety steps in safety mode).
 - Still stubs: createTicket and agentSummary (W3-03).
+
+## Ticket confirmation and creation (W3-03)
+
+- **No ticket before confirm.** A draft pauses the graph in `awaitConfirmation`
+  (`interrupt()`); the next request resumes it:
+  - `POST /api/conversations/:id/ticket-draft/confirm` `{ edits, duplicateDecision? }` →
+    `Command({ resume: { action: confirm, … } })` → `createTicket` → `agentSummary` (stub
+    until W3-06);
+  - `POST …/ticket-draft/cancel` → resume with cancel (ticket flow reset) plus a system
+    message.
+- **`modules/tickets/service.ts`**, under the conversation lock (`runner.exclusive`; 409 if a
+  turn is running):
+  - **Edits:** only the draft category's field keys, else 400 `unknownFields`
+    (`domain/ticketSchemas.unknownEditKeys`).
+  - **Duplicates:** an open ticket from the same requester in the same category within 7 days
+    → `409 DUPLICATE_CANDIDATE` with `{ existing: { humanId, summary, status } }`. Confirming
+    again with `duplicateDecision: same` links the conversation to it (no new ticket); with
+    `new`, a ticket is created with `duplicateOf`.
+  - **Idempotent and retryable:** a confirm after success returns the same ticket (200). If
+    `createTicket` failed earlier, the paused graph is continued. The unique
+    `tickets.conversationId` index is the backstop. An audit `ticket.create` is written only
+    when a ticket is created.
+- **`createTicket`** (code, graph-owned): queue from `domain/routing`; priority from
+  `domain/priorityFloors` (or `restrictedCasePriority`); **requester = the turn's
+  authenticated user** (snapshot from the users repository); fields = draft plus edits,
+  normalised (edited keys leave `aiFilledFields`). It writes the ticket (`humanId` from the
+  per-domain counter, `IT-0001`), a public `created` event, the conversation update
+  (`ticketId`, status `escalated`, or `handed_off` + `restricted`) and a
+  `ticket_confirmed` system message. The agent brief is the draft description until P-6.
+- **Sensitive "Yes" (flow 6):** `sensitiveHandoff` attaches a **restricted draft** (`hr_case`,
+  template summary and description, no fields, no transcript; priority high, or critical for
+  wellbeing, ADR-013). The graph pauses on it; the handoff card's "Yes" is the confirm call. The
+  SSE stream sends no `ticket_draft` event for restricted drafts.
+- **Employee views:** `GET /api/tickets/mine` (paginated, `?status`) and `GET /api/tickets/:id`
+  (requester only, else 404; no agent brief, no requester snapshot; public events only).
 
 ## Runtime
 

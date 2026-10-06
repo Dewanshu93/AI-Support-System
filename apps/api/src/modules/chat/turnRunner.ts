@@ -150,7 +150,8 @@ export function createTurnRunner(deps: TurnRunnerDeps) {
       } else if (output.citations.length > 0) {
         emit({ type: 'citations', data: { items: output.citations } });
       }
-      if (snapshot.next.includes('awaitConfirmation') && output.draft) {
+      // A restricted draft is offered through the handoff card, never shown as a ticket draft.
+      if (snapshot.next.includes('awaitConfirmation') && output.draft && !output.draft.restricted) {
         emit({
           type: 'ticket_draft',
           data: { draft: { ...output.draft }, missingFields: state.ticketFlow.requiredMissing },
@@ -209,6 +210,19 @@ export function createTurnRunner(deps: TurnRunnerDeps) {
     }
   }
 
-  return { begin, isRunning: (conversationId: string) => running.has(conversationId) };
+  /** Runs fn while holding the conversation's lock (confirm/cancel); CONFLICT if a turn is running. */
+  async function exclusive<T>(conversationId: string, fn: () => Promise<T>): Promise<T> {
+    if (running.has(conversationId)) {
+      throw new AppError('CONFLICT', 'A turn is already running in this conversation');
+    }
+    running.add(conversationId);
+    try {
+      return await fn();
+    } finally {
+      running.delete(conversationId);
+    }
+  }
+
+  return { begin, exclusive, isRunning: (conversationId: string) => running.has(conversationId) };
 }
 export type TurnRunner = ReturnType<typeof createTurnRunner>;

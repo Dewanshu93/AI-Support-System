@@ -14,6 +14,7 @@ import { connectDatabase, createQdrantClient, getCollections } from '../../apps/
 import type { EvalResultDoc } from '../../apps/api/src/db/schemas';
 import { mongoConversationsRepository } from '../../apps/api/src/modules/conversations/repository';
 import { mongoDocumentsRepository } from '../../apps/api/src/modules/documents/repository';
+import { mongoTicketsRepository } from '../../apps/api/src/modules/tickets/repository';
 import { mongoUsersRepository } from '../../apps/api/src/modules/users/repository';
 import { fullReport } from './fullReport';
 import { fullSummary, scoreFullCase } from './fullScorers';
@@ -46,6 +47,7 @@ export async function runFullCli(
     chatFor: (tier, o) => createChatModel(config.models, config.env, tier, undefined, o),
     users: mongoUsersRepository(collections.users),
     conversations,
+    tickets: mongoTicketsRepository(collections),
     checkpointer: new MemorySaver(),
     isEval: true,
     retrieve: (input) =>

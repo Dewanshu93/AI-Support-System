@@ -22,6 +22,7 @@ import {
   retrievalOf,
 } from '../helpers/chat';
 import { memoryConversationsRepository } from '../helpers/conversations';
+import { memoryTicketsRepository } from '../helpers/tickets';
 
 const PRIYA = 'priya.shah@example.com';
 const BATTERY = [
@@ -68,6 +69,7 @@ function setup(replies: FakeReply[], retrieval = BATTERY) {
     chatFor: () => chat,
     users: { findById: async (id) => users.find((u) => u._id.toHexString() === id) ?? null },
     conversations,
+    tickets: memoryTicketsRepository(),
     retrieve: async () => retrievalOf(retrieval),
     checkpointer: createMemoryCheckpointer(),
   });

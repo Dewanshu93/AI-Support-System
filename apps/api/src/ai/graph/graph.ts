@@ -9,13 +9,13 @@ import {
 } from '@langchain/langgraph';
 import { agentSummary } from '../nodes/agentSummary';
 import { awaitConfirmation } from '../nodes/awaitConfirmation';
-import { createTicket } from '../nodes/createTicket';
 import {
   stubAnalyzeTurn,
   stubAnswer,
   stubBuildDraft,
   stubClarify,
   stubClarifyForTicket,
+  stubCreateTicket,
   stubDecide,
   stubLoadContext,
   stubOutOfScope,
@@ -65,7 +65,7 @@ export const DEFAULT_NODES = {
   buildDraft: stubBuildDraft,
   persist: stubPersist,
   awaitConfirmation,
-  createTicket,
+  createTicket: stubCreateTicket,
   agentSummary,
 } satisfies Record<string, NodeFn>;
 export type NodeName = keyof typeof DEFAULT_NODES;

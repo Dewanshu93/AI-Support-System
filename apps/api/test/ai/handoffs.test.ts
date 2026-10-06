@@ -133,7 +133,7 @@ describe('out-of-scope and sensitive handoff nodes', () => {
   });
 
   it('sensitive: contact, private-contact offer, and never any retrieved text', () => {
-    const update = createSensitiveHandoff({ templates })(withContext);
+    const update = createSensitiveHandoff({ templates, routing: config.routing })(withContext);
     const o = out(update);
     expect(o.text).toContain(templates.sensitive_contact);
     expect(o.text.trim().endsWith('Would you like HR to contact you privately?')).toBe(true);
@@ -174,7 +174,7 @@ describe('acceptance: sensitive and out-of-scope replies make no generation call
         rerankAssess: createRerankAssess({ ...llm, retrieval: config.thresholds.retrieval }),
         decide: createDecide(config.thresholds.decision),
         outOfScope: createOutOfScope({ templates }),
-        sensitiveHandoff: createSensitiveHandoff({ templates }),
+        sensitiveHandoff: createSensitiveHandoff({ templates, routing: config.routing }),
       },
     });
     return { graph, chat };
@@ -233,7 +233,7 @@ describe('acceptance: sensitive and out-of-scope replies make no generation call
     const secret = 'Internal grievance procedure step 4: confidential';
     const graph = buildSupportGraph({
       checkpointer: createMemoryCheckpointer(),
-      nodes: { sensitiveHandoff: createSensitiveHandoff({ templates }) },
+      nodes: { sensitiveHandoff: createSensitiveHandoff({ templates, routing: config.routing }) },
     });
     const id = 'acc-4';
     const s = (await graph.invoke(

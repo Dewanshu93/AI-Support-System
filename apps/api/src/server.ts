@@ -17,6 +17,7 @@ import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
 import { mongoConversationsRepository } from './modules/conversations/repository';
 import { mongoDocumentsRepository, mongoSourcesReader } from './modules/documents/repository';
+import { mongoTicketsRepository } from './modules/tickets/repository';
 import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
@@ -68,6 +69,7 @@ async function main() {
   const users = mongoUsersRepository(collections.users);
   const conversations = mongoConversationsRepository(collections);
   const documents = mongoDocumentsRepository(collections);
+  const tickets = mongoTicketsRepository(collections);
 
   // Graph checkpoints (ADR-007): thread_id = conversation ID.
   const checkpointer = createMongoCheckpointer(client, db.databaseName);
@@ -113,6 +115,7 @@ async function main() {
             ),
     users,
     conversations,
+    tickets,
     checkpointer,
     retrieve: (input) =>
       retrieve(input, {
@@ -132,6 +135,12 @@ async function main() {
     sources: mongoSourcesReader(collections),
     chat: { graph },
     templates: config.templates.templates,
+    tickets,
+    ticketConfig: {
+      routing: config.routing,
+      ticketSchemas: config.ticketSchemas.schemas,
+      duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
+    },
     auth: {
       jwtSecret: config.env.JWT_SECRET,
       demoPassword: config.env.DEMO_PASSWORD,

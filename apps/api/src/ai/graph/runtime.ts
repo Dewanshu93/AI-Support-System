@@ -1,9 +1,10 @@
 // The runtime turn graph: supportTurnGraph with every real node built so far
-// wired to its dependencies. Nodes not built yet (createTicket, agentSummary: W3) stay stubs.
+// wired to its dependencies. Nodes not built yet (agentSummary: W3-06) stay stubs.
 // server.ts builds it with real providers; tests build it with fake models.
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { ConfigFiles } from '../../config/schemas';
 import type { ConversationsRepository } from '../../modules/conversations/repository';
+import type { TicketsRepository } from '../../modules/tickets/repository';
 import type { UsersRepository } from '../../modules/users/repository';
 import { compilePrecheckRules } from '../guards/precheckRules';
 import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
@@ -11,6 +12,7 @@ import { createAnalyzeTurn } from '../nodes/analyzeTurn';
 import { createAnswer } from '../nodes/answer';
 import { createBuildDraft } from '../nodes/buildDraft';
 import { createClarifyForTicket } from '../nodes/clarifyForTicket';
+import { createCreateTicket } from '../nodes/createTicket';
 import { createSlotFill } from '../nodes/slotFill';
 import { createClarify } from '../nodes/clarify';
 import { createDecide } from '../nodes/decide';
@@ -42,6 +44,7 @@ export interface TurnGraphDeps {
   chatFor: (tier: ModelTier, options?: { temperature?: number }) => ChatHandle;
   users: Pick<UsersRepository, 'findById'>;
   conversations: ConversationsRepository;
+  tickets: TicketsRepository;
   retrieve: RetrieveNodeDeps['retrieve'];
   checkpointer: BaseCheckpointSaver;
   now?: () => Date;
@@ -75,7 +78,7 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
       validateCitations: createValidateCitations({ templates }),
       clarify: createClarify({ ...llm, templates }),
       outOfScope: createOutOfScope({ templates }),
-      sensitiveHandoff: createSensitiveHandoff({ templates }),
+      sensitiveHandoff: createSensitiveHandoff({ templates, routing: config.routing }),
       slotFill: createSlotFill({
         ...llm,
         taxonomy: config.taxonomy,
@@ -91,6 +94,18 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         priorityRules: config.priorityRules,
         ticketSchemas: config.ticketSchemas.schemas,
         templates,
+      }),
+      createTicket: createCreateTicket({
+        tickets: deps.tickets,
+        users: deps.users,
+        conversations: deps.conversations,
+        routing: config.routing,
+        priorityRules: config.priorityRules,
+        ticketSchemas: config.ticketSchemas.schemas,
+        templates,
+        duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
+        now: deps.now,
+        isEval: deps.isEval,
       }),
       persist: createPersist({
         conversations: deps.conversations,

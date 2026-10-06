@@ -9,6 +9,8 @@ export const ERROR_HTTP_STATUS = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  // Confirming a ticket draft when an open ticket on the same issue exists (contract flow 5).
+  DUPLICATE_CANDIDATE: 409,
   RATE_LIMITED: 429,
   INTERNAL: 500,
   LLM_UNAVAILABLE: 503,

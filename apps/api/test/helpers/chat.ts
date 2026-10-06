@@ -14,6 +14,7 @@ import type { ChunkDoc } from '../../src/db/schemas';
 import { buildTestApp, loginCookie, seededUsers, type TestContext } from './app';
 import { VALID_ENV } from './config';
 import { type MemoryConversations, memoryConversationsRepository } from './conversations';
+import { type MemoryTickets, memoryTicketsRepository } from './tickets';
 
 export const config = loadConfig(VALID_ENV);
 const prompts = loadPromptRegistry(config.prompts.active);
@@ -105,6 +106,7 @@ export const answerReply = (prose: string, uncovered: string[] = []) =>
 
 export interface ChatTestContext extends TestContext {
   conversations: MemoryConversations;
+  tickets: MemoryTickets;
   chat: ReturnType<typeof fakeChatHandle>;
   /** Scripts the next LLM replies (appends). */
   script(replies: FakeReply[]): void;
@@ -115,6 +117,7 @@ export function buildChatTestApp(
 ): ChatTestContext {
   const users = seededUsers();
   const conversations = memoryConversationsRepository();
+  const tickets = memoryTicketsRepository();
   const queue: FakeReply[] = [...(options.replies ?? [])];
   // One fake model whose replies are drawn from a shared, appendable queue.
   const chat = fakeChatHandle(queue, { nativeStructured: true });
@@ -131,11 +134,12 @@ export function buildChatTestApp(
     chatFor: () => chat,
     users: { findById: async (id) => users.find((u) => u._id.toHexString() === id) ?? null },
     conversations,
+    tickets,
     retrieve: options.retrieve ?? (async () => retrievalOf(LEAVE_CHUNKS)),
     checkpointer: createMemoryCheckpointer(),
   });
-  const ctx = buildTestApp({ users, conversations, graph });
-  return { ...ctx, conversations, chat, script: (replies) => void queue.push(...replies) };
+  const ctx = buildTestApp({ users, conversations, graph, tickets });
+  return { ...ctx, conversations, tickets, chat, script: (replies) => void queue.push(...replies) };
 }
 
 export async function newConversation(app: Express, cookie: string): Promise<string> {

@@ -2,32 +2,33 @@
 
 ## Task status
 
-| Task  | Name                                              | Status                                           | Date       |
-| ----- | ------------------------------------------------- | ------------------------------------------------ | ---------- |
-| W1-01 | Monorepo scaffold                                 | Done (Docker unverified)                         | 2026-10-02 |
-| W1-02 | Config and env loading                            | Done                                             | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope               | Done                                             | 2026-10-02 |
-| W1-04 | Database layer and indexes                        | Done (amended: Qdrant, ADR-004)                  | 2026-10-05 |
-| W1-05 | Users seed and auth                               | Done                                             | 2026-10-05 |
-| W1-06 | Frontend shell and login                          | Done                                             | 2026-10-05 |
-| W1-07 | Corpus authoring and validation                   | Done (pending owner review of numbers)           | 2026-10-05 |
-| W1-08 | Golden set v1                                     | Done (pending owner review)                      | 2026-10-05 |
-| W1-09 | LLM and embedding provider layer                  | Done                                             | 2026-10-05 |
-| W1-10 | Ingestion pipeline                                | Done                                             | 2026-10-05 |
-| W1-11 | Access filter and hybrid retrieval                | Done                                             | 2026-10-05 |
-| W1-12 | Retrieval eval runner                             | Done                                             | 2026-10-05 |
-| W2-01 | Prompt registry                                   | Done                                             | 2026-10-05 |
-| W2-02 | Graph state, skeleton and checkpointer            | Done                                             | 2026-10-05 |
-| W2-03 | loadContext, precheck, analyzeTurn                | Done                                             | 2026-10-06 |
-| W2-04 | retrieve and rerankAssess nodes                   | Done                                             | 2026-10-06 |
-| W2-05 | Decision rules and decide node                    | Done                                             | 2026-10-06 |
-| W2-06 | Grounded answer and citation validation           | Done                                             | 2026-10-06 |
-| W2-07 | Clarify, out-of-scope and sensitive handoff nodes | Done                                             | 2026-10-06 |
-| W2-08 | Persist node and chat API with SSE                | Done                                             | 2026-10-06 |
-| W2-09 | Chat UI                                           | Done                                             | 2026-10-06 |
-| W2-10 | Full-graph eval suite                             | Code complete; baseline pending (provider quota) | 2026-10-06 |
-| W3-01 | Ticketing domain rules                            | Done                                             | 2026-10-06 |
-| W3-02 | slotFill and clarifyForTicket nodes               | Done (live P-5 check pending provider quota)     | 2026-10-06 |
+| Task  | Name                                               | Status                                           | Date       |
+| ----- | -------------------------------------------------- | ------------------------------------------------ | ---------- |
+| W1-01 | Monorepo scaffold                                  | Done (Docker unverified)                         | 2026-10-02 |
+| W1-02 | Config and env loading                             | Done                                             | 2026-10-02 |
+| W1-03 | Shared contracts and error envelope                | Done                                             | 2026-10-02 |
+| W1-04 | Database layer and indexes                         | Done (amended: Qdrant, ADR-004)                  | 2026-10-05 |
+| W1-05 | Users seed and auth                                | Done                                             | 2026-10-05 |
+| W1-06 | Frontend shell and login                           | Done                                             | 2026-10-05 |
+| W1-07 | Corpus authoring and validation                    | Done (pending owner review of numbers)           | 2026-10-05 |
+| W1-08 | Golden set v1                                      | Done (pending owner review)                      | 2026-10-05 |
+| W1-09 | LLM and embedding provider layer                   | Done                                             | 2026-10-05 |
+| W1-10 | Ingestion pipeline                                 | Done                                             | 2026-10-05 |
+| W1-11 | Access filter and hybrid retrieval                 | Done                                             | 2026-10-05 |
+| W1-12 | Retrieval eval runner                              | Done                                             | 2026-10-05 |
+| W2-01 | Prompt registry                                    | Done                                             | 2026-10-05 |
+| W2-02 | Graph state, skeleton and checkpointer             | Done                                             | 2026-10-05 |
+| W2-03 | loadContext, precheck, analyzeTurn                 | Done                                             | 2026-10-06 |
+| W2-04 | retrieve and rerankAssess nodes                    | Done                                             | 2026-10-06 |
+| W2-05 | Decision rules and decide node                     | Done                                             | 2026-10-06 |
+| W2-06 | Grounded answer and citation validation            | Done                                             | 2026-10-06 |
+| W2-07 | Clarify, out-of-scope and sensitive handoff nodes  | Done                                             | 2026-10-06 |
+| W2-08 | Persist node and chat API with SSE                 | Done                                             | 2026-10-06 |
+| W2-09 | Chat UI                                            | Done                                             | 2026-10-06 |
+| W2-10 | Full-graph eval suite                              | Code complete; baseline pending (provider quota) | 2026-10-06 |
+| W3-01 | Ticketing domain rules                             | Done                                             | 2026-10-06 |
+| W3-02 | slotFill and clarifyForTicket nodes                | Done (live P-5 check pending provider quota)     | 2026-10-06 |
+| W3-03 | Human-in-the-loop confirmation and ticket creation | Done                                             | 2026-10-06 |
 
 ## Checkpoints
 
@@ -1158,3 +1159,37 @@ priority. Matched rules are now kept for the whole ticket flow.
 - No live P-5 check yet: both providers are out of quota (see W2-10). Run one with the W2-10
   baseline.
 - The escalate API test now drives the real slotFill and buildDraft (P-1 + P-5 scripted).
+
+## W3-03 Human-in-the-loop confirmation and ticket creation — 2026-10-06
+
+**Delivered:**
+
+- `ai/nodes/createTicket.ts` (real).
+- `sensitiveHandoff` now attaches a restricted draft (ADR-013).
+- `modules/tickets/{repository,service,routes}.ts`: confirm and cancel; `GET /api/tickets/mine`,
+  `GET /api/tickets/:id`.
+- Shared contracts in `api/tickets.ts` (confirm request, duplicate details, employee ticket
+  views) and the error code `DUPLICATE_CANDIDATE` (409).
+- Pure helpers `unknownEditKeys` and `restrictedCasePriority`; templates `ticket_cancelled`,
+  `ticket_linked`, `restricted_case_summary` and `restricted_case_description`.
+- `runner.exclusive` (confirm/cancel share the conversation lock).
+- **Not built here:** the employee reply endpoint (contract stretch goal); P-6 agent summary
+  (W3-06).
+
+**Verification**
+
+| Check                                         | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No ticket exists before confirm               | Pass: the escalate request ends paused with a `ticket_draft` event and zero tickets; the ticket appears only after the confirm request (two separate HTTP requests = interrupt and resume across requests)                                                                                                                                                                                                                                                                         |
+| Confirm is idempotent                         | Pass: a second confirm returns the same ticket, still one ticket and one `ticket.create` audit entry; the unique conversation index rejects a second insert (LAN integration test)                                                                                                                                                                                                                                                                                                 |
+| Requester cannot be overridden by edits       | Pass: edits `requesterId`/`queue`/`priority` → 400 `unknownFields`, nothing created; unknown top-level keys → 400; requester = the authenticated user (snapshot asserted); unit test `unknownEditKeys`                                                                                                                                                                                                                                                                             |
+| Supertest for confirm, cancel and duplicate   | Pass: `test/api/tickets.test.ts` (11): confirm with edits (aiFilledFields), idempotency, edit rejection, duplicate 409 then `same` (link) and `new` (`duplicateOf`), other requester not a duplicate, cancel (twice → 404, confirm after cancel → 404), access (404/403/401), sensitive Yes (restricted, `hr_case`, high, no transcript, conversation restricted/handed_off), wellbeing → critical, No thanks, employee ticket views (own only, no internal fields, public events) |
+| DoD: contract acceptance item on confirmation | Pass: "no ticket before confirmation", plus requester, queue and priority set by code, verified above                                                                                                                                                                                                                                                                                                                                                                              |
+| Domain coverage                               | Pass: `domain/` still 100% (100 tests)                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+**Notes**
+
+- After a sensitive handoff the conversation waits for Yes or No (409 on new messages);
+  W3-04 adds both buttons to the handoff card.
+- No live LLM call is involved in confirm or create.
+- Gate: lint and typecheck clean; tests 37 (shared) + 818 (api, with LAN integration) + 27 (web) pass; Prettier clean; Playwright `chat.spec.ts` 7/7 (replay). The flow-6 E2E now expects the composer to be hidden while the private-contact offer is pending.
