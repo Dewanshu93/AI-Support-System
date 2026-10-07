@@ -72,6 +72,31 @@ export const REGULAR_INDEXES: Record<CollectionKey, IndexSpec[]> = {
   ],
   counters: [],
   gapClusters: [{ name: 'snapshotAt', key: { snapshotAt: -1 } }],
+  projects: [
+    { name: 'code_unique', key: { code: 1 }, unique: true },
+    { name: 'memberIds', key: { memberIds: 1 } },
+  ],
+  tasks: [
+    { name: 'key_unique', key: { key: 1 }, unique: true },
+    { name: 'assigneeId_status_updatedAt', key: { assigneeId: 1, status: 1, updatedAt: -1 } },
+  ],
+  timesheetEntries: [
+    // One entry per employee, day and project; saves are upserts on this key.
+    {
+      name: 'userId_date_projectId_unique',
+      key: { userId: 1, date: 1, projectId: 1 },
+      unique: true,
+    },
+  ],
+  attendance: [{ name: 'userId_date_unique', key: { userId: 1, date: 1 }, unique: true }],
+  payslips: [
+    { name: 'userId_periodStart_unique', key: { userId: 1, periodStart: 1 }, unique: true },
+    { name: 'userId_payDate', key: { userId: 1, payDate: -1 } },
+  ],
+  notifications: [
+    { name: 'userId_createdAt', key: { userId: 1, createdAt: -1 } },
+    { name: 'userId_readAt', key: { userId: 1, readAt: 1 } },
+  ],
 };
 
 /** Creates any collection that does not exist yet. */

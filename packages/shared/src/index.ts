@@ -9,10 +9,11 @@ export * from './api/conversations';
 export * from './api/documents';
 export * from './api/health';
 export * from './api/tickets';
+export * from './api/workspace';
 export * from './enums';
 export * from './errors';
 
-export const APP_NAME = 'AI Service Desk Front Door';
+export const APP_NAME = 'Employee Hub';
 
 /** Base path every API route is mounted under (playbook section 4). */
 export const API_BASE_PATH = '/api';

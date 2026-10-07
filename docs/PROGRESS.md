@@ -1309,3 +1309,38 @@ longer budget when `E2E_LLM` is record or live.
 - Replies on resolved tickets are allowed (only closed is 409), per the playbook table.
 - The transcript of a restricted case is shown to hr_case agents and admins (the confidential
   team); every such view is audited.
+
+## UC-01 Mock HR data and new policies — 2026-10-07
+
+**Delivered:**
+
+- Collections (schemas, accessors, indexes): `projects`, `tasks`, `timesheet_entries`,
+  `attendance`, `payslips`, `notifications`. Shared contracts in `@sd/shared` `api/workspace.ts`.
+- `config/workday.yaml`: timesheet rules (8 h day, 12 h max, 0.5 h steps, 60 days back) and the
+  US/UK holiday calendar copied from the corpus holiday policies.
+- `domain/workday.ts` (pure): calendar, day status, cell validation, pay periods (US semi-monthly,
+  UK monthly), late entries.
+- `modules/workspace/seed.ts`: deterministic mock data from the seeded users and an anchor date;
+  `npm run seed [-- --today YYYY-MM-DD]` now also restores it (idempotent).
+- **LOP demo scenario:** Priya has no timesheet and is marked absent on the last working day on
+  or before the 12th of the previous month (12 Sep 2026 is a Saturday, so **Fri 11 Sep**); her
+  16–30 Sep payslip carries **Loss of Pay $400.00** (salary $104,000 / 260). Her most recent
+  past working day this week is also left empty.
+- Policies: `hr-loss-of-pay`, `hr-timesheet-policy`, `hr-attendance-policy` (38 documents).
+- `APP_NAME` is now "Employee Hub".
+
+**Verification**
+
+| Check                                | Result                                                                                                                                                                                       |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain and seed unit tests           | Pass: `workday.test.ts` (calendar, day status, validation, pay periods), `seed.test.ts` (deterministic, LOP day/amount, balanced payslips, no weekend/holiday/future hours, valid documents) |
+| Config schemas                       | Pass: `workday` added to the per-file schema tests                                                                                                                                           |
+| `npm run db:indexes` on the LAN DB   | Pass: 6 collections and 10 indexes created                                                                                                                                                   |
+| `npm run seed -- --today 2026-10-07` | Pass, twice with identical output: 6 projects, 18 tasks, 269 entries, 130 attendance, 10 payslips, 13 notifications, 3 requests                                                              |
+| `npm run corpus:validate` / `ingest` | Pass: 38 documents valid; 3 indexed (181 chunks), 35 unchanged                                                                                                                               |
+
+**Notes**
+
+- The seed replaces the employees' timesheets, attendance, payslips and notifications, so it also
+  resets the demo. Demo requests use fixed IDs `IT-9001`, `HR-9001`, `HR-9002`.
+- LOP is written for full-time employees in every country (personas are US/UK, not India).

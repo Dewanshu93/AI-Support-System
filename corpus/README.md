@@ -84,42 +84,45 @@ extension 5555.
 
 <!-- inventory:start -->
 
-| Slug                          | Title                                                | Domain | Version | Status     | Effective  | Countries | Employment            | Access   |
-| ----------------------------- | ---------------------------------------------------- | ------ | ------- | ---------- | ---------- | --------- | --------------------- | -------- |
-| `hr-annual-leave-uk`          | Annual Leave (UK)                                    | HR     | 2.0     | active     | 2026-01-01 | UK        | full-time             | standard |
-| `hr-annual-leave-us`          | Annual Leave (US)                                    | HR     | 2.1     | active     | 2026-01-01 | US        | full-time             | standard |
-| `hr-code-of-conduct`          | Code of Conduct                                      | HR     | 3.1     | active     | 2025-05-01 | US, UK    | full-time, contractor | standard |
-| `hr-contractor-time-off`      | Time Off for Contractors                             | HR     | 1.1     | active     | 2025-06-01 | US, UK    | contractor            | standard |
-| `hr-expenses-policy`          | Business Travel and Expenses                         | HR     | 4.2     | active     | 2025-10-01 | US, UK    | full-time             | standard |
-| `hr-flexible-working`         | Hybrid and Flexible Working                          | HR     | 2.0     | active     | 2025-09-01 | US, UK    | full-time             | standard |
-| `hr-health-benefits-uk`       | Health Benefits (UK)                                 | HR     | 2026.0  | active     | 2026-01-01 | UK        | full-time             | standard |
-| `hr-health-benefits-us`       | Health Benefits (US)                                 | HR     | 2026.0  | active     | 2026-01-01 | US        | full-time             | standard |
-| `hr-manager-leave-approval`   | Approving Leave — Guide for Managers                 | HR     | 1.1     | active     | 2026-01-01 | US, UK    | full-time             | manager  |
-| `hr-parental-leave-uk`        | Parental Leave (UK)                                  | HR     | 2.2     | active     | 2025-07-01 | UK        | full-time             | standard |
-| `hr-parental-leave-us`        | Parental Leave (US)                                  | HR     | 3.0     | active     | 2026-01-01 | US        | full-time             | standard |
-| `hr-parental-leave-us`        | Parental Leave (US)                                  | HR     | 2.0     | superseded | 2024-01-01 | US        | full-time             | standard |
-| `hr-payroll-and-payslips`     | Payroll and Payslips                                 | HR     | 1.3     | active     | 2025-07-01 | US, UK    | full-time             | standard |
-| `hr-performance-improvement`  | Performance Improvement Process — Guide for Managers | HR     | 1.0     | active     | 2025-08-01 | US, UK    | full-time             | manager  |
-| `hr-public-holidays-uk`       | Public Holidays (UK) 2026                            | HR     | 2026.1  | active     | 2026-01-01 | UK        | full-time             | standard |
-| `hr-public-holidays-us`       | Public Holidays (US) 2026                            | HR     | 2026.1  | active     | 2026-01-01 | US        | full-time             | standard |
-| `hr-retirement-plan-uk`       | Workplace Pension (UK)                               | HR     | 1.4     | active     | 2025-04-06 | UK        | full-time             | standard |
-| `hr-retirement-plan-us`       | 401(k) Retirement Plan (US)                          | HR     | 1.6     | active     | 2025-01-01 | US        | full-time             | standard |
-| `hr-sick-leave-uk`            | Sickness Absence (UK)                                | HR     | 1.4     | active     | 2025-04-01 | UK        | full-time             | standard |
-| `hr-sick-leave-us`            | Sick Leave (US)                                      | HR     | 1.3     | active     | 2025-01-01 | US        | full-time             | standard |
-| `hr-speak-up-policy`          | Speak Up Policy                                      | HR     | 1.2     | active     | 2025-05-01 | US, UK    | full-time, contractor | standard |
-| `it-access-requests`          | Access Requests for Systems and Applications         | IT     | 1.4     | active     | 2025-11-01 | US, UK    | full-time, contractor | standard |
-| `it-battery-safety`           | Laptop Battery Safety                                | IT     | 1.1     | active     | 2025-08-01 | US, UK    | full-time, contractor | standard |
-| `it-contractor-device-access` | Contractor Device and Systems Access                 | IT     | 1.2     | active     | 2025-09-15 | US, UK    | contractor            | standard |
-| `it-laptop-troubleshooting`   | Laptop Troubleshooting and Repairs                   | IT     | 1.5     | active     | 2025-10-01 | US, UK    | full-time             | standard |
-| `it-mobile-devices`           | Mobile Phones and Tablets                            | IT     | 2.1     | active     | 2025-12-01 | US, UK    | full-time             | standard |
-| `it-office-printing`          | Office Printing                                      | IT     | 1.0     | active     | 2025-03-01 | US, UK    | full-time             | standard |
-| `it-office-wifi`              | Office Wi-Fi Networks                                | IT     | 1.3     | active     | 2025-09-01 | US, UK    | full-time, contractor | standard |
-| `it-password-mfa-policy`      | Password and Multi-Factor Authentication Policy      | IT     | 2.0     | active     | 2026-03-01 | US, UK    | full-time, contractor | standard |
-| `it-password-mfa-policy`      | Password and Multi-Factor Authentication Policy      | IT     | 1.0     | superseded | 2023-01-01 | US, UK    | full-time, contractor | standard |
-| `it-peripherals`              | Monitors, Docks and Peripherals                      | IT     | 1.0     | active     | 2025-05-01 | US, UK    | full-time             | standard |
-| `it-software-installation`    | Installing and Updating Software                     | IT     | 1.2     | active     | 2025-06-01 | US, UK    | full-time             | standard |
-| `it-software-licences`        | Software Licences                                    | IT     | 1.1     | active     | 2025-04-01 | US, UK    | full-time, contractor | standard |
-| `it-standard-hardware`        | Standard Laptops and Hardware Refresh                | IT     | 3.0     | active     | 2026-01-15 | US, UK    | full-time             | standard |
-| `it-vpn-remote-access`        | VPN and Remote Access                                | IT     | 2.0     | active     | 2026-02-01 | US, UK    | full-time             | standard |
+| Slug | Title | Domain | Version | Status | Effective | Countries | Employment | Access |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `hr-annual-leave-uk` | Annual Leave (UK) | HR | 2.0 | active | 2026-01-01 | UK | full-time | standard |
+| `hr-annual-leave-us` | Annual Leave (US) | HR | 2.1 | active | 2026-01-01 | US | full-time | standard |
+| `hr-attendance-policy` | Attendance | HR | 1.0 | active | 2026-01-01 | US, UK | full-time | standard |
+| `hr-code-of-conduct` | Code of Conduct | HR | 3.1 | active | 2025-05-01 | US, UK | full-time, contractor | standard |
+| `hr-contractor-time-off` | Time Off for Contractors | HR | 1.1 | active | 2025-06-01 | US, UK | contractor | standard |
+| `hr-expenses-policy` | Business Travel and Expenses | HR | 4.2 | active | 2025-10-01 | US, UK | full-time | standard |
+| `hr-flexible-working` | Hybrid and Flexible Working | HR | 2.0 | active | 2025-09-01 | US, UK | full-time | standard |
+| `hr-health-benefits-uk` | Health Benefits (UK) | HR | 2026.0 | active | 2026-01-01 | UK | full-time | standard |
+| `hr-health-benefits-us` | Health Benefits (US) | HR | 2026.0 | active | 2026-01-01 | US | full-time | standard |
+| `hr-loss-of-pay` | Loss of Pay (LOP) | HR | 1.0 | active | 2026-01-01 | US, UK | full-time | standard |
+| `hr-manager-leave-approval` | Approving Leave — Guide for Managers | HR | 1.1 | active | 2026-01-01 | US, UK | full-time | manager |
+| `hr-parental-leave-uk` | Parental Leave (UK) | HR | 2.2 | active | 2025-07-01 | UK | full-time | standard |
+| `hr-parental-leave-us` | Parental Leave (US) | HR | 3.0 | active | 2026-01-01 | US | full-time | standard |
+| `hr-parental-leave-us` | Parental Leave (US) | HR | 2.0 | superseded | 2024-01-01 | US | full-time | standard |
+| `hr-payroll-and-payslips` | Payroll and Payslips | HR | 1.3 | active | 2025-07-01 | US, UK | full-time | standard |
+| `hr-performance-improvement` | Performance Improvement Process — Guide for Managers | HR | 1.0 | active | 2025-08-01 | US, UK | full-time | manager |
+| `hr-public-holidays-uk` | Public Holidays (UK) 2026 | HR | 2026.1 | active | 2026-01-01 | UK | full-time | standard |
+| `hr-public-holidays-us` | Public Holidays (US) 2026 | HR | 2026.1 | active | 2026-01-01 | US | full-time | standard |
+| `hr-retirement-plan-uk` | Workplace Pension (UK) | HR | 1.4 | active | 2025-04-06 | UK | full-time | standard |
+| `hr-retirement-plan-us` | 401(k) Retirement Plan (US) | HR | 1.6 | active | 2025-01-01 | US | full-time | standard |
+| `hr-sick-leave-uk` | Sickness Absence (UK) | HR | 1.4 | active | 2025-04-01 | UK | full-time | standard |
+| `hr-sick-leave-us` | Sick Leave (US) | HR | 1.3 | active | 2025-01-01 | US | full-time | standard |
+| `hr-speak-up-policy` | Speak Up Policy | HR | 1.2 | active | 2025-05-01 | US, UK | full-time, contractor | standard |
+| `hr-timesheet-policy` | Timesheets | HR | 1.0 | active | 2026-01-01 | US, UK | full-time, contractor | standard |
+| `it-access-requests` | Access Requests for Systems and Applications | IT | 1.4 | active | 2025-11-01 | US, UK | full-time, contractor | standard |
+| `it-battery-safety` | Laptop Battery Safety | IT | 1.1 | active | 2025-08-01 | US, UK | full-time, contractor | standard |
+| `it-contractor-device-access` | Contractor Device and Systems Access | IT | 1.2 | active | 2025-09-15 | US, UK | contractor | standard |
+| `it-laptop-troubleshooting` | Laptop Troubleshooting and Repairs | IT | 1.5 | active | 2025-10-01 | US, UK | full-time | standard |
+| `it-mobile-devices` | Mobile Phones and Tablets | IT | 2.1 | active | 2025-12-01 | US, UK | full-time | standard |
+| `it-office-printing` | Office Printing | IT | 1.0 | active | 2025-03-01 | US, UK | full-time | standard |
+| `it-office-wifi` | Office Wi-Fi Networks | IT | 1.3 | active | 2025-09-01 | US, UK | full-time, contractor | standard |
+| `it-password-mfa-policy` | Password and Multi-Factor Authentication Policy | IT | 2.0 | active | 2026-03-01 | US, UK | full-time, contractor | standard |
+| `it-password-mfa-policy` | Password and Multi-Factor Authentication Policy | IT | 1.0 | superseded | 2023-01-01 | US, UK | full-time, contractor | standard |
+| `it-peripherals` | Monitors, Docks and Peripherals | IT | 1.0 | active | 2025-05-01 | US, UK | full-time | standard |
+| `it-software-installation` | Installing and Updating Software | IT | 1.2 | active | 2025-06-01 | US, UK | full-time | standard |
+| `it-software-licences` | Software Licences | IT | 1.1 | active | 2025-04-01 | US, UK | full-time, contractor | standard |
+| `it-standard-hardware` | Standard Laptops and Hardware Refresh | IT | 3.0 | active | 2026-01-15 | US, UK | full-time | standard |
+| `it-vpn-remote-access` | VPN and Remote Access | IT | 2.0 | active | 2026-02-01 | US, UK | full-time | standard |
 
 <!-- inventory:end -->

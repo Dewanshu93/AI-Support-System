@@ -340,6 +340,40 @@ export const TemplatesSchema = z
     }
   });
 
+// --- workday.yaml (UC-01) --------------------------------------------------
+
+const IsoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD')
+  .refine((d) => !Number.isNaN(Date.parse(`${d}T00:00:00Z`)), 'is not a real date');
+
+export const WorkdaySchema = z
+  .strictObject({
+    version: Version,
+    timesheet: z.strictObject({
+      requiredHoursPerDay: z.number().positive().max(24),
+      maxHoursPerDay: z.number().positive().max(24),
+      hourStep: z.number().positive().max(1),
+      maxBackDays: z.number().int().min(1).max(366),
+    }),
+    holidays: z.strictObject({
+      US: z.array(z.strictObject({ date: IsoDate, name: Label })),
+      UK: z.array(z.strictObject({ date: IsoDate, name: Label })),
+    }),
+  })
+  .superRefine((w, ctx) => {
+    if (w.timesheet.requiredHoursPerDay > w.timesheet.maxHoursPerDay) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['timesheet', 'requiredHoursPerDay'],
+        message: 'must not exceed maxHoursPerDay',
+      });
+    }
+    for (const country of ['US', 'UK'] as const) {
+      requireUnique(w.holidays[country], (h) => h.date, ctx, ['holidays', country]);
+    }
+  });
+
 /** Every config file, its schema, and the key it is exposed under on AppConfig. */
 export const CONFIG_FILES = {
   taxonomy: { file: 'taxonomy.yaml', schema: TaxonomySchema },
@@ -351,6 +385,7 @@ export const CONFIG_FILES = {
   prompts: { file: 'prompts.yaml', schema: PromptsSchema },
   models: { file: 'models.yaml', schema: ModelsSchema },
   templates: { file: 'templates.yaml', schema: TemplatesSchema },
+  workday: { file: 'workday.yaml', schema: WorkdaySchema },
 } as const;
 
 export type ConfigFiles = {

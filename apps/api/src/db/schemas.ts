@@ -3,7 +3,14 @@
 // UTC Date. Unbounded children live in their own collections, never arrays.
 import {
   AccessLevelSchema,
+  AttendanceStatusSchema,
   ConversationStatusSchema,
+  DeductionCodeSchema,
+  IsoDateSchema,
+  NotificationKindSchema,
+  TaskPrioritySchema,
+  TaskStatusSchema,
+  TimesheetSourceSchema,
   CountrySchema,
   DecisionSchema,
   DocumentStatusSchema,
@@ -379,6 +386,115 @@ export const AuditLogSchema = z.object({
   createdAt: z.date(),
 });
 export type AuditLogDoc = z.infer<typeof AuditLogSchema>;
+
+// --- employee workspace: mock task tracker, timesheets, HR/payroll (UC-01) -----
+
+/** Calendar day "YYYY-MM-DD" (UTC); string so equality and range queries are exact. */
+const DayString = IsoDateSchema;
+
+export const ProjectSchema = z.object({
+  _id: zObjectId,
+  /** Short code, e.g. BANK. */
+  code: z.string().regex(/^[A-Z][A-Z0-9]{1,9}$/),
+  name: NonEmpty,
+  client: nullable(NonEmpty),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  /** Employees who may log time against the project. */
+  memberIds: z.array(zObjectId),
+  active: z.boolean(),
+  createdAt: z.date(),
+});
+export type ProjectDoc = z.infer<typeof ProjectSchema>;
+
+export const TaskSchema = z.object({
+  _id: zObjectId,
+  /** Tracker key, e.g. PROJ-123. */
+  key: z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/),
+  projectId: zObjectId,
+  assigneeId: zObjectId,
+  title: NonEmpty,
+  status: TaskStatusSchema,
+  priority: TaskPrioritySchema,
+  dueDate: nullable(DayString),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type TaskDoc = z.infer<typeof TaskSchema>;
+
+export const TimesheetEntrySchema = z.object({
+  _id: zObjectId,
+  userId: zObjectId,
+  date: DayString,
+  projectId: zObjectId,
+  hours: z.number().positive().max(24),
+  note: nullable(z.string().max(200)),
+  source: TimesheetSourceSchema,
+  late: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type TimesheetEntryDoc = z.infer<typeof TimesheetEntrySchema>;
+
+export const AttendanceSchema = z.object({
+  _id: zObjectId,
+  userId: zObjectId,
+  date: DayString,
+  status: AttendanceStatusSchema,
+  note: nullable(z.string()),
+});
+export type AttendanceDoc = z.infer<typeof AttendanceSchema>;
+
+const PayLine = z.object({ code: NonEmpty, label: NonEmpty, amount: Money });
+
+export const PayslipSchema = z
+  .object({
+    _id: zObjectId,
+    userId: zObjectId,
+    periodStart: DayString,
+    periodEnd: DayString,
+    payDate: DayString,
+    currency: z.enum(['USD', 'GBP']),
+    earnings: z.array(PayLine).min(1),
+    deductions: z.array(
+      PayLine.extend({
+        code: DeductionCodeSchema,
+        dates: z.array(DayString),
+        note: nullable(z.string()),
+      }),
+    ),
+    gross: Money,
+    net: Money,
+    createdAt: z.date(),
+  })
+  .refine((p) => p.periodStart <= p.periodEnd, { path: ['periodEnd'], message: 'before start' })
+  .refine(
+    (p) => {
+      const sum = (lines: { amount: number }[]) => lines.reduce((t, l) => t + l.amount, 0);
+      const cents = (n: number) => Math.round(n * 100);
+      return (
+        cents(sum(p.earnings)) === cents(p.gross) &&
+        cents(p.gross - sum(p.deductions)) === cents(p.net)
+      );
+    },
+    { path: ['net'], message: 'gross must equal earnings and net must equal gross − deductions' },
+  )
+  .refine((p) => p.deductions.every((d) => d.code !== 'lop' || d.dates.length > 0), {
+    path: ['deductions'],
+    message: 'an LOP deduction must list its dates',
+  });
+export type PayslipDoc = z.infer<typeof PayslipSchema>;
+
+export const NotificationSchema = z.object({
+  _id: zObjectId,
+  userId: zObjectId,
+  kind: NotificationKindSchema,
+  title: NonEmpty,
+  body: z.string(),
+  link: nullable(z.string().startsWith('/')),
+  readAt: nullable(z.date()),
+  createdAt: z.date(),
+});
+export type NotificationDoc = z.infer<typeof NotificationSchema>;
 
 export const COUNTER_IDS = ['IT', 'HR'] as const;
 export const CounterSchema = z.object({ _id: z.enum(COUNTER_IDS), seq: Count });

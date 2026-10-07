@@ -1,6 +1,12 @@
 import type { Db } from 'mongodb';
 import type { z } from 'zod';
 import type {
+  AttendanceDoc,
+  NotificationDoc,
+  PayslipDoc,
+  ProjectDoc,
+  TaskDoc,
+  TimesheetEntryDoc,
   AuditLogDoc,
   ChunkDoc,
   ConversationDoc,
@@ -33,6 +39,13 @@ export const COLLECTIONS = {
   auditLog: 'audit_log',
   counters: 'counters',
   gapClusters: 'gap_clusters',
+  // Employee workspace (UC-01): mock task tracker and HR/payroll systems.
+  projects: 'projects',
+  tasks: 'tasks',
+  timesheetEntries: 'timesheet_entries',
+  attendance: 'attendance',
+  payslips: 'payslips',
+  notifications: 'notifications',
 } as const;
 export type CollectionKey = keyof typeof COLLECTIONS;
 
@@ -53,6 +66,12 @@ export function getCollections(db: Db) {
     auditLog: db.collection<AuditLogDoc>(COLLECTIONS.auditLog),
     counters: db.collection<CounterDoc>(COLLECTIONS.counters),
     gapClusters: db.collection<GapClusterDoc>(COLLECTIONS.gapClusters),
+    projects: db.collection<ProjectDoc>(COLLECTIONS.projects),
+    tasks: db.collection<TaskDoc>(COLLECTIONS.tasks),
+    timesheetEntries: db.collection<TimesheetEntryDoc>(COLLECTIONS.timesheetEntries),
+    attendance: db.collection<AttendanceDoc>(COLLECTIONS.attendance),
+    payslips: db.collection<PayslipDoc>(COLLECTIONS.payslips),
+    notifications: db.collection<NotificationDoc>(COLLECTIONS.notifications),
   } satisfies Record<CollectionKey, unknown>;
 }
 export type Collections = ReturnType<typeof getCollections>;
