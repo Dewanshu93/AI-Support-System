@@ -14,7 +14,11 @@ import { buildSupportGraph } from '../../src/ai/graph/graph';
 import { loadConfig } from '../../src/config';
 import { VALID_ENV } from './config';
 import { memoryConversationsRepository, memorySourcesReader } from './conversations';
-import { memoryTicketsRepository } from './tickets';
+import {
+  memoryAgentTicketsRepository,
+  memoryTicketsRepository,
+  type MemoryTickets,
+} from './tickets';
 
 export const TEST_JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-bytes';
 
@@ -54,6 +58,8 @@ export interface TestAppOptions extends CreateAppOptions {
   /** Defaults to the all-stub graph (no persistence). */
   graph?: AppDeps['chat']['graph'];
   tickets?: AppDeps['tickets'];
+  /** Defaults to queries over the in-memory tickets (requires the memory tickets repository). */
+  agentTickets?: AppDeps['agentTickets'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -61,6 +67,7 @@ const config = loadConfig(VALID_ENV);
 export function buildTestApp(options: TestAppOptions = {}): TestContext {
   const users = options.users ?? seededUsers();
   const audit = memoryAuditRepository();
+  const tickets = options.tickets ?? memoryTicketsRepository();
   const deps: AppDeps = {
     users: memoryUsersRepository(users),
     audit,
@@ -74,9 +81,11 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
       graph: options.graph ?? buildSupportGraph({ checkpointer: createMemoryCheckpointer() }),
     },
     templates: config.templates.templates,
-    tickets: options.tickets ?? memoryTicketsRepository(),
+    tickets,
+    agentTickets: options.agentTickets ?? memoryAgentTicketsRepository(tickets as MemoryTickets),
     ticketConfig: {
       routing: config.routing,
+      taxonomy: config.taxonomy,
       ticketSchemas: config.ticketSchemas.schemas,
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },

@@ -30,6 +30,7 @@
 | W3-02 | slotFill and clarifyForTicket nodes                | Done (live P-5 check pending provider quota)     | 2026-10-06 |
 | W3-03 | Human-in-the-loop confirmation and ticket creation | Done                                             | 2026-10-06 |
 | W3-04 | Ticket draft UI, safety flow, My Tickets           | Done                                             | 2026-10-06 |
+| W3-05 | Agent ticket API                                   | Done                                             | 2026-10-07 |
 
 ## Checkpoints
 
@@ -1256,3 +1257,37 @@ longer budget when `E2E_LLM` is record or live.
 - Component tests use `react-dom/server` static rendering plus the pure reducer, because no DOM
   testing library is installed (adding one needs approval).
 - E2E tickets accumulate in the shared `servicedesk` database (one per flow 4/5/6 run).
+
+## W3-05 Agent ticket API — 2026-10-07
+
+**Delivered:**
+
+- `modules/agent/{routes,service,repository}.ts`: list, detail, replies, notes, status,
+  classification.
+- `domain/agentAccess.ts` (pure): `canSeeTicket`, `queueScope`, `priorityRank`,
+  `applyClassification`.
+- Shared contracts `packages/shared/src/api/agent.ts`.
+- `AppDeps.agentTickets` and `ticketConfig.taxonomy`.
+- ADR-014: severity-rank sort in the query (resolves the W1-04 note on string priorities), 404
+  outside scope, internal corrections, restricted cases keep their category, guarded updates.
+- **Not built here:** `POST …/draft-reply` (P-7, W3-06).
+
+**Verification**
+
+| Check                                        | Result                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sam cannot see HR tickets                    | Pass: `test/api/agent.test.ts`: Sam's list holds only IT queues; `?queue=hr_general` → 403; GET, reply, note, status and classification on the HR ticket and the restricted case → 404, and no event written                                                                                                                                                                                  |
+| Hana sees restricted tickets                 | Pass: Hana's list includes HR-0002 (restricted) first; GET → 200 and one `ticket.view` audit entry (non-restricted views are not audited); Hana gets 404 on IT tickets; admins see every queue                                                                                                                                                                                                |
+| Invalid transitions 409                      | Pass: new→closed, new→new, in_progress→new, closed→in_progress → 409 `CONFLICT` with `{from, to}`, ticket unchanged, no event; valid path new→in_progress→resolved→in_progress writes 3 public `status_change` events with old/new, 3 audit entries, `resolvedAt` set then cleared                                                                                                            |
+| Role matrix                                  | Pass: all 6 endpoints → 401 without a session, 403 for an employee, allowed for agent and admin; the route policy table lists the 6 routes as `['agent','admin']`                                                                                                                                                                                                                             |
+| Correction events with old/new               | Pass: hardware→payroll plus priority low→high gives 3 internal events (category, subcategory, priority) with old/new, the category event says "Re-routed to HR General", the ticket moves to `hr_general`/HR, Sam then gets 404 and Hana 200; taxonomy violations → 400; restricted category change → 400 `restricted_category` while its priority can change; a no-op request writes nothing |
+| DoD: override-rate query correct on fixtures | Pass: memory (2 of 6 = 0.333, two corrections on one ticket count once, status changes and eval tickets not counted, date range) and real MongoDB (`test/integration/agent.test.ts`: 2 of 5 = 0.4, from-range 1 of 2 = 0.5, empty range 0)                                                                                                                                                    |
+| Queue order                                  | Pass: critical, high (older), high (newer), low; cursor pages of 2 give the same order; on MongoDB "medium" sorts below "high" (severity, not alphabetical)                                                                                                                                                                                                                                   |
+| Domain coverage                              | Pass: `domain/` 100% (121 tests)                                                                                                                                                                                                                                                                                                                                                              |
+| Gate                                         | Pass: lint and typecheck clean; tests 37 (shared) + 862 (api, with LAN integration) + 48 (web); Prettier clean. No UI or LLM change, so no Playwright or eval run (the agent UI is W3-07)                                                                                                                                                                                                     |
+
+**Notes**
+
+- Replies on resolved tickets are allowed (only closed is 409), per the playbook table.
+- The transcript of a restricted case is shown to hr_case agents and admins (the confidential
+  team); every such view is audited.

@@ -375,3 +375,26 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** after a sensitive handoff, the conversation takes no new messages until the
   employee answers Yes or No (the same 409 rule as any pending draft). The W3-04 UI must show
   both buttons on the handoff card.
+
+## ADR-014 — Agent queue order, scope errors and correction rules (W3-05)
+
+- **Status:** Accepted (2026-10-07)
+- **Context:** The queue must be sorted "priority desc, then createdAt asc", but `priority` is a
+  string, so a database sort is alphabetical (noted at W1-04). The playbook also leaves open what
+  an agent gets for a ticket outside their queues, and whether a restricted case can be
+  re-categorised.
+- **Decision:**
+  - Sort on a severity rank computed in the aggregation (`$indexOfArray` over `PRIORITIES`),
+    with the cursor carrying (rank, createdAt, id). No stored `priorityRank` field, so no
+    migration or backfill and no second place to keep in sync. At prototype scale the in-query
+    sort is cheap; a stored, indexed rank is the production option.
+  - A ticket outside the agent's scope is **404** on every per-ticket endpoint (as for employees),
+    so its existence is not revealed; only an explicit `?queue=` for another queue is 403, as the
+    playbook specifies.
+  - Classification corrections are **internal** events (the employee's timeline shows only
+    replies and status changes); status changes are **public**.
+  - A restricted case **keeps its category** (400 `restricted_category`); its priority can still
+    be corrected. It must never leave the confidential queue through a re-route.
+  - Updates are guarded by `updatedAt` (409 if another agent changed the ticket first).
+- **Consequences:** a re-categorised ticket keeps its human ID (an IT ticket moved to HR stays
+  `IT-…`). An agent loses sight of a ticket they re-route out of their queues.

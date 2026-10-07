@@ -1,5 +1,6 @@
 import type { SupportGraph } from './ai/graph/graph';
 import type { ConfigFiles } from './config/schemas';
+import type { AgentTicketsRepository } from './modules/agent/repository';
 import type { AuditRepository } from './modules/audit/repository';
 import type { ConversationsRepository } from './modules/conversations/repository';
 import type { SourcesReader } from './modules/documents/repository';
@@ -33,9 +34,12 @@ export interface AppDeps {
   /** config/templates.yaml: fixed replies used by the API (errors, resolution). */
   templates: ConfigFiles['templates']['templates'];
   tickets: TicketsRepository;
-  /** Config the ticket endpoints need (routing labels, field schemas, duplicate window). */
+  /** Agent queue queries, guarded updates and the override rate (W3-05). */
+  agentTickets: AgentTicketsRepository;
+  /** Config the ticket endpoints need (routing, taxonomy, field schemas, duplicate window). */
   ticketConfig: {
     routing: ConfigFiles['routing'];
+    taxonomy: ConfigFiles['taxonomy'];
     ticketSchemas: ConfigFiles['ticketSchemas']['schemas'];
     duplicateWindowDays: number;
   };

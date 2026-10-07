@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W3-04)
+## Repository layout (as of W3-05)
 
 ```
 /
@@ -726,6 +726,38 @@ The ticket nodes (W3-02) and the API (W3-04) use these.
   variant), 5 (duplicate prompt, "add to existing") and 6 (Yes, No thanks). Tickets persist in
   the E2E database, so each flow uses its own persona and answers a duplicate prompt left by an
   earlier run.
+
+## Agent ticket API (W3-05)
+
+- **Endpoints** (`modules/agent/routes.ts`, access `agent` and `admin`):
+  - `GET /api/agent/tickets`: `?queue&status&priority&category&limit&cursor`; critical first,
+    then oldest first; `requesterName`, `ageMinutes`, `restricted`; eval tickets excluded;
+  - `GET /api/agent/tickets/:id`: full ticket (agent brief, requester), AI-filled fields,
+    articles shown, all events (public and internal), the conversation transcript and every
+    citation shown; viewing a restricted case writes `ticket.view` to the audit log;
+  - `POST …/replies` (public `reply` event, `ticket.reply` audit with `usedAiDraft`; 409
+    when closed), `POST …/notes` (internal `note` event);
+  - `PATCH …/status` (`domain/ticketStateMachine`, ADR-012; 409 with `{from, to}` otherwise;
+    public `status_change` event with old/new; `resolvedAt` set on resolve, cleared on
+    reopen; `ticket.status_change` audit);
+  - `PATCH …/classification` (`domain/agentAccess.applyClassification`: taxonomy-checked, 400
+    otherwise; one internal `classification_correction` event per changed field with old/new;
+    a category change re-routes the queue and domain; `ticket.classification` audit);
+  - `POST …/draft-reply` (P-7) arrives with W3-06.
+- **Visibility** (`domain/agentAccess`, pure): an agent sees a ticket only if its queue is
+  one of theirs; a restricted case also needs the confidential queue (`routing.sensitiveQueue`);
+  admins see every queue. A ticket outside the agent's scope is 404 on every endpoint (no
+  existence leak); `?queue=` naming another queue is 403. The list filters restricted cases a
+  second time after the query.
+- **Writes** go through `modules/agent/service.ts`. `AgentTicketsRepository.update` replaces
+  the ticket only if `updatedAt` is unchanged since it was read (409 "changed by someone
+  else" otherwise), so two agents cannot silently overwrite each other.
+- **Queue order (ADR-014):** priority is a string, so the query computes a severity rank
+  (`$indexOfArray` over `PRIORITIES`) and sorts `rank desc, createdAt asc, _id`; the cursor
+  carries (rank, createdAt, id).
+- **Override rate** (`AgentTicketsRepository.overrideRate`, for the W4 admin metrics): tickets
+  created in the range with at least one `classification_correction` ÷ tickets created (eval
+  tickets excluded).
 
 ## Runtime
 

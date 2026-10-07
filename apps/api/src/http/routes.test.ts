@@ -48,6 +48,12 @@ describe('route policy table', () => {
       ['POST', '/api/conversations/:id/ticket-draft/cancel', ['employee']],
       ['GET', '/api/tickets/mine', ['employee']],
       ['GET', '/api/tickets/:id', ['employee']],
+      ['GET', '/api/agent/tickets', ['agent', 'admin']],
+      ['GET', '/api/agent/tickets/:id', ['agent', 'admin']],
+      ['POST', '/api/agent/tickets/:id/replies', ['agent', 'admin']],
+      ['POST', '/api/agent/tickets/:id/notes', ['agent', 'admin']],
+      ['PATCH', '/api/agent/tickets/:id/status', ['agent', 'admin']],
+      ['PATCH', '/api/agent/tickets/:id/classification', ['agent', 'admin']],
     ]);
   });
 });

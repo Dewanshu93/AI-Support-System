@@ -4,6 +4,8 @@
 import type { Role } from '@sd/shared';
 import type { Express, RequestHandler } from 'express';
 import type { AppDeps } from '../deps';
+import { agentRoutes } from '../modules/agent/routes';
+import { createAgentService } from '../modules/agent/service';
 import { authRoutes } from '../modules/auth/routes';
 import { chatRoutes } from '../modules/chat/routes';
 import { createTurnRunner } from '../modules/chat/turnRunner';
@@ -58,6 +60,15 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
         ticketSchemas: deps.ticketConfig.ticketSchemas,
         templates: deps.templates,
         duplicateWindowDays: deps.ticketConfig.duplicateWindowDays,
+      }),
+    ),
+    ...agentRoutes(
+      deps,
+      createAgentService({
+        tickets: deps.tickets,
+        agentTickets: deps.agentTickets,
+        taxonomy: deps.ticketConfig.taxonomy,
+        routing: deps.ticketConfig.routing,
       }),
     ),
   ];
