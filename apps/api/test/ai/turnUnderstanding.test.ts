@@ -18,6 +18,7 @@ import {
 import { createLoadContext, HISTORY_LIMIT } from '../../src/ai/nodes/loadContext';
 import { createPrecheck } from '../../src/ai/nodes/precheck';
 import { loadPromptRegistry } from '../../src/ai/prompts/registry';
+import type { TurnAnalysis } from '../../src/ai/schemas';
 import type { ConversationsRepository } from '../../src/modules/conversations/repository';
 import { VALID_ENV } from '../helpers/config';
 
@@ -316,5 +317,60 @@ describe('graph with real loadContext, precheck and analyzeTurn', () => {
       'sensitiveHandoff',
       'persist',
     ]);
+  });
+});
+
+describe('P-1 v2: workspace intent (UC-04)', () => {
+  const v2 = loadPromptRegistry({ ...config.prompts.active, turn_analysis: 2 });
+
+  it('renders with the same variables as v1 and asks for workspaceIntent', async () => {
+    const { prompt, messages } = await v2.render('turn_analysis', {
+      taxonomy: formatTaxonomy(config.taxonomy),
+      profile: 'country: US',
+      history: '(none)',
+      message: 'Log 8 hours for Banking yesterday',
+    });
+    expect(prompt.version).toBe(2);
+    expect(String(messages[0]!.content)).toContain('workspaceIntent');
+  });
+
+  it('a v2 analysis with a workspace intent validates; v1 output without it still does', async () => {
+    const analyze = (reply: object) =>
+      createAnalyzeTurn({
+        prompts: v2,
+        chatFor: () => fakeChatHandle([JSON.stringify(reply)]),
+        taxonomy: config.taxonomy,
+        policy,
+        costs: config.models.costs,
+      });
+    const state = {
+      input: input('Which days am I missing?'),
+      profile: null,
+      history: [],
+    } as unknown as State;
+    const withIntent = await analyze({ ...VALID, workspaceIntent: 'timesheet_status' })(state);
+    expect((withIntent.analysis as TurnAnalysis).workspaceIntent).toBe('timesheet_status');
+    const without = await analyze(VALID)(state);
+    expect((without.analysis as TurnAnalysis).workspaceIntent).toBeUndefined();
+  });
+
+  it('an unknown workspace intent is invalid output', async () => {
+    const node = createAnalyzeTurn({
+      prompts: v2,
+      chatFor: () =>
+        fakeChatHandle([
+          JSON.stringify({ ...VALID, workspaceIntent: 'delete_my_payslip' }),
+          JSON.stringify({ ...VALID, workspaceIntent: 'delete_my_payslip' }),
+        ]),
+      taxonomy: config.taxonomy,
+      policy,
+      costs: config.models.costs,
+    });
+    const update = await node({
+      input: input('x'),
+      profile: null,
+      history: [],
+    } as unknown as State);
+    expect(update.trace).toMatchObject({ flags: [ANALYSIS_FALLBACK] });
   });
 });

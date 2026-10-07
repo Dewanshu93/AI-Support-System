@@ -23,7 +23,9 @@ import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/promp
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
+import { createWorkspaceRecords } from './modules/workspace/records';
 import { mongoWorkspaceRepository } from './modules/workspace/repository';
+import { createWorkspaceService } from './modules/workspace/service';
 
 /**
  * DEMO_TODAY (YYYY-MM-DD) pins "today" for timesheets and the dashboard, so a
@@ -81,6 +83,20 @@ async function main() {
   const conversations = mongoConversationsRepository(collections);
   const documents = mongoDocumentsRepository(collections);
   const tickets = mongoTicketsRepository(collections);
+  const workspace = mongoWorkspaceRepository(collections);
+  const clock = demoClock(config.env.DEMO_TODAY);
+  // The copilot agents read the same records as the workspace endpoints.
+  const records = createWorkspaceRecords({
+    service: createWorkspaceService({
+      workspace,
+      tickets,
+      workday: config.workday,
+      routing: config.routing,
+      clock: clock ?? (() => new Date()),
+    }),
+    tickets,
+    routing: config.routing,
+  });
 
   // Graph checkpoints (ADR-007): thread_id = conversation ID.
   const checkpointer = createMongoCheckpointer(client, db.databaseName);
@@ -127,6 +143,7 @@ async function main() {
     users,
     conversations,
     tickets,
+    records,
     checkpointer,
     retrieve: (input) =>
       retrieve(input, {
@@ -154,9 +171,9 @@ async function main() {
       ticketSchemas: config.ticketSchemas.schemas,
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },
-    workspace: mongoWorkspaceRepository(collections),
+    workspace,
     workday: config.workday,
-    clock: demoClock(config.env.DEMO_TODAY),
+    clock,
     auth: {
       jwtSecret: config.env.JWT_SECRET,
       demoPassword: config.env.DEMO_PASSWORD,

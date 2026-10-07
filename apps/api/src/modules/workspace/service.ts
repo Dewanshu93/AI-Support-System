@@ -40,6 +40,9 @@ export interface WorkspaceServiceDeps {
   clock: () => Date;
 }
 
+/** Who the records belong to: enough to scope queries and pick the holiday calendar. */
+export type Who = Pick<AuthUser, 'id' | 'country'>;
+
 export interface TimesheetChange {
   date: IsoDate;
   projectId: string;
@@ -54,12 +57,12 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   const { workspace, tickets, workday, routing, clock } = deps;
   const rules = workday.timesheet;
   const today = () => isoDate(clock());
-  const uid = (user: AuthUser) => new ObjectId(user.id);
-  const holidaysFor = (user: AuthUser) => holidayCalendar(workday.holidays[user.country]);
+  const uid = (user: Who) => new ObjectId(user.id);
+  const holidaysFor = (user: Who) => holidayCalendar(workday.holidays[user.country]);
   const queueLabel = (id: string) => routing.queues.find((q) => q.id === id)?.label ?? id;
 
   /** Day statuses for a range, from entries and attendance (leave). */
-  async function days(user: AuthUser, from: IsoDate, to: IsoDate) {
+  async function days(user: Who, from: IsoDate, to: IsoDate) {
     const [entries, attendance] = await Promise.all([
       workspace.timesheetEntries(uid(user), from, to),
       workspace.attendance(uid(user), from, to),
@@ -284,6 +287,8 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
   return {
     today,
+    /** Day statuses for a range (the copilot timesheet agent uses this too). */
+    days: async (user: Who, from: IsoDate, to: IsoDate) => (await days(user, from, to)).days,
     week,
     saveCells,
     tasks,

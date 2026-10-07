@@ -7,6 +7,7 @@ import { Command } from '@langchain/langgraph';
 import { REPO_ROOT } from '../../src/config';
 import { threadConfig, createMemoryCheckpointer } from '../../src/ai/graph/checkpointer';
 import {
+  AGENTS,
   buildSupportGraph,
   DEFAULT_NODES,
   type SupportGraph,
@@ -21,6 +22,7 @@ import {
   type TurnInput,
 } from '../../src/ai/graph/state';
 import { stubAnalysis } from '../../src/ai/nodes/stubs';
+import { createRequestStatus } from '../../src/ai/nodes/workspaceAgents';
 
 const input = (over: Partial<TurnInput> = {}): TurnInput => ({
   conversationId: 'conv-1',
@@ -62,9 +64,27 @@ async function pendingInterrupt(id: string) {
 }
 
 describe('supportTurnGraph topology', () => {
-  it('compiles with every section 5 node', async () => {
+  it('compiles the orchestrator with one node per agent subgraph (UC-04)', async () => {
     const nodes = Object.keys((await graph.getGraphAsync()).nodes);
-    expect(nodes.sort()).toEqual(['__end__', '__start__', ...Object.keys(DEFAULT_NODES)].sort());
+    const inAgents = new Set<string>(Object.values(AGENTS).flat());
+    const orchestrator = Object.keys(DEFAULT_NODES).filter((n) => !inAgents.has(n));
+    expect(nodes.sort()).toEqual(
+      ['__end__', '__start__', ...orchestrator, ...Object.keys(AGENTS)].sort(),
+    );
+  });
+
+  it('places every node in exactly one agent or the orchestrator', async () => {
+    const all = Object.values(AGENTS).flat();
+    expect(new Set(all).size).toBe(all.length);
+    const xray = Object.keys((await graph.getGraphAsync({ xray: true })).nodes);
+    for (const [agent, inner] of Object.entries(AGENTS)) {
+      for (const n of inner) {
+        // A one-node agent is drawn as the agent itself.
+        expect(xray.includes(`${agent}:${n}`) || (inner.length === 1 && xray.includes(agent))).toBe(
+          true,
+        );
+      }
+    }
   });
 
   it('ARCHITECTURE.md shows the current Mermaid export', async () => {
@@ -221,6 +241,82 @@ describe('state across turns (checkpointer)', () => {
     expect(second.state.analysis?.searchQuery).toBe('Second question');
     expect(second.path).toEqual([...RETRIEVAL_PATH, 'answer', 'validateCitations', 'persist']);
     expect(second.state.profile).toEqual(first.state.profile);
+  });
+});
+
+describe('agent subgraphs (UC-04)', () => {
+  const withIntent = (workspaceIntent: string) => ({
+    analysis: { ...stubAnalysis('x'), workspaceIntent } as State['analysis'],
+  });
+
+  it('timesheet_status → timesheetAgent → timesheetStatus → persist, no retrieval', async () => {
+    const { state, path } = await run(withIntent('timesheet_status'));
+    expect(path).toEqual([...START_PATH, 'timesheetStatus', 'persist']);
+    expect(state.retrieval).toBeNull();
+    expect(state.decision).toMatchObject({ value: 'ANSWER', reasonCode: 'RECORDS_TIMESHEET' });
+  });
+
+  it('timesheet_log → timesheetLog: points to the form and writes nothing (until UC-05)', async () => {
+    const { state, path } = await run(withIntent('timesheet_log'));
+    expect(path).toEqual([...START_PATH, 'timesheetLog', 'persist']);
+    expect(state.output?.text).toContain('Open Timesheets');
+    expect(state.decision?.reasonCode).toBe('TIMESHEET_ACTION_PENDING');
+  });
+
+  it('request_status → requestsAgent → requestStatus → persist', async () => {
+    const { path } = await run(withIntent('request_status'));
+    expect(path).toEqual([...START_PATH, 'requestStatus', 'persist']);
+  });
+
+  it('payroll_explain uses the knowledge agent until the payroll agent exists (UC-06)', async () => {
+    const { path } = await run(withIntent('payroll_explain'));
+    expect(path).toEqual([...RETRIEVAL_PATH, 'answer', 'validateCitations', 'persist']);
+  });
+
+  it('a sensitive turn never reaches an agent, whatever the workspace intent', async () => {
+    const { path } = await run({
+      analysis: {
+        ...stubAnalysis('x'),
+        sensitivity: 'sensitive',
+        workspaceIntent: 'timesheet_status',
+      },
+    });
+    expect(path).toEqual([...START_PATH, 'sensitiveHandoff', 'persist']);
+  });
+
+  it('records agents read only the requesting employee’s data', async () => {
+    const calls: string[] = [];
+    graph = buildSupportGraph({
+      checkpointer: createMemoryCheckpointer(),
+      nodes: {
+        requestStatus: createRequestStatus({
+          records: {
+            today: () => '2026-10-07',
+            days: async () => [],
+            requests: async (userId) => {
+              calls.push(userId);
+              return [
+                {
+                  humanId: 'IT-9001',
+                  summary: 'VPN',
+                  status: 'in_progress',
+                  department: 'IT Access',
+                },
+              ];
+            },
+          },
+        }),
+      },
+    });
+    const { state } = await run(withIntent('request_status'), { userId: 'employee-42' });
+    expect(calls).toEqual(['employee-42']);
+    expect(state.output?.text).toContain('IT-9001 — VPN (IT Access): Under review');
+  });
+
+  it('the trace lists each node once although agents return their whole state', async () => {
+    const { state } = await run({ decision: decision('ANSWER', 'EVIDENCE_STRONG') });
+    const nodes = state.trace.steps.map((s) => s.node);
+    expect(new Set(nodes).size).toBe(nodes.length);
   });
 });
 

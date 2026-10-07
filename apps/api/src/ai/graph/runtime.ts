@@ -1,5 +1,6 @@
 // The runtime turn graph: supportTurnGraph with every real node built so far
-// wired to its dependencies. Nodes not built yet (agentSummary: W3-06) stay stubs.
+// wired to its dependencies. Nodes not built yet (agentSummary: W3-06; timesheetLog: UC-05)
+// keep their defaults.
 // server.ts builds it with real providers; tests build it with fake models.
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { ConfigFiles } from '../../config/schemas';
@@ -24,6 +25,11 @@ import { createRerankAssess } from '../nodes/rerankAssess';
 import { createRetrieve, type RetrieveNodeDeps } from '../nodes/retrieve';
 import { createSensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { createValidateCitations } from '../nodes/validateCitations';
+import {
+  createRequestStatus,
+  createTimesheetStatus,
+  type WorkspaceRecords,
+} from '../nodes/workspaceAgents';
 import type { PromptRegistry } from '../prompts/registry';
 import { buildSupportGraph, type SupportGraph } from './graph';
 
@@ -48,6 +54,8 @@ export interface TurnGraphDeps {
   retrieve: RetrieveNodeDeps['retrieve'];
   checkpointer: BaseCheckpointSaver;
   now?: () => Date;
+  /** The employee's own records for the timesheet and requests agents (UC-04). */
+  records?: WorkspaceRecords;
   /** Eval runs: persisted records are marked isEval. */
   isEval?: boolean;
 }
@@ -107,6 +115,8 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         now: deps.now,
         isEval: deps.isEval,
       }),
+      timesheetStatus: createTimesheetStatus({ records: deps.records }),
+      requestStatus: createRequestStatus({ records: deps.records }),
       persist: createPersist({
         conversations: deps.conversations,
         thresholds: config.thresholds.decision,

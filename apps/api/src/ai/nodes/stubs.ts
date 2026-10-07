@@ -223,3 +223,16 @@ export function stubCreateTicket(state: State): StateUpdate {
     output: { ...STUB_OUTPUT, ...state.output, ticketId: 'stub-ticket' },
   };
 }
+
+const recordsReply = (text: string, reasonCode: string): StateUpdate => ({
+  decision: { value: 'ANSWER', reasonCode, rulesFired: ['workspace_agent'] },
+  output: { ...STUB_OUTPUT, text },
+});
+
+export function stubTimesheetStatus(_state: State): StateUpdate {
+  return recordsReply('Stub timesheet status.', 'RECORDS_TIMESHEET');
+}
+
+export function stubRequestStatus(_state: State): StateUpdate {
+  return recordsReply('Stub request status.', 'RECORDS_REQUESTS');
+}

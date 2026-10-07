@@ -4,9 +4,12 @@ import { stubAnalysis } from '../nodes/stubs';
 import {
   routeAfterAnalysis,
   routeAfterConfirmation,
+  routeAfterKnowledge,
   routeAfterPersist,
   routeAfterSlotFill,
   routeByDecision,
+  routeKnowledgeStart,
+  routeTimesheetStart,
 } from './edges';
 import { EMPTY_TICKET_FLOW, EMPTY_TRACE, type State, traceReducer } from './state';
 
@@ -30,10 +33,11 @@ describe('routeByDecision', () => {
     ['PARTIAL', 'EVIDENCE_PARTIAL', 'answer'],
     ['CLARIFY', 'AMBIGUOUS', 'clarify'],
     ['ESCALATE', 'SAFETY', 'answer'],
-    ['ESCALATE', 'USER_REQUESTED', 'slotFill'],
-    ['ESCALATE', 'NO_EVIDENCE', 'slotFill'],
+    // Escalations and handoffs leave the knowledge agent; the orchestrator routes them.
+    ['ESCALATE', 'USER_REQUESTED', END],
+    ['ESCALATE', 'NO_EVIDENCE', END],
     ['OUT_OF_SCOPE', 'OUT_OF_SCOPE', 'outOfScope'],
-    ['SENSITIVE_HANDOFF', 'SENSITIVE_TOPIC', 'sensitiveHandoff'],
+    ['SENSITIVE_HANDOFF', 'SENSITIVE_TOPIC', END],
   ])('%s / %s → %s', (value, reasonCode, target) => {
     expect(routeByDecision(at({ decision: { value, reasonCode, rulesFired: [] } }))).toBe(target);
   });
@@ -52,21 +56,23 @@ describe('routeAfterAnalysis', () => {
     expect(routeAfterAnalysis(state)).toBe('sensitiveHandoff');
   });
 
-  it('active ticket flow or forceEscalate → slotFill; otherwise retrieve', () => {
+  it('active ticket flow or forceEscalate → escalationAgent; otherwise knowledgeAgent', () => {
     expect(routeAfterAnalysis(at({ ticketFlow: { ...EMPTY_TICKET_FLOW, active: true } }))).toBe(
-      'slotFill',
+      'escalationAgent',
     );
     expect(routeAfterAnalysis(at({ input: { ...base.input, forceEscalate: true } }))).toBe(
-      'slotFill',
+      'escalationAgent',
     );
-    expect(routeAfterAnalysis(base)).toBe('retrieve');
+    expect(routeAfterAnalysis(base)).toBe('knowledgeAgent');
   });
 });
 
-describe('routeAfterAnalysis: out of scope (ADR-009)', () => {
+describe('out of scope (ADR-009)', () => {
   const oos = { ...stubAnalysis('pizza'), intent: 'out_of_scope' as const };
-  it('goes straight to decide, skipping retrieval and P-2', () => {
-    expect(routeAfterAnalysis(at({ analysis: oos }))).toBe('decide');
+  it('the knowledge agent goes straight to decide, skipping retrieval and P-2', () => {
+    expect(routeAfterAnalysis(at({ analysis: oos }))).toBe('knowledgeAgent');
+    expect(routeKnowledgeStart(at({ analysis: oos }))).toBe('decide');
+    expect(routeKnowledgeStart(base)).toBe('retrieve');
   });
   it('sensitivity and an active ticket flow still take precedence', () => {
     expect(routeAfterAnalysis(at({ analysis: { ...oos, sensitivity: 'sensitive' } }))).toBe(
@@ -74,7 +80,77 @@ describe('routeAfterAnalysis: out of scope (ADR-009)', () => {
     );
     expect(
       routeAfterAnalysis(at({ analysis: oos, ticketFlow: { ...EMPTY_TICKET_FLOW, active: true } })),
-    ).toBe('slotFill');
+    ).toBe('escalationAgent');
+  });
+});
+
+describe('intent router (UC-04)', () => {
+  const withIntent = (workspaceIntent: string) =>
+    at({ analysis: { ...stubAnalysis('x'), workspaceIntent } as State['analysis'] });
+
+  it.each([
+    ['timesheet_log', 'timesheetAgent'],
+    ['timesheet_status', 'timesheetAgent'],
+    ['request_status', 'requestsAgent'],
+    ['payroll_explain', 'knowledgeAgent'],
+    ['none', 'knowledgeAgent'],
+  ])('workspaceIntent %s → %s', (intent, agent) => {
+    expect(routeAfterAnalysis(withIntent(intent))).toBe(agent);
+  });
+
+  it('a P-1 v1 analysis (no workspaceIntent) goes to the knowledge agent', () => {
+    expect(routeAfterAnalysis(base)).toBe('knowledgeAgent');
+  });
+
+  it('sensitivity and an active ticket flow win over a workspace intent', () => {
+    const sensitive = at({
+      analysis: {
+        ...stubAnalysis('x'),
+        sensitivity: 'sensitive',
+        workspaceIntent: 'timesheet_status',
+      },
+    });
+    expect(routeAfterAnalysis(sensitive)).toBe('sensitiveHandoff');
+    const answeringTicket = at({
+      ...withIntent('request_status'),
+      ticketFlow: { ...EMPTY_TICKET_FLOW, active: true },
+    });
+    expect(routeAfterAnalysis(answeringTicket)).toBe('escalationAgent');
+  });
+
+  it('the timesheet agent logs or reports by intent', () => {
+    expect(routeTimesheetStart(withIntent('timesheet_log'))).toBe('timesheetLog');
+    expect(routeTimesheetStart(withIntent('timesheet_status'))).toBe('timesheetStatus');
+  });
+});
+
+describe('routeAfterKnowledge', () => {
+  const output = { text: 't', citations: [], uncovered: [], withdrawn: false };
+  const d = (value: Decision, reasonCode: string) => ({ value, reasonCode, rulesFired: [] });
+  it.each<[string, Partial<State>, string]>([
+    ['answer', { decision: d('ANSWER', 'EVIDENCE_STRONG'), output }, 'persist'],
+    [
+      'escalation decided',
+      { decision: d('ESCALATE', 'NO_EVIDENCE'), output: null },
+      'escalationAgent',
+    ],
+    [
+      'safety steps given',
+      { decision: d('ESCALATE', 'SAFETY'), output: { ...output, mode: 'safety_steps' } },
+      'escalationAgent',
+    ],
+    [
+      'withdrawn answer',
+      { decision: d('ESCALATE', 'CITATION_INVALID'), output: { ...output, withdrawn: true } },
+      'persist',
+    ],
+    [
+      'sensitive',
+      { decision: d('SENSITIVE_HANDOFF', 'SENSITIVE_TOPIC'), output: null },
+      'sensitiveHandoff',
+    ],
+  ])('%s → %s', (_name, over, target) => {
+    expect(routeAfterKnowledge(at(over))).toBe(target);
   });
 });
 
@@ -141,5 +217,28 @@ describe('traceReducer', () => {
     expect(two.steps).toHaveLength(2);
     expect(two.stepLatencyMs).toEqual({ a: 5 });
     expect(traceReducer(two, { reset: true })).toEqual(EMPTY_TRACE);
+  });
+
+  it('merges a subgraph snapshot that extends the trace instead of appending it (ADR-016)', () => {
+    const before = traceReducer(EMPTY_TRACE, {
+      steps: [{ node: 'analyzeTurn', latencyMs: 4 }],
+      stepLatencyMs: { analyzeTurn: 4 },
+      outputs: { analysis: 1 },
+    });
+    const snapshot = {
+      ...before,
+      steps: [...before.steps, { node: 'retrieve', latencyMs: 2 }],
+      stepLatencyMs: { analyzeTurn: 4, retrieve: 2 },
+      outputs: { retrieval: 2 },
+    };
+    const merged = traceReducer(before, snapshot);
+    expect(merged.steps.map((s) => s.node)).toEqual(['analyzeTurn', 'retrieve']);
+    expect(merged.stepLatencyMs).toEqual({ analyzeTurn: 4, retrieve: 2 });
+    expect(merged.outputs).toEqual({ analysis: 1, retrieval: 2 });
+  });
+
+  it('a single-node update identical to the trace is appended, not merged', () => {
+    const one = { steps: [{ node: 'a', latencyMs: 0 }], stepLatencyMs: { a: 0 } };
+    expect(traceReducer(traceReducer(EMPTY_TRACE, one), one).steps).toHaveLength(2);
   });
 });

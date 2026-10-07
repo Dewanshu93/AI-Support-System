@@ -12,6 +12,19 @@ export const TURN_INTENTS = [
   'out_of_scope',
 ] as const;
 
+/**
+ * What the employee wants from their own workspace records (UC-04, P-1 v2).
+ * Code routes on it to an agent subgraph; "none" keeps the policy and ticket flow.
+ */
+export const WORKSPACE_INTENTS = [
+  'none',
+  'timesheet_log',
+  'timesheet_status',
+  'payroll_explain',
+  'request_status',
+] as const;
+export type WorkspaceIntent = (typeof WORKSPACE_INTENTS)[number];
+
 /** Category and subcategory enums come from config/taxonomy.yaml. */
 export function turnAnalysisSchema(ctx: SchemaContext) {
   const categories = ctx.taxonomy.categories.map((c) => c.id);
@@ -34,6 +47,8 @@ export function turnAnalysisSchema(ctx: SchemaContext) {
       ambiguityReason: z.string().max(300).optional(),
       /** Standalone search query, pronouns resolved from history. */
       searchQuery: z.string().trim().min(1).refine(maxWords(30), 'must be at most 30 words'),
+      /** Absent in P-1 v1 output; treated as "none". */
+      workspaceIntent: z.enum(WORKSPACE_INTENTS).optional(),
     })
     .refine((a) => a.subcategory === undefined || parentOf.get(a.subcategory) === a.category, {
       path: ['subcategory'],
@@ -41,3 +56,6 @@ export function turnAnalysisSchema(ctx: SchemaContext) {
     });
 }
 export type TurnAnalysis = z.output<ReturnType<typeof turnAnalysisSchema>>;
+
+export const workspaceIntentOf = (analysis: TurnAnalysis | null): WorkspaceIntent =>
+  analysis?.workspaceIntent ?? 'none';

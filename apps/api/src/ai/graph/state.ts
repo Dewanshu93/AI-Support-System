@@ -220,9 +220,35 @@ export const EMPTY_TRACE: Trace = {
 export const RESET_TRACE = { reset: true } as const;
 export type TraceUpdate = Partial<Trace> | typeof RESET_TRACE;
 
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const startsWith = <T>(list: T[] | undefined, prefix: T[]) =>
+  (list ?? []).length >= prefix.length && sameJson((list ?? []).slice(0, prefix.length), prefix);
+
+/**
+ * A full trace that extends `current`: what an agent subgraph returns to the
+ * orchestrator (its final state includes the trace it was given). Merged as a
+ * replacement, so the steps from before the agent are not appended twice (ADR-016).
+ */
+function isSnapshotOf(update: Partial<Trace>, current: Trace): update is Trace {
+  return (
+    // An agent adds at least one step, so a snapshot is strictly longer; a single
+    // node's update can then never be mistaken for one.
+    current.steps.length > 0 &&
+    (update.steps?.length ?? 0) > current.steps.length &&
+    update.stepLatencyMs !== undefined &&
+    startsWith(update.steps, current.steps) &&
+    startsWith(update.llmCalls, current.llmCalls) &&
+    startsWith(update.errors, current.errors) &&
+    startsWith(update.flags, current.flags)
+  );
+}
+
 /** Append reducer: lists are appended, step latencies summed per node. */
 export function traceReducer(current: Trace, update: TraceUpdate): Trace {
   if ('reset' in update) return EMPTY_TRACE;
+  if (isSnapshotOf(update, current)) {
+    return { ...update, outputs: { ...current.outputs, ...update.outputs } };
+  }
   const latency = { ...current.stepLatencyMs };
   for (const [node, ms] of Object.entries(update.stepLatencyMs ?? {})) {
     latency[node] = (latency[node] ?? 0) + ms;

@@ -1,0 +1,87 @@
+// Records-based copilot nodes (code, no LLM; UC-04). They answer from the
+// employee's own timesheet and requests, which code reads from the database
+// (Build Contract v2.0, rule E.2). The timesheet log action arrives in UC-05.
+import type { Country, IsoDate, TimesheetDay } from '@sd/shared';
+import {
+  type RequestSummary,
+  requestStatusReply,
+  TIMESHEET_LOG_PENDING_REPLY,
+  timesheetStatusReply,
+} from '../../domain/workspaceReplies';
+import type { DecisionResult, State, StateUpdate } from '../graph/state';
+
+/** Read access to the employee's records, scoped by the caller to one user. */
+export interface WorkspaceRecords {
+  today(): IsoDate;
+  days(who: { id: string; country: Country }, from: IsoDate, to: IsoDate): Promise<TimesheetDay[]>;
+  requests(userId: string): Promise<RequestSummary[]>;
+}
+
+export interface WorkspaceAgentDeps {
+  /** Absent in graphs built without workspace data (older tests, eval runner). */
+  records?: WorkspaceRecords;
+}
+
+const RECORDS_UNAVAILABLE =
+  'I cannot read your records right now. Please open the page in the menu, or try again shortly.';
+
+const DAY_MS = 86_400_000;
+const addDays = (iso: IsoDate, n: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+
+/** Records replies are answers from data, not from documents: ANSWER with a records reason. */
+const recordsDecision = (reasonCode: string): DecisionResult => ({
+  value: 'ANSWER',
+  reasonCode,
+  rulesFired: ['workspace_agent'],
+});
+
+const reply = (text: string, reasonCode: string): StateUpdate => ({
+  decision: recordsDecision(reasonCode),
+  output: { text, citations: [], uncovered: [], withdrawn: false },
+});
+
+export function createTimesheetStatus({ records }: WorkspaceAgentDeps) {
+  return async function timesheetStatus(state: State): Promise<StateUpdate> {
+    if (!records || !state.profile) return reply(RECORDS_UNAVAILABLE, 'RECORDS_UNAVAILABLE');
+    const today = records.today();
+    const monday = addDays(today, -((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
+    const days = await records.days(
+      { id: state.input.userId, country: state.profile.country },
+      addDays(monday, -7),
+      today,
+    );
+    const update = reply(timesheetStatusReply(days, today), 'RECORDS_TIMESHEET');
+    return {
+      ...update,
+      trace: {
+        outputs: {
+          records: {
+            kind: 'timesheet',
+            from: addDays(monday, -7),
+            to: today,
+            gaps: days
+              .filter((d) => d.status === 'missing' || d.status === 'partial')
+              .map((d) => d.date),
+          },
+        },
+      },
+    };
+  };
+}
+
+/** Placeholder until UC-05: never writes, points to the timesheet page. */
+export function timesheetLog(_state: State): StateUpdate {
+  return reply(TIMESHEET_LOG_PENDING_REPLY, 'TIMESHEET_ACTION_PENDING');
+}
+
+export function createRequestStatus({ records }: WorkspaceAgentDeps) {
+  return async function requestStatus(state: State): Promise<StateUpdate> {
+    if (!records) return reply(RECORDS_UNAVAILABLE, 'RECORDS_UNAVAILABLE');
+    const requests = await records.requests(state.input.userId);
+    return {
+      ...reply(requestStatusReply(requests), 'RECORDS_REQUESTS'),
+      trace: { outputs: { records: { kind: 'requests', count: requests.length } } },
+    };
+  };
+}

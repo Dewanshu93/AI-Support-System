@@ -1411,3 +1411,42 @@ reuses the same validation.
   (402). Re-run `E2E_LLM=record npx playwright test -g "flow 5|Tom"` once quota resets.
 - The Next dev server hit Windows `EPERM` rename errors in `.next`; production builds are
   unaffected. If it recurs locally, delete `apps/web/.next` and restart `npm run dev:web`.
+
+## UC-04 Copilot intents and agent subgraphs — 2026-10-07
+
+**Delivered (ADR-016):**
+
+- The orchestrator hands each turn, by code, to one **agent subgraph**: `knowledgeAgent`
+  (policy RAG), `escalationAgent` (ticket drafts), `timesheetAgent`, `requestsAgent`. Sensitive
+  turns never reach an agent. Topology and agent table in ARCHITECTURE.md (Mermaid with agents
+  expanded).
+- **P-1 v2** (`turn_analysis/v2.md`): new `workspaceIntent` field (timesheet_log,
+  timesheet_status, payroll_explain, request_status, none); optional in the schema, so v1 output
+  still routes to the knowledge agent.
+- **Records agents (no LLM):** "Which days am I missing?" and "Show my pending requests" are
+  answered from the employee's own data (`domain/workspaceReplies.ts`,
+  `modules/workspace/records.ts`), recorded as ANSWER / `RECORDS_*`. "Log 8 hours…" reaches the
+  timesheet agent, which points to the Timesheets page and writes nothing until UC-05.
+  Payroll questions use the knowledge agent until UC-06.
+- Trace reducer merges an agent's returned trace instead of appending it (no duplicate steps).
+
+**Verification**
+
+| Check                                   | Result                                                                                 |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| Edge unit tests                         | Pass: intent router (each workspace intent, v1 analysis, sensitive and ticket-flow precedence), knowledge exits, timesheet entry, snapshot merge |
+| Graph workflow tests (stubs and fakes)  | Pass: all earlier paths unchanged; timesheet status / log, requests, payroll fallback, sensitive bypass; records read only for the requesting user; each node traced once |
+| P-1 v2 with fake models                 | Pass: renders, `workspaceIntent` validated, unknown value → retry → fallback          |
+| **Live P-1 v2** (`gemini-3.1-flash-lite`) | 12/12 routed as expected (≈1.5 s, $0.0004 per call); 5/5 sensitive cases still handed off |
+| AI + domain suites                      | 529 tests pass                                                                         |
+
+**Found and fixed:** the first live run sent "Why was my salary reduced?" and "What is this LOP
+deduction?" to the **sensitive handoff** (the prompt asks for generous sensitivity). v2 now says
+the employee's own pay, LOP, timesheets and requests are routine unless they involve a sensitive
+topic. (v1, still active, has the same behaviour today.)
+
+**Not yet done: switching `config/prompts.yaml` to `turn_analysis: 2`.** CLAUDE.md requires a full
+eval run first, and the Gemini quality model (needed by the full suite and by E2E re-recording)
+is out of free-tier quota until 2026-10-08; OpenRouter is out of credit. Once quota is back:
+switch to v2, run `npm run eval -- --suite full`, re-record the chat E2E replies
+(`E2E_LLM=record`), and note the results here.

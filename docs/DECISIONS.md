@@ -435,3 +435,32 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** CLAUDE.md "Do Not Build" is updated. The golden set gains cases for the new
   intents. Tracker labels are a configuration mapping over the existing ticket state machine, so
   ADR-012 stays valid.
+
+## ADR-016 — Copilot agents as LangGraph subgraphs of the one orchestrator (UC-04)
+
+- **Status:** Accepted by the owner (2026-10-07: "subgraphs")
+- **Context:** The Use Case 1 brief describes an intent router and specialised agents (HR, IT,
+  Payroll, Action, Escalation). CLAUDE.md forbids multi-agent designs and LLM-chosen routing.
+  The owner chose named subgraphs over plain branches so the agents are visible in the
+  architecture and traces.
+- **Decision:**
+  - `supportTurnGraph` stays the one orchestrator `StateGraph`. After `analyzeTurn`, code
+    (`routeAfterAnalysis`) hands the turn to one compiled subgraph: `knowledgeAgent` (the
+    existing policy RAG pipeline; HR and IT share it because their pipeline is identical),
+    `escalationAgent` (ticket drafts), `timesheetAgent`, `requestsAgent`; `payrollAgent` follows
+    in UC-06. Sensitive turns never reach an agent. Persist, confirmation (`interrupt()`) and
+    ticket creation stay in the orchestrator.
+  - Subgraphs share `GraphState` and keep their node names, so traces, `streamEvents`
+    (`langgraph_node`) and path tests are unchanged.
+  - A subgraph returns its full state, including the trace it was given; the trace reducer
+    detects such a snapshot (strictly longer, existing lists as prefixes) and merges it instead
+    of appending, so no step is recorded twice.
+  - P-1 v2 adds `workspaceIntent` (none, timesheet_log, timesheet_status, payroll_explain,
+    request_status). It is optional in the schema, so v1 output still validates and routes to
+    the knowledge agent.
+  - Records agents answer with code-built text from the employee's own data (no LLM call) and
+    record ANSWER with reason codes `RECORDS_TIMESHEET` / `RECORDS_REQUESTS`.
+- **Alternatives:** plain branch nodes (same behaviour, less visible structure); a supervisor LLM
+  choosing agents (forbidden: non-deterministic routing); tools bound to the model (forbidden).
+- **Consequences:** a new agent is a subgraph plus one case in `routeAfterAnalysis`. The Mermaid
+  export uses `xray` to show agent internals.

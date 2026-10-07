@@ -302,8 +302,25 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
   - `threadConfig(conversationId)`.
 - Not yet wired into the API: the chat endpoint (W2-08) will invoke the graph.
 
-Topology (the output of `supportGraphMermaid()`; a test fails if this copy goes stale; dotted
-lines are conditional edges):
+**Orchestrator and agent subgraphs (UC-04, ADR-016).** `supportTurnGraph` is the orchestrator:
+`loadContext → precheck → analyzeTurn`, then `routeAfterAnalysis` (code) hands the turn to one
+agent, each a compiled subgraph over the same `GraphState`:
+
+| Agent             | Nodes                                                                          | Entered when                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `knowledgeAgent`  | retrieve, rerankAssess, decide, answer, validateCitations, clarify, outOfScope | default (policy questions, IT issues; payroll until UC-06)                                          |
+| `escalationAgent` | slotFill, clarifyForTicket, buildDraft                                         | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
+| `timesheetAgent`  | timesheetStatus (records), timesheetLog (placeholder until UC-05)              | P-1 v2 `workspaceIntent` timesheet_status / timesheet_log                                           |
+| `requestsAgent`   | requestStatus (records)                                                        | `workspaceIntent` request_status                                                                    |
+
+Sensitive turns never reach an agent. Records agents answer from data read by code
+(`ai/nodes/workspaceAgents.ts`, `domain/workspaceReplies.ts`, `modules/workspace/records.ts`) and
+record ANSWER with reason `RECORDS_*`. Node names are unchanged inside the agents, so traces,
+streaming (`langgraph_node`) and path tests read the same; the trace reducer merges the full
+trace an agent returns instead of appending it twice.
+
+Topology (the output of `supportGraphMermaid()`, agents expanded; a test fails if this copy goes
+stale; dotted lines are conditional edges):
 
 ```mermaid
 %%{init: {'flowchart': {'curve': 'linear'}}}%%
@@ -312,17 +329,24 @@ graph TD;
 	loadContext(loadContext)
 	precheck(precheck)
 	analyzeTurn(analyzeTurn)
-	retrieve(retrieve)
-	rerankAssess(rerankAssess)
-	decide(decide)
-	answer(answer)
-	validateCitations(validateCitations)
-	clarify(clarify)
-	outOfScope(outOfScope)
+	knowledgeAgent_retrieve(retrieve)
+	knowledgeAgent_rerankAssess(rerankAssess)
+	knowledgeAgent_decide(decide)
+	knowledgeAgent_answer(answer)
+	knowledgeAgent_validateCitations(validateCitations)
+	knowledgeAgent_clarify(clarify)
+	knowledgeAgent_outOfScope(outOfScope)
+	knowledgeAgent___end__(<p>__end__</p>)
+	escalationAgent_slotFill(slotFill)
+	escalationAgent_clarifyForTicket(clarifyForTicket)
+	escalationAgent_buildDraft(buildDraft)
+	escalationAgent___end__(<p>__end__</p>)
+	timesheetAgent___start__(<p>__start__</p>)
+	timesheetAgent_timesheetStatus(timesheetStatus)
+	timesheetAgent_timesheetLog(timesheetLog)
+	timesheetAgent___end__(<p>__end__</p>)
+	requestsAgent(requestsAgent)
 	sensitiveHandoff(sensitiveHandoff)
-	slotFill(slotFill)
-	clarifyForTicket(clarifyForTicket)
-	buildDraft(buildDraft)
 	persist(persist)
 	awaitConfirmation(awaitConfirmation)
 	createTicket(createTicket)
@@ -330,35 +354,50 @@ graph TD;
 	__end__([<p>__end__</p>]):::last
 	__start__ --> loadContext;
 	agentSummary --> __end__;
-	answer --> validateCitations;
-	buildDraft --> persist;
-	clarify --> persist;
-	clarifyForTicket --> persist;
 	createTicket --> agentSummary;
+	escalationAgent___end__ --> persist;
 	loadContext --> precheck;
-	outOfScope --> persist;
-	rerankAssess --> decide;
-	retrieve --> rerankAssess;
+	requestsAgent --> persist;
 	sensitiveHandoff --> persist;
+	timesheetAgent___end__ --> persist;
 	precheck -.-> sensitiveHandoff;
 	precheck -.-> analyzeTurn;
 	analyzeTurn -.-> sensitiveHandoff;
-	analyzeTurn -.-> slotFill;
-	analyzeTurn -.-> decide;
-	analyzeTurn -.-> retrieve;
-	decide -.-> answer;
-	decide -.-> clarify;
-	decide -.-> slotFill;
-	decide -.-> outOfScope;
-	decide -.-> sensitiveHandoff;
-	validateCitations -.-> slotFill;
-	validateCitations -.-> persist;
-	slotFill -.-> clarifyForTicket;
-	slotFill -.-> buildDraft;
+	analyzeTurn -.-> escalationAgent_slotFill;
+	analyzeTurn -.-> timesheetAgent___start__;
+	analyzeTurn -.-> requestsAgent;
+	analyzeTurn -.-> knowledgeAgent_retrieve;
+	knowledgeAgent___end__ -.-> sensitiveHandoff;
+	knowledgeAgent___end__ -.-> escalationAgent_slotFill;
+	knowledgeAgent___end__ -.-> persist;
 	persist -.-> awaitConfirmation;
 	persist -.-> __end__;
 	awaitConfirmation -.-> createTicket;
 	awaitConfirmation -.-> __end__;
+	subgraph knowledgeAgent
+	knowledgeAgent_answer --> knowledgeAgent_validateCitations;
+	knowledgeAgent_clarify --> knowledgeAgent___end__;
+	knowledgeAgent_outOfScope --> knowledgeAgent___end__;
+	knowledgeAgent_rerankAssess --> knowledgeAgent_decide;
+	knowledgeAgent_retrieve --> knowledgeAgent_rerankAssess;
+	knowledgeAgent_validateCitations --> knowledgeAgent___end__;
+	knowledgeAgent_decide -.-> knowledgeAgent_answer;
+	knowledgeAgent_decide -.-> knowledgeAgent_clarify;
+	knowledgeAgent_decide -.-> knowledgeAgent_outOfScope;
+	knowledgeAgent_decide -.-> knowledgeAgent___end__;
+	end
+	subgraph escalationAgent
+	escalationAgent_buildDraft --> escalationAgent___end__;
+	escalationAgent_clarifyForTicket --> escalationAgent___end__;
+	escalationAgent_slotFill -.-> escalationAgent_clarifyForTicket;
+	escalationAgent_slotFill -.-> escalationAgent_buildDraft;
+	end
+	subgraph timesheetAgent
+	timesheetAgent_timesheetLog --> timesheetAgent___end__;
+	timesheetAgent_timesheetStatus --> timesheetAgent___end__;
+	timesheetAgent___start__ -.-> timesheetAgent_timesheetLog;
+	timesheetAgent___start__ -.-> timesheetAgent_timesheetStatus;
+	end
 	classDef default fill:#f2f0ff,line-height:1.2;
 	classDef first fill-opacity:0;
 	classDef last fill:#bfb6fc;
