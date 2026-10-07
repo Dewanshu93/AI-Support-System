@@ -54,6 +54,17 @@ describe('route policy table', () => {
       ['POST', '/api/agent/tickets/:id/notes', ['agent', 'admin']],
       ['PATCH', '/api/agent/tickets/:id/status', ['agent', 'admin']],
       ['PATCH', '/api/agent/tickets/:id/classification', ['agent', 'admin']],
+      // Employee workspace (UC-02).
+      ['GET', '/api/dashboard', ['employee']],
+      ['GET', '/api/projects/mine', ['employee']],
+      ['GET', '/api/tasks/mine', ['employee']],
+      ['GET', '/api/timesheets/week', ['employee']],
+      ['POST', '/api/timesheets/entries', ['employee']],
+      ['GET', '/api/attendance', ['employee']],
+      ['GET', '/api/payslips/mine', ['employee']],
+      ['GET', '/api/payslips/:id', ['employee']],
+      ['GET', '/api/notifications', ['employee']],
+      ['POST', '/api/notifications/read', ['employee']],
     ]);
   });
 });

@@ -23,6 +23,16 @@ import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/promp
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
+import { mongoWorkspaceRepository } from './modules/workspace/repository';
+
+/**
+ * DEMO_TODAY (YYYY-MM-DD) pins "today" for timesheets and the dashboard, so a
+ * rehearsed demo shows the same week; the time of day still advances.
+ */
+function demoClock(demoToday: string | undefined): (() => Date) | undefined {
+  if (!demoToday) return undefined;
+  return () => new Date(`${demoToday}T${new Date().toISOString().slice(11)}`);
+}
 
 function startupConfig(): { config: AppConfig; prompts: PromptRegistry } {
   loadDotEnv();
@@ -144,6 +154,9 @@ async function main() {
       ticketSchemas: config.ticketSchemas.schemas,
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },
+    workspace: mongoWorkspaceRepository(collections),
+    workday: config.workday,
+    clock: demoClock(config.env.DEMO_TODAY),
     auth: {
       jwtSecret: config.env.JWT_SECRET,
       demoPassword: config.env.DEMO_PASSWORD,

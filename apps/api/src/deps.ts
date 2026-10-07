@@ -6,6 +6,7 @@ import type { ConversationsRepository } from './modules/conversations/repository
 import type { SourcesReader } from './modules/documents/repository';
 import type { TicketsRepository } from './modules/tickets/repository';
 import type { UsersRepository } from './modules/users/repository';
+import type { WorkspaceRepository } from './modules/workspace/repository';
 
 /**
  * Everything route handlers need, injected at startup (server.ts) or by tests
@@ -43,4 +44,10 @@ export interface AppDeps {
     ticketSchemas: ConfigFiles['ticketSchemas']['schemas'];
     duplicateWindowDays: number;
   };
+  /** Mock task tracker, timesheets, HR/payroll records and notifications (UC-01). */
+  workspace: WorkspaceRepository;
+  /** config/workday.yaml: timesheet rules and holiday calendar. */
+  workday: ConfigFiles['workday'];
+  /** Current time; injected so tests and demos control "today". Defaults to the system clock. */
+  clock?: () => Date;
 }

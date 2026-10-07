@@ -16,6 +16,8 @@ import { ticketRoutes } from '../modules/tickets/routes';
 import { createTicketService } from '../modules/tickets/service';
 import { healthRoutes } from '../modules/health/routes';
 import { profileRoutes } from '../modules/users/routes';
+import { workspaceRoutes } from '../modules/workspace/routes';
+import { createWorkspaceService } from '../modules/workspace/service';
 import { requireAuth } from './requireAuth';
 import { requireRole } from './requireRole';
 
@@ -69,6 +71,16 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
         agentTickets: deps.agentTickets,
         taxonomy: deps.ticketConfig.taxonomy,
         routing: deps.ticketConfig.routing,
+      }),
+    ),
+    ...workspaceRoutes(
+      deps,
+      createWorkspaceService({
+        workspace: deps.workspace,
+        tickets: deps.tickets,
+        workday: deps.workday,
+        routing: deps.ticketConfig.routing,
+        clock: deps.clock ?? (() => new Date()),
       }),
     ),
   ];

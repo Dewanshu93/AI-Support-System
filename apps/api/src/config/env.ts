@@ -42,6 +42,14 @@ export const EnvSchema = z.object({
    */
   LLM_MODE: z.preprocess(blankToUndefined, z.enum(['live', 'record', 'replay']).default('live')),
   LLM_RECORDINGS_FILE: optionalString,
+  /** Pins "today" (YYYY-MM-DD) for timesheets and the dashboard in demos and E2E runs. */
+  DEMO_TODAY: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD')
+      .optional(),
+  ),
 });
 
 export type Env = z.output<typeof EnvSchema>;

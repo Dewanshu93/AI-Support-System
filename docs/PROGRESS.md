@@ -1344,3 +1344,31 @@ longer budget when `E2E_LLM` is record or live.
 - The seed replaces the employees' timesheets, attendance, payslips and notifications, so it also
   resets the demo. Demo requests use fixed IDs `IT-9001`, `HR-9001`, `HR-9002`.
 - LOP is written for full-time employees in every country (personas are US/UK, not India).
+
+## UC-02 Employee data APIs — 2026-10-07
+
+**Delivered:** `modules/workspace` (repository, mappers, service, routes), employee-only and
+scoped to the signed-in user:
+
+| Endpoint                                                 | Purpose                                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/dashboard`                                     | Profile, open tasks, this week's day statuses, missing days, requests with employee-facing stage, latest payslip, notifications |
+| `GET /api/projects/mine`                                 | Projects the employee may log time against                                                                                      |
+| `GET /api/tasks/mine`                                    | Assigned tasks (`?view=open`, `?status=`), plus the server's "today"                                                            |
+| `GET /api/timesheets/week`                               | Week view (`?date=`): day statuses, entries, projects, totals, form bounds                                                      |
+| `POST /api/timesheets/entries`                           | Save cells (`hours: 0` removes); every rule checked in code; audited `timesheet.save` (triggered by form, approved by employee) |
+| `GET /api/attendance`                                    | Attendance for a range of at most 92 days                                                                                       |
+| `GET /api/payslips/mine`, `/:id`                         | Payslips (contractors: paid by agency); another employee's → 404                                                                |
+| `GET /api/notifications`, `POST /api/notifications/read` | List; mark some or all read                                                                                                     |
+
+`DEMO_TODAY` (optional env) pins "today" for timesheets and the dashboard; `AppDeps.clock` makes
+it testable. The service is the single path for timesheet writes, so the copilot action (UC-05)
+reuses the same validation.
+
+**Verification**
+
+| Check              | Result                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Supertest          | Pass: `test/api/workspace.test.ts` (30): 401 and agent/admin 403 on every route; dashboard numbers for Priya and Tom; week view (Labor Day holiday, LOP day missing, 32 h required); late LOP entry saved and audited; update/remove; future date, foreign project and 12.5 h day rejected with per-cell issues; payslip 404 across employees; attendance bounds; notifications read/scoping |
+| Route policy table | Pass: the 10 routes are in `http/routes.test.ts`                                                                                                                                                                                                                                                                                                                                             |
+| Live API (LAN DB)  | Pass: `GET /api/health` up; dashboard and week served for the seeded data                                                                                                                                                                                                                                                                                                                    |

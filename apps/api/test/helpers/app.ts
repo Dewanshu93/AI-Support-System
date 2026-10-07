@@ -19,6 +19,7 @@ import {
   memoryTicketsRepository,
   type MemoryTickets,
 } from './tickets';
+import { memoryWorkspaceRepository } from './workspace';
 
 export const TEST_JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-bytes';
 
@@ -60,6 +61,9 @@ export interface TestAppOptions extends CreateAppOptions {
   tickets?: AppDeps['tickets'];
   /** Defaults to queries over the in-memory tickets (requires the memory tickets repository). */
   agentTickets?: AppDeps['agentTickets'];
+  /** Defaults to an empty in-memory workspace. */
+  workspace?: AppDeps['workspace'];
+  clock?: AppDeps['clock'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -89,6 +93,9 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
       ticketSchemas: config.ticketSchemas.schemas,
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },
+    workspace: options.workspace ?? memoryWorkspaceRepository(),
+    workday: config.workday,
+    clock: options.clock,
   };
   return {
     app: createApp(deps, { extraRoutes: options.extraRoutes }),
