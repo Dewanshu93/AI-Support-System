@@ -17,6 +17,7 @@ import {
   TicketDetailResponseSchema,
   TicketListResponseSchema,
   type TicketStatus,
+  ActionConfirmResponseSchema,
   DashboardResponseSchema,
   NotificationListResponseSchema,
   NotificationReadResponseSchema,
@@ -140,6 +141,24 @@ export const api = {
     if (cursor) query.set('cursor', cursor);
     return (await apiRequest(`/tickets/mine?${query}`, TicketListResponseSchema))!;
   },
+  confirmAction: async (conversationId: string) =>
+    (await apiRequest(
+      `/conversations/${conversationId}/action/confirm`,
+      ActionConfirmResponseSchema,
+      {
+        method: 'POST',
+        body: {},
+      },
+    ))!.result,
+  cancelAction: async (conversationId: string) =>
+    (await apiRequest(
+      `/conversations/${conversationId}/action/cancel`,
+      ConversationResponseSchema,
+      {
+        method: 'POST',
+        body: {},
+      },
+    ))!.conversation,
   ticket: async (id: string) => (await apiRequest(`/tickets/${id}`, TicketDetailResponseSchema))!,
 
   // Employee workspace (UC-02).

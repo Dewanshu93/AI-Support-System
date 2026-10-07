@@ -5,6 +5,8 @@
 import { Annotation } from '@langchain/langgraph';
 import type {
   AccessLevel,
+  ActionResult,
+  TimesheetAction,
   Country,
   Decision,
   Domain,
@@ -167,6 +169,10 @@ export interface Output {
     offerPrivateContact?: boolean;
   };
   ticketId?: string;
+  /** A copilot action waiting for confirmation (UC-05); nothing is saved before confirm. */
+  action?: TimesheetAction;
+  /** Set by applyAction after the employee confirmed. */
+  actionResult?: ActionResult;
 }
 
 /** Resume value for awaitConfirmation (sent by the confirm/cancel endpoint). */

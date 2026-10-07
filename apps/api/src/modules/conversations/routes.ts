@@ -20,7 +20,7 @@ import { ObjectId } from 'mongodb';
 import type { AppDeps } from '../../deps';
 import type { RouteDef } from '../../http/routes';
 import { validate } from '../../http/validate';
-import { pendingDraft } from '../chat/turnRunner';
+import { pendingAction, pendingDraft } from '../chat/turnRunner';
 import { toConversationDto, toFeedbackDto, toMessageDto } from './mappers';
 import type { ConversationService } from './service';
 
@@ -78,14 +78,17 @@ export function conversationRoutes(deps: AppDeps, service: ConversationService):
         validate({ params: ConversationParamsSchema }),
         async (req, res) => {
           const conversation = await service.getOwned(params(req), req.user!);
-          const [messages, draft] = await Promise.all([
+          const id = conversation._id.toHexString();
+          const [messages, draft, action] = await Promise.all([
             deps.conversations.listMessages(conversation._id),
-            pendingDraft(deps.chat.graph, conversation._id.toHexString()),
+            pendingDraft(deps.chat.graph, id),
+            pendingAction(deps.chat.graph, id),
           ]);
           const body: ConversationDetailResponse = {
             conversation: toConversationDto(conversation),
             messages: messages.map(toMessageDto),
             ...(draft && { pendingDraft: draft }),
+            ...(action && { pendingAction: action }),
           };
           res.json(body);
         },

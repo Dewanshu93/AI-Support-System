@@ -2,7 +2,7 @@
 // (playbook sections 4 and 5). One running turn per conversation (409); a
 // conversation whose ticket draft awaits confirmation takes no new turns (409).
 // If the client disconnects, the graph still completes and persists.
-import type { AuthUser, ChatEvent, TicketDraft } from '@sd/shared';
+import type { AuthUser, ChatEvent, TicketDraft, TimesheetAction } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { threadConfig } from '../../ai/graph/checkpointer';
 import type { SupportGraph } from '../../ai/graph/graph';
@@ -26,6 +26,16 @@ export interface TurnRequest {
   user: AuthUser;
   content: string;
   forceEscalate: boolean;
+}
+
+/** The copilot action awaiting confirmation (UC-05), if the graph is paused on one. */
+export async function pendingAction(
+  graph: SupportGraph,
+  conversationId: string,
+): Promise<TimesheetAction | undefined> {
+  const snapshot = await graph.getState(threadConfig(conversationId));
+  if (!snapshot.next.includes('awaitConfirmation')) return undefined;
+  return (snapshot.values as State).output?.action ?? undefined;
 }
 
 /** The draft awaiting confirmation, if the conversation's graph is paused on one. */
@@ -57,6 +67,9 @@ export function createTurnRunner(deps: TurnRunnerDeps) {
     try {
       if (await pendingDraft(deps.graph, conversationId)) {
         throw new AppError('CONFLICT', 'A ticket draft is waiting for your confirmation');
+      }
+      if (await pendingAction(deps.graph, conversationId)) {
+        throw new AppError('CONFLICT', 'A timesheet entry is waiting for your confirmation');
       }
       const userMessage: MessageDoc = {
         _id: new ObjectId(),
@@ -156,6 +169,9 @@ export function createTurnRunner(deps: TurnRunnerDeps) {
           type: 'ticket_draft',
           data: { draft: { ...output.draft }, missingFields: state.ticketFlow.requiredMissing },
         });
+      }
+      if (snapshot.next.includes('awaitConfirmation') && output.action) {
+        emit({ type: 'action_draft', data: { action: output.action } });
       }
       if (output.handoff) {
         emit({

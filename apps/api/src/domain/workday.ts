@@ -154,7 +154,7 @@ export function validateCells(
         date,
         projectId: cell.projectId,
         field: 'hours',
-        message: `would make ${date} total ${total} hours (maximum ${rules.maxHoursPerDay})`,
+        message: `would make the day total ${total} hours (maximum ${rules.maxHoursPerDay})`,
       });
     }
   }

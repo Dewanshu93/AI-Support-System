@@ -21,6 +21,8 @@ export interface TurnState {
   withdrawnReason: string | null;
   handoff: Extract<ChatEvent, { type: 'handoff' }>['data'] | null;
   ticketDraft: Extract<ChatEvent, { type: 'ticket_draft' }>['data'] | null;
+  /** A copilot action awaiting confirmation (UC-05). */
+  actionDraft: Extract<ChatEvent, { type: 'action_draft' }>['data'] | null;
   decision: Decision | null;
   reasonCode: string | null;
   userMessageId: string | null;
@@ -39,6 +41,7 @@ export const IDLE: TurnState = {
   withdrawnReason: null,
   handoff: null,
   ticketDraft: null,
+  actionDraft: null,
   decision: null,
   reasonCode: null,
   userMessageId: null,
@@ -96,6 +99,8 @@ function applyEvent(state: TurnState, event: ChatEvent): TurnState {
       };
     case 'ticket_draft':
       return { ...state, ticketDraft: event.data };
+    case 'action_draft':
+      return { ...state, actionDraft: event.data };
     case 'handoff':
       return { ...state, handoff: event.data, text: event.data.text };
     case 'done':

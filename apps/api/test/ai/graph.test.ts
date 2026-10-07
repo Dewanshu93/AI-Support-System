@@ -293,6 +293,9 @@ describe('agent subgraphs (UC-04)', () => {
           records: {
             today: () => '2026-10-07',
             days: async () => [],
+            projects: async () => [],
+            previewTimesheet: async () => ({ problems: [], entries: [] }),
+            saveTimesheet: async () => ({ saved: 0 }),
             requests: async (userId) => {
               calls.push(userId);
               return [

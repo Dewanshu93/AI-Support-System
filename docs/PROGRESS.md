@@ -1432,13 +1432,13 @@ reuses the same validation.
 
 **Verification**
 
-| Check                                   | Result                                                                                 |
-| --------------------------------------- | -------------------------------------------------------------------------------------- |
-| Edge unit tests                         | Pass: intent router (each workspace intent, v1 analysis, sensitive and ticket-flow precedence), knowledge exits, timesheet entry, snapshot merge |
-| Graph workflow tests (stubs and fakes)  | Pass: all earlier paths unchanged; timesheet status / log, requests, payroll fallback, sensitive bypass; records read only for the requesting user; each node traced once |
-| P-1 v2 with fake models                 | Pass: renders, `workspaceIntent` validated, unknown value → retry → fallback          |
-| **Live P-1 v2** (`gemini-3.1-flash-lite`) | 12/12 routed as expected (≈1.5 s, $0.0004 per call); 5/5 sensitive cases still handed off |
-| AI + domain suites                      | 529 tests pass                                                                         |
+| Check                                     | Result                                                                                                                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edge unit tests                           | Pass: intent router (each workspace intent, v1 analysis, sensitive and ticket-flow precedence), knowledge exits, timesheet entry, snapshot merge                          |
+| Graph workflow tests (stubs and fakes)    | Pass: all earlier paths unchanged; timesheet status / log, requests, payroll fallback, sensitive bypass; records read only for the requesting user; each node traced once |
+| P-1 v2 with fake models                   | Pass: renders, `workspaceIntent` validated, unknown value → retry → fallback                                                                                              |
+| **Live P-1 v2** (`gemini-3.1-flash-lite`) | 12/12 routed as expected (≈1.5 s, $0.0004 per call); 5/5 sensitive cases still handed off                                                                                 |
+| AI + domain suites                        | 529 tests pass                                                                                                                                                            |
 
 **Found and fixed:** the first live run sent "Why was my salary reduced?" and "What is this LOP
 deduction?" to the **sensitive handoff** (the prompt asks for generous sensitivity). v2 now says
@@ -1450,3 +1450,37 @@ eval run first, and the Gemini quality model (needed by the full suite and by E2
 is out of free-tier quota until 2026-10-08; OpenRouter is out of credit. Once quota is back:
 switch to v2, run `npm run eval -- --suite full`, re-record the chat E2E replies
 (`E2E_LLM=record`), and note the results here.
+
+## UC-05 Timesheet action by chat — 2026-10-07
+
+**Delivered:**
+
+- **P-10 `timesheet_extract` v1** (fast tier; `PROMPT_NAMES` extended under ADR-015): date phrases
+  verbatim (references such as "that day" rewritten from history), a project code from the
+  employee's own projects (enum injected per call), hours.
+- **Code decides:** `domain/dateText.ts` resolves the date phrase (today, yesterday, weekdays,
+  "last Friday", "11 September", ISO; ambiguous forms such as "11/09" are refused, not guessed);
+  `WorkspaceService.previewCells` applies the same rules as the timesheet form and reports the
+  hours each cell replaces and the day total after.
+- **Confirm before write:** the proposal pauses the graph in `awaitConfirmation` (SSE
+  `action_draft`, `pendingAction`); `POST /api/conversations/:id/action/confirm|cancel`;
+  `applyAction` saves with `source: copilot`; audit `timesheet.save` triggered by copilot,
+  approved by employee. New messages are blocked (409) while a proposal is open.
+- **UI:** `ActionCard` in the chat (entries, project colour, replaced hours, day total, late-entry
+  note, Confirm and save / Cancel); the timesheet grid already marks copilot entries.
+
+**Verification**
+
+| Check                                                    | Result                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `dateText.test.ts`                                       | Pass: 22 cases (relative days, weekdays, "last", day/month orders, ISO, refusals, invalid dates)                                                                                                                                                                                                                                                                                           |
+| API `copilotAction.test.ts` (fake model)                 | Pass (10): proposal saves nothing and blocks new messages; confirm saves via the rules, audits copilot + employee, idempotent; cancel saves nothing; another employee 404; stale proposal fails safely; missing project lists only own projects; future day refused; unreadable date quoted back; foreign project code → invalid output → fallback; multi-day proposal with replaced hours |
+| Web `ActionCard.test.tsx`                                | Pass (4)                                                                                                                                                                                                                                                                                                                                                                                   |
+| Route policy table                                       | Pass: confirm/cancel are employee-only                                                                                                                                                                                                                                                                                                                                                     |
+| **Live P-10** (`gemini-3.1-flash-lite`, LAN data, Priya) | 5/5 correct: "September 11" → Fri 11 Sep (late), "yesterday", "half a day … Monday" → 4 h replacing 1 h, "that day" (from history) → 11 Sep, "7.5 h last Friday" refused by code (day over 12 h). About $0.0002 per call; **latency 8–16 s** today (provider), to watch in performance work                                                                                                |
+
+**Notes**
+
+- The timesheet agent is reached only with P-1 v2 active (UC-04 follow-up: switch after the full
+  eval when quota allows). Until then the flow is exercised by the tests above.
+- E2E for this flow needs recorded LLM replies, so it is added together with the P-1 v2 switch.

@@ -15,6 +15,13 @@ import { buildTestApp, loginCookie, seededUsers, type TestContext } from './app'
 import { VALID_ENV } from './config';
 import { type MemoryConversations, memoryConversationsRepository } from './conversations';
 import { type MemoryTickets, memoryTicketsRepository } from './tickets';
+import { type MemoryWorkspace, memoryWorkspaceRepository } from './workspace';
+import { buildMockHrData } from '../../src/modules/workspace/seed';
+import { createWorkspaceRecords } from '../../src/modules/workspace/records';
+import { createWorkspaceService } from '../../src/modules/workspace/service';
+
+/** "Today" for chat tests that touch the employee's records (Wednesday). */
+export const CHAT_TODAY = '2026-10-07';
 
 export const config = loadConfig(VALID_ENV);
 const prompts = loadPromptRegistry(config.prompts.active);
@@ -108,6 +115,8 @@ export interface ChatTestContext extends TestContext {
   conversations: MemoryConversations;
   tickets: MemoryTickets;
   chat: ReturnType<typeof fakeChatHandle>;
+  /** The mock HR data (seed for CHAT_TODAY) the copilot agents read and write. */
+  workspace: MemoryWorkspace;
   /** Scripts the next LLM replies (appends). */
   script(replies: FakeReply[]): void;
 }
@@ -118,6 +127,21 @@ export function buildChatTestApp(
   const users = seededUsers();
   const conversations = memoryConversationsRepository();
   const tickets = memoryTicketsRepository();
+  const clock = () => new Date(`${CHAT_TODAY}T12:00:00Z`);
+  const workspace = memoryWorkspaceRepository(
+    buildMockHrData({ users, today: CHAT_TODAY, workday: config.workday }),
+  );
+  const records = createWorkspaceRecords({
+    service: createWorkspaceService({
+      workspace,
+      tickets,
+      workday: config.workday,
+      routing: config.routing,
+      clock,
+    }),
+    tickets,
+    routing: config.routing,
+  });
   const queue: FakeReply[] = [...(options.replies ?? [])];
   // One fake model whose replies are drawn from a shared, appendable queue.
   const chat = fakeChatHandle(queue, { nativeStructured: true });
@@ -135,11 +159,19 @@ export function buildChatTestApp(
     users: { findById: async (id) => users.find((u) => u._id.toHexString() === id) ?? null },
     conversations,
     tickets,
+    records,
     retrieve: options.retrieve ?? (async () => retrievalOf(LEAVE_CHUNKS)),
     checkpointer: createMemoryCheckpointer(),
   });
-  const ctx = buildTestApp({ users, conversations, graph, tickets });
-  return { ...ctx, conversations, tickets, chat, script: (replies) => void queue.push(...replies) };
+  const ctx = buildTestApp({ users, conversations, graph, tickets, workspace, clock });
+  return {
+    ...ctx,
+    conversations,
+    tickets,
+    workspace,
+    chat,
+    script: (replies) => void queue.push(...replies),
+  };
 }
 
 export async function newConversation(app: Express, cookie: string): Promise<string> {

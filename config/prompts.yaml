@@ -8,3 +8,4 @@ active:
   grounded_answer: 1 # P-3
   clarifying_question: 1 # P-4
   ticket_slot_fill: 1 # P-5
+  timesheet_extract: 1 # P-10 (UC-05, ADR-015)

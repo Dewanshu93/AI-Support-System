@@ -10,9 +10,32 @@ import {
 } from '../../domain/workspaceReplies';
 import type { DecisionResult, State, StateUpdate } from '../graph/state';
 
-/** Read access to the employee's records, scoped by the caller to one user. */
+/** A timesheet cell as the copilot proposes it (projectId resolved by code). */
+export interface ProposedCell {
+  date: IsoDate;
+  projectId: string;
+  hours: number;
+}
+
+/** Access to the employee's records, scoped by the caller to one user. */
 export interface WorkspaceRecords {
   today(): IsoDate;
+  /** Projects the employee may log time against. */
+  projects(userId: string): Promise<{ id: string; code: string; name: string; color: string }[]>;
+  /** Checks cells against the timesheet rules without writing (UC-05). */
+  previewTimesheet(
+    who: { id: string; country: Country },
+    cells: ProposedCell[],
+  ): Promise<{
+    problems: { date: IsoDate; projectId: string; message: string }[];
+    entries: (ProposedCell & { previousHours: number; dayTotalAfter: number; late: boolean })[];
+  }>;
+  /** Saves confirmed cells through the same rules as the form; throws if a rule now fails. */
+  saveTimesheet(
+    who: { id: string; country: Country },
+    cells: ProposedCell[],
+    source: 'copilot',
+  ): Promise<{ saved: number }>;
   days(who: { id: string; country: Country }, from: IsoDate, to: IsoDate): Promise<TimesheetDay[]>;
   requests(userId: string): Promise<RequestSummary[]>;
 }

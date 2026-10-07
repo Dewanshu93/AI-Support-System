@@ -3,7 +3,7 @@
 // deterministic edge hands it to one agent subgraph:
 //   knowledgeAgent  — HR and IT policy answers (retrieval, decision, grounded answer)
 //   escalationAgent — ticket drafts (slot filling, clarification, draft)
-//   timesheetAgent  — the employee's timesheet (status now; logging in UC-05)
+//   timesheetAgent  — the employee's timesheet (status; log hours, confirmed by the employee)
 //   requestsAgent   — the employee's requests
 // Agents share the graph state and are compiled subgraphs, so their nodes stream
 // and trace like any other node. Wiring only; nodes live in ai/nodes, routing in edges.ts.
@@ -18,6 +18,7 @@ import { agentSummary } from '../nodes/agentSummary';
 import { awaitConfirmation } from '../nodes/awaitConfirmation';
 import {
   stubAnalyzeTurn,
+  stubApplyAction,
   stubAnswer,
   stubBuildDraft,
   stubClarify,
@@ -83,6 +84,7 @@ export const DEFAULT_NODES = {
   persist: stubPersist,
   awaitConfirmation,
   createTicket: stubCreateTicket,
+  applyAction: stubApplyAction,
   agentSummary,
 } satisfies Record<string, NodeFn>;
 export type NodeName = keyof typeof DEFAULT_NODES;
@@ -167,6 +169,7 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addNode('persist', node('persist'))
     .addNode('awaitConfirmation', node('awaitConfirmation'))
     .addNode('createTicket', node('createTicket'))
+    .addNode('applyAction', node('applyAction'))
     .addNode('agentSummary', node('agentSummary'))
     .addEdge(START, 'loadContext')
     .addEdge('loadContext', 'precheck')
@@ -180,6 +183,7 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addConditionalEdges('persist', routeAfterPersist, [...AFTER_PERSIST])
     .addConditionalEdges('awaitConfirmation', routeAfterConfirmation, [...AFTER_CONFIRMATION])
     .addEdge('createTicket', 'agentSummary')
+    .addEdge('applyAction', END)
     .addEdge('agentSummary', END)
     .compile({ checkpointer, name: GRAPH_NAME });
 }

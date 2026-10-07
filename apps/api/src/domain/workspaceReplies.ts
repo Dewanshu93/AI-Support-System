@@ -83,6 +83,80 @@ export function requestStatusReply(requests: RequestSummary[]): string {
   return lines.join('\n');
 }
 
+// --- timesheet action (UC-05) --------------------------------------------------------
+
+export interface ProposedEntry {
+  date: string;
+  projectName: string;
+  hours: number;
+  previousHours: number;
+  dayTotalAfter: number;
+  late: boolean;
+}
+
+/** What the copilot still needs before it can propose an entry. */
+export interface MissingDetails {
+  date: boolean;
+  /** A date phrase code could not read, quoted back to the employee. */
+  unreadableDate: string | null;
+  project: boolean;
+  hours: boolean;
+  /** The employee's projects, offered when the project is missing. */
+  projectNames: string[];
+}
+
+export function timesheetMissingReply(m: MissingDetails): string {
+  const asks: string[] = [];
+  if (m.unreadableDate) {
+    asks.push(
+      `I could not tell which day "${m.unreadableDate}" is. Please give the date, for example "11 September" or "yesterday".`,
+    );
+  } else if (m.date) {
+    asks.push('Which day should I log the hours for?');
+  }
+  if (m.project) asks.push(`Which project? You can log time to: ${m.projectNames.join(', ')}.`);
+  if (m.hours) asks.push('How many hours?');
+  return ['I need a little more to log your time.', ...asks].join('\n');
+}
+
+/** Rule problems found by code (the same rules as the timesheet form). */
+export function timesheetProblemsReply(problems: { date: string; message: string }[]): string {
+  return [
+    'I cannot log that as asked:',
+    ...problems.map((p) => `• ${label(p.date)}: ${p.message}`),
+    'Tell me what to change, or use the Timesheets page.',
+  ].join('\n');
+}
+
+const entryLine = (e: ProposedEntry) =>
+  `• ${label(e.date)}: ${h(e.hours)} on ${e.projectName}` +
+  (e.previousHours > 0 ? ` (replaces ${h(e.previousHours)})` : '') +
+  ` → day total ${h(e.dayTotalAfter)}` +
+  (e.late ? ' (late entry: its pay period has closed)' : '');
+
+/** Shown with the confirmation card; nothing is saved yet. */
+export function timesheetConfirmReply(entries: ProposedEntry[]): string {
+  const what = entries.length === 1 ? 'this timesheet entry' : 'these timesheet entries';
+  return [
+    `Please confirm ${what}. Nothing is saved until you confirm.`,
+    ...entries.map(entryLine),
+  ].join('\n');
+}
+
+/** Recorded in the conversation after the employee confirmed and the entries were saved. */
+export function timesheetAppliedReply(entries: ProposedEntry[]): string {
+  const saved = entries
+    .map((e) => `${h(e.hours)} on ${e.projectName} for ${label(e.date)}`)
+    .join('; ');
+  const late = entries.some((e) => e.late)
+    ? ' The pay period had closed, so this is a late entry; if a Loss of Pay deduction was applied for that day, I can raise a payroll request for a review.'
+    : '';
+  return `Saved to your timesheet: ${saved}.${late}`;
+}
+
+export const TIMESHEET_EXTRACTION_FAILED_REPLY =
+  'I could not read that timesheet request. Try something like "Log 8 hours for the Banking Module yesterday", or use the Timesheets page.';
+
 /** Until the timesheet action is built (UC-05): point to the form, change nothing. */
 export const TIMESHEET_LOG_PENDING_REPLY =
   'I cannot log hours from the chat yet. Open Timesheets in the menu to add or change your hours; your entry is checked and saved there straight away.';

@@ -220,6 +220,8 @@ export const PROMPT_NAMES = [
   'agent_draft_reply',
   'gap_cluster_label',
   'eval_judge',
+  // Build Contract v2.0 (ADR-015): P-10, copilot timesheet entries.
+  'timesheet_extract',
 ] as const;
 export type PromptName = (typeof PROMPT_NAMES)[number];
 

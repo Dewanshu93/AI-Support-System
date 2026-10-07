@@ -14,6 +14,31 @@ export function createWorkspaceRecords(deps: {
   const queueLabel = (id: string) => deps.routing.queues.find((q) => q.id === id)?.label ?? id;
   return {
     today: deps.service.today,
+    projects: async (userId) =>
+      (await deps.service.projects({ id: userId })).map((p) => ({
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        color: p.color,
+      })),
+    async previewTimesheet(who, cells) {
+      const { problems, entries } = await deps.service.previewCells(who, cells);
+      return {
+        problems: problems.map(({ date, projectId, message }) => ({ date, projectId, message })),
+        entries: entries.map(({ date, projectId, hours, previousHours, dayTotalAfter, late }) => ({
+          date,
+          projectId,
+          hours,
+          previousHours,
+          dayTotalAfter,
+          late,
+        })),
+      };
+    },
+    async saveTimesheet(who, cells, source) {
+      const result = await deps.service.saveCells(who, cells, source);
+      return { saved: result.saved };
+    },
     days: (who, from, to) => deps.service.days(who, from, to),
     async requests(userId) {
       const page = await deps.tickets.listForRequester(new ObjectId(userId), { limit: 50 });

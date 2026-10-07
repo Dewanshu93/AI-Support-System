@@ -236,3 +236,18 @@ export function stubTimesheetStatus(_state: State): StateUpdate {
 export function stubRequestStatus(_state: State): StateUpdate {
   return recordsReply('Stub request status.', 'RECORDS_REQUESTS');
 }
+
+/** Records a successful apply without writing anything (the real node saves via records). */
+export function stubApplyAction(state: State): StateUpdate {
+  return {
+    output: {
+      ...STUB_OUTPUT,
+      ...state.output,
+      actionResult: {
+        status: 'applied',
+        message: 'Stub saved.',
+        saved: state.output?.action?.entries.length ?? 0,
+      },
+    },
+  };
+}

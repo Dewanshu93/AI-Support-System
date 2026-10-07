@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useChatTurn } from '@/hooks/useChatTurn';
 import { api, ApiError } from '@/lib/api';
 import { isBusy } from '@/lib/chatTurn';
+import { ActionCard } from './ActionCard';
 import { AssistantMessage, type AssistantView } from './AssistantMessage';
 import {
   Composer,
@@ -195,6 +196,7 @@ export function ChatWorkspace({
   const messages = data?.messages ?? [];
   const busy = isBusy(turn);
   const draft = busy ? undefined : data?.pendingDraft;
+  const pendingAction = busy ? undefined : data?.pendingAction;
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
   // A restricted draft is the sensitive handoff's private-contact offer (ADR-013).
   const privateContact: PrivateContactOffer | null =
@@ -356,6 +358,14 @@ export function ChatWorkspace({
               onCancelled={() => void afterDraft(null)}
             />
           )}
+          {pendingAction && conversationId && (
+            <ActionCard
+              key={`${conversationId}:${lastAssistant?.id ?? ''}`}
+              conversationId={conversationId}
+              action={pendingAction}
+              onDone={() => void afterDraft(null)}
+            />
+          )}
           {created && (
             <p
               data-testid="ticket-created"
@@ -422,7 +432,14 @@ export function ChatWorkspace({
           <div ref={bottom} />
         </div>
 
-        {draft ? (
+        {pendingAction ? (
+          <p
+            data-testid="draft-pending-note"
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          >
+            Confirm or cancel the timesheet entry above to continue.
+          </p>
+        ) : draft ? (
           <p
             data-testid="draft-pending-note"
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"

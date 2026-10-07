@@ -306,12 +306,23 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 `loadContext → precheck → analyzeTurn`, then `routeAfterAnalysis` (code) hands the turn to one
 agent, each a compiled subgraph over the same `GraphState`:
 
-| Agent             | Nodes                                                                          | Entered when                                                                                        |
-| ----------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `knowledgeAgent`  | retrieve, rerankAssess, decide, answer, validateCitations, clarify, outOfScope | default (policy questions, IT issues; payroll until UC-06)                                          |
-| `escalationAgent` | slotFill, clarifyForTicket, buildDraft                                         | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
-| `timesheetAgent`  | timesheetStatus (records), timesheetLog (placeholder until UC-05)              | P-1 v2 `workspaceIntent` timesheet_status / timesheet_log                                           |
-| `requestsAgent`   | requestStatus (records)                                                        | `workspaceIntent` request_status                                                                    |
+| Agent             | Nodes                                                                              | Entered when                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `knowledgeAgent`  | retrieve, rerankAssess, decide, answer, validateCitations, clarify, outOfScope     | default (policy questions, IT issues; payroll until UC-06)                                          |
+| `escalationAgent` | slotFill, clarifyForTicket, buildDraft                                             | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
+| `timesheetAgent`  | timesheetStatus (records), timesheetLog (P-10 extraction → code checks → proposal) | P-1 v2 `workspaceIntent` timesheet_status / timesheet_log                                           |
+| `requestsAgent`   | requestStatus (records)                                                            | `workspaceIntent` request_status                                                                    |
+
+**Copilot actions (UC-05).** `timesheetLog` asks P-10 `timesheet_extract` (fast tier) only for date
+phrases, a project code from the employee's own projects (enum injected per call) and hours. Code
+resolves dates (`domain/dateText.ts`), maps codes, and runs the timesheet rules through
+`WorkspaceService.previewCells` (the same checks as the form). Missing details or rule problems
+produce a question (CLARIFY); otherwise `output.action` holds the exact entries and the turn pauses
+in `awaitConfirmation` like a ticket draft (SSE `action_draft`, `pendingAction` on the conversation).
+`POST /api/conversations/:id/action/confirm` resumes the graph; `applyAction` (graph-owned tool
+node) saves through `saveCells` with `source: copilot`, records the outcome in the conversation,
+and the endpoint audits `timesheet.save` (triggered by copilot, approved by employee). Confirm is
+idempotent; `/cancel` saves nothing; a rule that fails at confirm time saves nothing and says why.
 
 Sensitive turns never reach an agent. Records agents answer from data read by code
 (`ai/nodes/workspaceAgents.ts`, `domain/workspaceReplies.ts`, `modules/workspace/records.ts`) and
@@ -350,10 +361,12 @@ graph TD;
 	persist(persist)
 	awaitConfirmation(awaitConfirmation)
 	createTicket(createTicket)
+	applyAction(applyAction)
 	agentSummary(agentSummary)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> loadContext;
 	agentSummary --> __end__;
+	applyAction --> __end__;
 	createTicket --> agentSummary;
 	escalationAgent___end__ --> persist;
 	loadContext --> precheck;
@@ -372,6 +385,7 @@ graph TD;
 	knowledgeAgent___end__ -.-> persist;
 	persist -.-> awaitConfirmation;
 	persist -.-> __end__;
+	awaitConfirmation -.-> applyAction;
 	awaitConfirmation -.-> createTicket;
 	awaitConfirmation -.-> __end__;
 	subgraph knowledgeAgent

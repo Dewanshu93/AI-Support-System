@@ -333,3 +333,41 @@ export const DashboardResponseSchema = z.object({
   }),
 });
 export type DashboardResponse = z.infer<typeof DashboardResponseSchema>;
+
+// --- copilot actions (UC-05) ---------------------------------------------------------
+
+/**
+ * A timesheet change the copilot proposes. Built by code from the model's
+ * extraction (dates resolved, projects mapped, rules checked); nothing is
+ * saved until the employee confirms the exact entries shown.
+ */
+export const TimesheetActionEntrySchema = z.object({
+  date: IsoDateSchema,
+  projectId: ObjectIdStringSchema,
+  projectName: z.string(),
+  projectColor: z.string(),
+  hours: z.number(),
+  /** Hours already logged for this day and project (replaced by `hours`). */
+  previousHours: z.number(),
+  /** The day's total across projects after the change. */
+  dayTotalAfter: z.number(),
+  /** Logged after the day's pay period closed. */
+  late: z.boolean(),
+});
+export type TimesheetActionEntry = z.infer<typeof TimesheetActionEntrySchema>;
+
+export const TimesheetActionSchema = z.object({
+  kind: z.enum(['timesheet_log']),
+  entries: z.array(TimesheetActionEntrySchema).min(1),
+});
+export type TimesheetAction = z.infer<typeof TimesheetActionSchema>;
+
+/** What happened when a confirmed action was applied. */
+export const ActionResultSchema = z.object({
+  status: z.enum(['applied', 'cancelled', 'failed']),
+  message: z.string(),
+  saved: z.number().int(),
+});
+export type ActionResult = z.infer<typeof ActionResultSchema>;
+export const ActionConfirmResponseSchema = z.object({ result: ActionResultSchema });
+export type ActionConfirmResponse = z.infer<typeof ActionConfirmResponseSchema>;

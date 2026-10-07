@@ -65,6 +65,9 @@ describe('route policy table', () => {
       ['GET', '/api/payslips/:id', ['employee']],
       ['GET', '/api/notifications', ['employee']],
       ['POST', '/api/notifications/read', ['employee']],
+      // Copilot actions (UC-05).
+      ['POST', '/api/conversations/:id/action/confirm', ['employee']],
+      ['POST', '/api/conversations/:id/action/cancel', ['employee']],
     ]);
   });
 });

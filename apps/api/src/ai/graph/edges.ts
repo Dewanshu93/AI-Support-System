@@ -53,13 +53,18 @@ export function routeAfterKnowledge(state: State): (typeof AFTER_KNOWLEDGE)[numb
 }
 
 export const AFTER_PERSIST = ['awaitConfirmation', END] as const;
+/** Pauses for the employee whenever a ticket draft or a copilot action is waiting. */
 export function routeAfterPersist(state: State): (typeof AFTER_PERSIST)[number] {
-  return state.output?.draft && !state.output.ticketId ? 'awaitConfirmation' : END;
+  const out = state.output;
+  const draftWaiting = !!out?.draft && !out.ticketId;
+  const actionWaiting = !!out?.action && !out.actionResult;
+  return draftWaiting || actionWaiting ? 'awaitConfirmation' : END;
 }
 
-export const AFTER_CONFIRMATION = ['createTicket', END] as const;
+export const AFTER_CONFIRMATION = ['applyAction', 'createTicket', END] as const;
 export function routeAfterConfirmation(state: State): (typeof AFTER_CONFIRMATION)[number] {
-  return state.confirmation?.action === 'confirm' ? 'createTicket' : END;
+  if (state.confirmation?.action !== 'confirm') return END;
+  return state.output?.action ? 'applyAction' : 'createTicket';
 }
 
 // --- knowledgeAgent (HR and IT policy answers) ----------------------------------------

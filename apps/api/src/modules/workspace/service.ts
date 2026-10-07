@@ -57,7 +57,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   const { workspace, tickets, workday, routing, clock } = deps;
   const rules = workday.timesheet;
   const today = () => isoDate(clock());
-  const uid = (user: Who) => new ObjectId(user.id);
+  const uid = (user: Pick<Who, 'id'>) => new ObjectId(user.id);
   const holidaysFor = (user: Who) => holidayCalendar(workday.holidays[user.country]);
   const queueLabel = (id: string) => routing.queues.find((q) => q.id === id)?.label ?? id;
 
@@ -93,13 +93,13 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   }
 
   /** The employee's projects, plus any project they already logged time against. */
-  async function projectsFor(user: AuthUser, extraIds: ObjectId[] = []): Promise<ProjectDoc[]> {
+  async function projectsFor(user: Who, extraIds: ObjectId[] = []): Promise<ProjectDoc[]> {
     const own = await workspace.projectsForMember(uid(user));
     const missing = extraIds.filter((id) => !own.some((p) => p._id.equals(id)));
     return missing.length > 0 ? [...own, ...(await workspace.projectsByIds(missing))] : own;
   }
 
-  async function week(user: AuthUser, date?: IsoDate): Promise<TimesheetWeekResponse> {
+  async function week(user: Who, date?: IsoDate): Promise<TimesheetWeekResponse> {
     const weekStart = weekStartOf(date ?? today());
     const weekEnd = addDays(weekStart, 6);
     const { days: list, entries } = await days(user, weekStart, weekEnd);
@@ -129,7 +129,12 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
    * projects, steps, day totals). `hours: 0` removes a cell. Used by the form
    * now and by the copilot after the employee confirms (UC-05).
    */
-  async function saveCells(user: AuthUser, cells: TimesheetCell[], source: TimesheetSource) {
+  /**
+   * Checks cells against every rule without writing, and describes the result:
+   * the hours each cell replaces and the day totals after the change. The copilot
+   * shows this to the employee before anything is saved (UC-05).
+   */
+  async function previewCells(user: Who, cells: TimesheetCell[]) {
     const now = today();
     const dates = cells.map((c) => c.date).sort();
     const from = dates[0]!;
@@ -149,6 +154,27 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
       allowedProjectIds: new Set(projects.map((p) => p._id.toHexString())),
       existing,
     });
+    const after = new Map([...existing].map(([d, m]) => [d, new Map(m)]));
+    for (const c of cells) {
+      if (!after.has(c.date)) after.set(c.date, new Map());
+      after.get(c.date)!.set(c.projectId, c.hours);
+    }
+    const total = (d: IsoDate) => [...(after.get(d)?.values() ?? [])].reduce((a, b) => a + b, 0);
+    return {
+      problems,
+      projects,
+      entries: cells.map((c) => ({
+        ...c,
+        previousHours: existing.get(c.date)?.get(c.projectId) ?? 0,
+        dayTotalAfter: round2(total(c.date)),
+        late: isLateEntry(c.date, now, user.country),
+      })),
+    };
+  }
+
+  async function saveCells(user: Who, cells: TimesheetCell[], source: TimesheetSource) {
+    const now = today();
+    const { problems } = await previewCells(user, cells);
     if (problems.length > 0) {
       throw new AppError('VALIDATION_ERROR', 'Some timesheet entries are not valid', {
         issues: problems.map((p) => {
@@ -290,9 +316,11 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     /** Day statuses for a range (the copilot timesheet agent uses this too). */
     days: async (user: Who, from: IsoDate, to: IsoDate) => (await days(user, from, to)).days,
     week,
+    previewCells,
     saveCells,
     tasks,
-    projects: async (user: AuthUser) => (await projectsFor(user)).map(toProject),
+    projects: async (user: Pick<Who, 'id'>) =>
+      (await workspace.projectsForMember(uid(user))).map(toProject),
     payslips,
     payslip: (user: AuthUser, id: string) => workspace.payslip(uid(user), id),
     attendance: (user: AuthUser, from: IsoDate, to: IsoDate) =>

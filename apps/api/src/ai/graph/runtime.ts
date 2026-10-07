@@ -1,6 +1,5 @@
 // The runtime turn graph: supportTurnGraph with every real node built so far
-// wired to its dependencies. Nodes not built yet (agentSummary: W3-06; timesheetLog: UC-05)
-// keep their defaults.
+// wired to its dependencies. Nodes not built yet (agentSummary: W3-06) keep their defaults.
 // server.ts builds it with real providers; tests build it with fake models.
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { ConfigFiles } from '../../config/schemas';
@@ -15,6 +14,7 @@ import { createBuildDraft } from '../nodes/buildDraft';
 import { createClarifyForTicket } from '../nodes/clarifyForTicket';
 import { createCreateTicket } from '../nodes/createTicket';
 import { createSlotFill } from '../nodes/slotFill';
+import { createApplyAction, createTimesheetLog } from '../nodes/timesheetAction';
 import { createClarify } from '../nodes/clarify';
 import { createDecide } from '../nodes/decide';
 import { createLoadContext } from '../nodes/loadContext';
@@ -116,6 +116,13 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         isEval: deps.isEval,
       }),
       timesheetStatus: createTimesheetStatus({ records: deps.records }),
+      timesheetLog: createTimesheetLog({ ...llm, records: deps.records }),
+      applyAction: createApplyAction({
+        records: deps.records,
+        conversations: deps.conversations,
+        now: deps.now,
+        isEval: deps.isEval,
+      }),
       requestStatus: createRequestStatus({ records: deps.records }),
       persist: createPersist({
         conversations: deps.conversations,
