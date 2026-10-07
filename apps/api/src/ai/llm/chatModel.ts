@@ -3,7 +3,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOpenAI } from '@langchain/openai';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { type AIMessage, type BaseMessageLike, SystemMessage } from '@langchain/core/messages';
+import { type AIMessage, type BaseMessageLike, HumanMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 import { type ChatProvider, KEY_FOR, type LlmKeys, type ModelsConfig } from './keys';
 import { callCostUsd, type CostTable, type TokenUsage } from './costTable';
@@ -171,7 +171,8 @@ export async function invokeStructured<S extends z.ZodType>(
     // Native structured output unsupported, rejected or unparseable: use the JSON fallback.
   }
 
-  const instruction = new SystemMessage(
+  // A user-role message: Gemini rejects a system message that is not the first one.
+  const instruction = new HumanMessage(
     `Respond with only a JSON object (no prose, no code fences) that matches this JSON Schema:\n${JSON.stringify(
       z.toJSONSchema(schema),
     )}`,

@@ -12,6 +12,18 @@ import { AIMessage, AIMessageChunk, type BaseMessage } from '@langchain/core/mes
 import { ChatGenerationChunk, type ChatResult } from '@langchain/core/outputs';
 import { RunnableLambda } from '@langchain/core/runnables';
 import type { ChatHandle } from './chatModel';
+import { errorStatus } from './retry';
+
+/**
+ * A native structured call that failed while recording (e.g. a provider 400 for an
+ * unsupported schema). Replay rethrows it, so the caller takes the same path as
+ * when recording (invokeStructured's JSON fallback).
+ */
+interface RecordedError {
+  recordedError: { status: number | null; message: string };
+}
+const isRecordedError = (v: unknown): v is RecordedError =>
+  typeof v === 'object' && v !== null && 'recordedError' in v;
 
 export const LLM_MODES = ['live', 'record', 'replay'] as const;
 export type LlmMode = (typeof LLM_MODES)[number];
@@ -135,13 +147,27 @@ export class RecordingChatModel extends BaseChatModel {
     return RunnableLambda.from(async (input: BaseMessage[], runConfig) => {
       const prompt = promptOf(input);
       let parsed: unknown;
-      if (this.mode === 'replay') parsed = this.store.get('structured', prompt);
-      else {
-        const result = (await this.inner!.withStructuredOutput(schema, {
-          includeRaw: true,
-          name: config?.name,
-        }).invoke(input, runConfig)) as { parsed: unknown };
-        parsed = result.parsed;
+      if (this.mode === 'replay') {
+        parsed = this.store.get('structured', prompt);
+        if (isRecordedError(parsed)) {
+          const { status, message } = parsed.recordedError;
+          throw Object.assign(new Error(message), status === null ? {} : { status });
+        }
+      } else {
+        try {
+          const result = (await this.inner!.withStructuredOutput(schema, {
+            includeRaw: true,
+            name: config?.name,
+          }).invoke(input, runConfig)) as { parsed: unknown };
+          parsed = result.parsed;
+        } catch (err) {
+          const recordedError = {
+            status: errorStatus(err) ?? null,
+            message: err instanceof Error ? err.message : String(err),
+          };
+          this.store.set('structured', prompt, { recordedError } satisfies RecordedError);
+          throw err;
+        }
         this.store.set('structured', prompt, parsed);
       }
       const raw = new AIMessage({ content: JSON.stringify(parsed), usage_metadata: zeroUsage });

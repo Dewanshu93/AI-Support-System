@@ -1,11 +1,8 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { TicketDetail } from '@/components/tickets/TicketDetail';
 
-export default function TicketPage() {
-  return (
-    <PlaceholderPage
-      title="Ticket"
-      description="Ticket summary, status timeline and public replies."
-      task="W3-04"
-    />
-  );
+export const metadata = { title: 'Ticket' };
+
+export default async function TicketPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <TicketDetail key={id} id={id} />;
 }

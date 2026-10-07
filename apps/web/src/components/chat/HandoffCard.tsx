@@ -1,8 +1,15 @@
 'use client';
 
 // Templated replies: sensitive handoff (with the private-contact offer) and
-// out of scope. No AI text and no sources are ever shown here.
+// out of scope. No AI text and no sources are ever shown here. "Yes" confirms
+// the restricted HR case the graph prepared; "No thanks" cancels it (ADR-013).
 import { Button } from '@/components/ui/Button';
+
+export interface PrivateContactOffer {
+  busy: boolean;
+  error: string | null;
+  onAnswer: (yes: boolean) => void;
+}
 
 export function HandoffCard({
   kind,
@@ -13,7 +20,8 @@ export function HandoffCard({
   kind: 'sensitive' | 'out_of_scope';
   text: string;
   contact?: string;
-  offer: boolean;
+  /** The open private-contact offer; null once answered (or while the turn streams). */
+  offer: PrivateContactOffer | null;
 }) {
   const sensitive = kind === 'sensitive';
   return (
@@ -36,14 +44,30 @@ export function HandoffCard({
         </p>
       )}
       {sensitive && offer && (
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Creating the restricted HR case on "Yes" arrives with W3-03. */}
-          <Button data-testid="private-contact-yes" disabled title="Available in the next build">
-            Yes, contact me privately
-          </Button>
-          <span className="text-xs text-violet-800">
-            Private HR contact requests open in the next build.
-          </span>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              data-testid="private-contact-yes"
+              disabled={offer.busy}
+              onClick={() => offer.onAnswer(true)}
+            >
+              Yes, contact me privately
+            </Button>
+            <Button
+              variant="secondary"
+              data-testid="private-contact-no"
+              disabled={offer.busy}
+              onClick={() => offer.onAnswer(false)}
+            >
+              No thanks
+            </Button>
+          </div>
+          <p className="text-xs text-violet-800">Only the HR case team sees a private request.</p>
+          {offer.error && (
+            <p data-testid="private-contact-error" role="alert" className="text-xs text-rose-700">
+              {offer.error}
+            </p>
+          )}
         </div>
       )}
     </div>

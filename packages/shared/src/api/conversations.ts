@@ -9,6 +9,7 @@ import {
   MessageStatusSchema,
 } from '../enums';
 import { ObjectIdStringSchema, PaginationQuerySchema, paginatedSchema } from './common';
+import { TicketDraftSchema } from './tickets';
 
 /** A validated citation as shown to the employee. */
 export const CitationDtoSchema = z.object({
@@ -76,7 +77,7 @@ export const ConversationDetailResponseSchema = z.object({
   conversation: ConversationDtoSchema,
   messages: z.array(MessageDtoSchema),
   /** The draft awaiting confirmation, read from the graph checkpoint. */
-  pendingDraft: z.record(z.string(), z.unknown()).optional(),
+  pendingDraft: TicketDraftSchema.optional(),
 });
 export type ConversationDetailResponse = z.infer<typeof ConversationDetailResponseSchema>;
 

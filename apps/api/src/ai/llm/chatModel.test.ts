@@ -128,6 +128,9 @@ describe('invokeStructured', () => {
     const sent = handle.model.calls[0]!;
     expect(String(sent.at(-1)!.content)).toMatch(/Respond with only a JSON object/);
     expect(String(sent.at(-1)!.content)).toContain('"confidence"');
+    // Gemini rejects a system message after the first one.
+    expect(sent.at(-1)!.getType()).toBe('human');
+    expect(sent.slice(1).some((m) => m.getType() === 'system')).toBe(false);
   });
 
   it('falls back when native output fails the schema, and adds both calls to usage', async () => {

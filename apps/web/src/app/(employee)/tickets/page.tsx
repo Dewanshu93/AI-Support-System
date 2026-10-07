@@ -1,11 +1,13 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { Suspense } from 'react';
+import { MyTickets } from '@/components/tickets/MyTickets';
 
-export default function MyticketsPage() {
+export const metadata = { title: 'My tickets' };
+
+export default function MyTicketsPage() {
+  // useSearchParams (status filter) needs a Suspense boundary.
   return (
-    <PlaceholderPage
-      title="My tickets"
-      description="Track the tickets raised from your conversations."
-      task="W3-04"
-    />
+    <Suspense>
+      <MyTickets />
+    </Suspense>
   );
 }

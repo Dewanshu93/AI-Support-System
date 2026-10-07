@@ -1,12 +1,13 @@
 'use client';
 
 // One assistant reply: answer text with citation chips, decision badge and the
-// cards for safety, handoff and ticket drafts. Used for live and stored turns.
+// safety notice or handoff card. Used for live and stored turns. The ticket draft
+// card is shown once per conversation by ChatWorkspace (the pending draft).
 import type { CitationDto, Decision } from '@sd/shared';
 import { Badge } from '@/components/ui/Badge';
 import { splitMarkers } from '@/lib/chatTurn';
-import { HandoffCard } from './HandoffCard';
-import { TicketDraftCard } from './TicketDraftCard';
+import { HandoffCard, type PrivateContactOffer } from './HandoffCard';
+import { SafetyNotice } from './SafetyNotice';
 
 export interface AssistantView {
   text: string;
@@ -20,9 +21,7 @@ export interface AssistantView {
   handoff?: {
     kind: 'sensitive' | 'out_of_scope';
     contact?: string;
-    offerPrivateContact?: boolean;
   } | null;
-  ticketDraft?: Record<string, unknown> | null;
 }
 
 const DECISION_LABEL: Record<
@@ -41,10 +40,13 @@ export function AssistantMessage({
   view,
   onCitation,
   footer,
+  privateContact = null,
 }: {
   view: AssistantView;
   onCitation: (citation: CitationDto) => void;
   footer?: React.ReactNode;
+  /** The open private-contact offer (sensitive handoff awaiting Yes / No). */
+  privateContact?: PrivateContactOffer | null;
 }) {
   const byMarker = new Map(view.citations.map((c) => [c.marker, c]));
   const safety = view.decision === 'ESCALATE' && view.reasonCode === 'SAFETY';
@@ -55,22 +57,14 @@ export function AssistantMessage({
         kind={view.handoff.kind}
         text={view.text}
         contact={view.handoff.contact}
-        offer={!!view.handoff.offerPrivateContact}
+        offer={privateContact}
       />
     );
   }
 
   return (
     <div data-testid="assistant-message" data-decision={view.decision ?? ''} className="space-y-2">
-      {safety && (
-        <div
-          data-testid="safety-notice"
-          role="alert"
-          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-        >
-          Safety first: follow these steps now. A ticket is being prepared so a person can help.
-        </div>
-      )}
+      {safety && <SafetyNotice />}
       <div
         className={`rounded-lg border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
           view.failed
@@ -122,7 +116,6 @@ export function AssistantMessage({
           </span>
         )}
       </div>
-      {view.ticketDraft && <TicketDraftCard draft={view.ticketDraft} />}
       {footer}
     </div>
   );

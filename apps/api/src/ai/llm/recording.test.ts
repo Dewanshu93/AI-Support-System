@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { RunnableLambda } from '@langchain/core/runnables';
 import { z } from 'zod';
+import { invokeStructured } from './chatModel';
 import { fakeChatHandle } from './fakeModels';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './recording';
 
@@ -46,6 +48,37 @@ describe('recorded LLM mode', () => {
       .withStructuredOutput(schema, { includeRaw: true })
       .invoke(messages);
     expect(structured.parsed).toEqual({ n: 3 });
+  });
+
+  it('a native structured failure is recorded, so replay takes the same JSON fallback', async () => {
+    // Native structured output rejected by the provider (HTTP 400, e.g. an unsupported
+    // schema); invokeStructured then falls back to a plain JSON call.
+    const live = fakeChatHandle([JSON.stringify({ n: 3 })]);
+    live.model.withStructuredOutput = (() =>
+      RunnableLambda.from(() => {
+        throw Object.assign(new Error('Invalid JSON schema'), { status: 400 });
+      })) as never;
+    const schema = z.object({ n: z.number() });
+    const opts = {
+      policy: { timeoutMs: 1000, maxRetries: 0 },
+      costs: { 'gemini-3.1-flash-lite': { input: 0, output: 0 } },
+    };
+
+    const rec = recordedChatHandle('record', new LlmRecordings(file), () => live, identity);
+    const recorded = await invokeStructured(rec, schema, messages, opts);
+    expect(recorded).toMatchObject({ data: { n: 3 }, mode: 'json_fallback' });
+
+    const replay = recordedChatHandle(
+      'replay',
+      new LlmRecordings(file),
+      () => {
+        throw new Error('replay must not build a live model');
+      },
+      identity,
+    );
+    const replayed = await invokeStructured(replay, schema, messages, opts);
+    expect(replayed).toMatchObject({ data: { n: 3 }, mode: 'json_fallback' });
+    expect(live.model.calls).toHaveLength(1);
   });
 
   it('a missing recording fails loudly instead of calling a provider', async () => {

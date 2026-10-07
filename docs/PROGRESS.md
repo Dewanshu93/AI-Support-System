@@ -29,6 +29,7 @@
 | W3-01 | Ticketing domain rules                             | Done                                             | 2026-10-06 |
 | W3-02 | slotFill and clarifyForTicket nodes                | Done (live P-5 check pending provider quota)     | 2026-10-06 |
 | W3-03 | Human-in-the-loop confirmation and ticket creation | Done                                             | 2026-10-06 |
+| W3-04 | Ticket draft UI, safety flow, My Tickets           | Done                                             | 2026-10-06 |
 
 ## Checkpoints
 
@@ -1193,3 +1194,65 @@ priority. Matched rules are now kept for the whole ticket flow.
   W3-04 adds both buttons to the handoff card.
 - No live LLM call is involved in confirm or create.
 - Gate: lint and typecheck clean; tests 37 (shared) + 818 (api, with LAN integration) + 27 (web) pass; Prettier clean; Playwright `chat.spec.ts` 7/7 (replay). The flow-6 E2E now expects the composer to be hidden while the private-contact offer is pending.
+
+## W3-04 Ticket draft UI, safety flow, My Tickets — 2026-10-06
+
+**Delivered:**
+
+- `components/chat/TicketDraftCard.tsx` (editable draft, duplicate prompt), `SafetyNotice.tsx`,
+  `HandoffCard.tsx` (Yes / No thanks), `ChatWorkspace` wiring (pending draft card, banner).
+- `components/tickets/{MyTickets,TicketDetail,ticketLabels}`, pages `/tickets` and
+  `/tickets/[id]`.
+- `lib/ticketDraft.ts` (pure draft state); `lib/api.ts`: `confirmDraft`, `cancelDraft`,
+  `myTickets`, `ticket`, and `ApiError.details`.
+- Shared: `ConversationDetailResponse.pendingDraft` is now `TicketDraftSchema` (was a loose
+  record); the API returns the typed draft.
+- "Talk to a human" already called `/escalate` (W2-09); it now leads to the draft card.
+
+**Fix outside the task's files:** `ai/llm/chatModel.ts`. The JSON fallback of structured calls
+appended its instruction as a second system message, which Gemini rejects ("System message
+should be the first one"). It now goes as a user message (unit test added). Through OpenRouter
+the old order worked, so on Gemini every P-5 call (and any prompt that fell back) failed and
+the draft lost its AI-filled fields. W3-02's pending live P-5 check would have found this.
+
+**Fix to the E2E recorder** (`ai/llm/recording.ts`, test-only code): when the native
+structured call failed while recording (Gemini answers P-5's schema with HTTP 400, so
+`invokeStructured` falls back to a JSON call), nothing was saved for that attempt, so on replay
+the missing recording surfaced as a provider error and skipped the fallback. The failure is now
+recorded and rethrown on replay with the same status, so replay takes the recorded path (unit
+test added).
+
+**Chat fix:** a finished turn's live view used to disappear as soon as `done` arrived, before the
+reloaded conversation (with the stored reply and any pending draft) was shown, so the reply
+blinked out for a moment. The live view now stays until the stored messages contain the turn's
+reply. This also made E2E "turn finished" checks race the draft card.
+
+**Small fixes:** the ticket page has a heading in every state, and a malformed ticket ID (400)
+reads as "Ticket not found" (the existing auth spec visits `/tickets/abc`); ticket specs get a
+longer budget when `E2E_LLM` is record or live.
+
+**Verification**
+
+| Check                                                                                                                          | Result                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flow 4 in the UI                                                                                                               | Pass: Playwright: issue → "Talk to a human" → draft card with AI-filled markers, read-only queue/priority → edit a field → Confirm → banner and system message with the ID → ticket detail (status new, created event) → My Tickets row, status filter                                                                              |
+| Flow 4 safety variant                                                                                                          | Pass: Playwright: swollen battery → ESCALATE with the safety notice and citation chips, then the draft (priority critical) → Cancel → "haven't raised a ticket", composer back                                                                                                                                                      |
+| Flow 5 in the UI                                                                                                               | Pass: Playwright: second conversation on the same issue → Confirm → duplicate prompt naming the first ticket → "Add to …" → banner shows the existing ID, `ticket_linked` message                                                                                                                                                   |
+| Flow 6 in the UI                                                                                                               | Pass: Playwright: Yes → restricted HR case, "Confidential" on the ticket page with the template summary; No thanks → nothing created, composer back                                                                                                                                                                                 |
+| Component tests: draft editing and duplicate prompt                                                                            | Pass: `TicketDraftCard.test.tsx` (10: markers, read-only priority/queue, edits update markers, busy state, duplicate prompt, failure, no-field draft, handoff Yes/No states), `lib/ticketDraft.test.ts` (8: edits only changed keys, never requester/queue/priority, caps, reducer, duplicate details), `TicketDetail.test.tsx` (3) |
+| CP-5: no ticket before confirmation; requester/queue/priority set by code; duplicate prompt; interrupt resumes across requests | Pass: the E2E flows above (the draft card waits with the composer hidden; the ticket appears only after Confirm, a separate request); W3-03 API tests unchanged and green                                                                                                                                                           |
+| Gate                                                                                                                           | Pass: lint and typecheck clean; tests 37 (shared) + 819 (api, with LAN integration; the server-startup spawn test timed out once under full-suite load and passes on rerun) + 48 (web); Prettier clean; Playwright full suite (auth, chat, home, tickets) 21/21 twice in a row in replay mode                                       |
+
+**Notes and follow-ups**
+
+- E2E recordings for flows 4 and 5 (and the safety variant) were made with Gemini 3.1 Flash Lite
+  for both tiers (a temporary config copy), because Gemini 3.8 Flash returned 503 (high demand)
+  and then 429 (daily quota), and the OpenRouter key ran out of credits (402). Flow 6 makes no
+  LLM call after the handoff. Replays test the UI and graph paths, not answer quality.
+  Re-record with the configured models when quota allows.
+- In the safety turn, the question for missing ticket details is appended to the safety steps
+  in the same message. Readable, but a separate message would be clearer (W3-02 graph output; to
+  review with the W2-10 baseline).
+- Component tests use `react-dom/server` static rendering plus the pure reducer, because no DOM
+  testing library is installed (adding one needs approval).
+- E2E tickets accumulate in the shared `servicedesk` database (one per flow 4/5/6 run).

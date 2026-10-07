@@ -2,7 +2,7 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W3-03)
+## Repository layout (as of W3-04)
 
 ```
 /
@@ -574,9 +574,10 @@ out_of_scope }`. No LLM call.
 - **Components:**
   - `AssistantMessage`: citation chips, decision badge, safety notice for ESCALATE/SAFETY,
     "Answer withdrawn";
-  - `HandoffCard`: sensitive (contact plus the private-contact offer, disabled until W3-03) and
-    out of scope;
-  - `TicketDraftCard`: a stub until W3; a pending draft replaces the composer with a note;
+  - `HandoffCard`: sensitive (contact plus the private-contact offer: Yes / No thanks, W3-04)
+    and out of scope;
+  - `TicketDraftCard`: the pending draft (W3-04, below); a pending draft replaces the composer
+    with a note;
   - `SourceDrawer`: title, version, effective date, owner, section path, chunk text,
     previous/next; a 404 shows "Source not available";
   - `ChatParts`: StageIndicator, Composer, ResolutionPrompt, FeedbackButtons, EmptyChat with 4
@@ -692,6 +693,39 @@ The ticket nodes (W3-02) and the API (W3-04) use these.
   SSE stream sends no `ticket_draft` event for restricted drafts.
 - **Employee views:** `GET /api/tickets/mine` (paginated, `?status`) and `GET /api/tickets/:id`
   (requester only, else 404; no agent brief, no requester snapshot; public events only).
+
+## Ticket UI and My Tickets (W3-04)
+
+- **One draft card per conversation.** `ChatWorkspace` shows `TicketDraftCard` for the
+  conversation's `pendingDraft` (`GET /conversations/:id`, now typed as the shared
+  `TicketDraftSchema`), not inside a message, so a reload or a later visit shows the same
+  card. While a draft is pending the composer is replaced by a note (no new turns until confirm
+  or cancel, as the API enforces).
+- **`TicketDraftCard`** (`components/chat`):
+  - fields are editable, labelled from their keys, with "AI-filled" markers (cleared when the
+    employee edits the value) and "Needed" highlights for required fields still empty;
+  - queue, category and proposed priority are read-only ("set by company rules");
+  - Confirm sends only the changed fields (`lib/ticketDraft.editsFrom`; an emptied field is
+    sent as "unknown"); Cancel calls the cancel endpoint;
+  - a 409 `DUPLICATE_CANDIDATE` (`ApiError.details`) switches to the duplicate prompt:
+    "Add to IT-0042" (`duplicateDecision: same`), "Create a new ticket" (`new`), or back;
+  - the state is a pure reducer in `lib/ticketDraft.ts`; `TicketDraftView` is presentational
+    (component tests render it with `react-dom/server`).
+- **Sensitive offer (flow 6):** a restricted pending draft makes the last SENSITIVE_HANDOFF
+  message's `HandoffCard` show "Yes, contact me privately" (confirm) and "No thanks" (cancel);
+  no draft card is shown for it (ADR-013).
+- **Safety (flow 4):** `SafetyNotice` above the streamed, cited safety steps; the draft card
+  follows when the turn ends.
+- **After confirm:** a "Ticket IT-0012 is with the team · View ticket" banner and the stored
+  system message (`ticket_confirmed` or `ticket_linked`).
+- **My Tickets:** `/tickets` (`components/tickets/MyTickets`: status filter in `?status=`,
+  "Load more" cursor pagination, skeleton, error with retry, empty state) and `/tickets/[id]`
+  (`TicketDetail`: status, priority, team, known fields, public timeline, "Confidential" for
+  restricted cases, link to the conversation).
+- **E2E** `e2e/tests/tickets.spec.ts`: flows 4 (edit and confirm, then My Tickets; safety
+  variant), 5 (duplicate prompt, "add to existing") and 6 (Yes, No thanks). Tickets persist in
+  the E2E database, so each flow uses its own persona and answers a duplicate prompt left by an
+  earlier run.
 
 ## Runtime
 

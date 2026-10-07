@@ -1,12 +1,14 @@
 'use client';
 
 // The employee chat screen (playbook section 10): conversation sidebar, message
-// list with the live streamed turn, resolution and feedback, source drawer.
+// list with the live streamed turn, resolution and feedback, source drawer, the
+// pending ticket draft (flows 4 and 5) and the private-contact offer (flow 6).
 import type {
   CitationDto,
   ConversationDetailResponse,
   ConversationListResponse,
   MessageDto,
+  TicketConfirmResponse,
 } from '@sd/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,7 +27,9 @@ import {
   ResolutionPrompt,
   StageIndicator,
 } from './ChatParts';
+import type { PrivateContactOffer } from './HandoffCard';
 import { SourceDrawer } from './SourceDrawer';
+import { TicketDraftCard } from './TicketDraftCard';
 
 type Load<T> =
   { kind: 'loading' } | { kind: 'ready'; data: T } | { kind: 'error'; error: ApiError };
@@ -45,11 +49,10 @@ function storedView(m: MessageDto): AssistantView {
     failed: m.status === 'error',
     handoff:
       m.decision === 'SENSITIVE_HANDOFF'
-        ? { kind: 'sensitive', offerPrivateContact: true }
+        ? { kind: 'sensitive' }
         : m.decision === 'OUT_OF_SCOPE'
           ? { kind: 'out_of_scope' }
           : null,
-    ticketDraft: m.ticketDraft,
   };
 }
 
@@ -65,6 +68,11 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
   const [ratings, setRatings] = useState<Record<string, 'up' | 'down'>>({});
   const [resolving, setResolving] = useState(false);
   const [lastSent, setLastSent] = useState<{ text: string; escalate: boolean } | null>(null);
+  const [created, setCreated] = useState<TicketConfirmResponse['ticket'] | null>(null);
+  const [offer, setOffer] = useState<{ busy: boolean; error: string | null }>({
+    busy: false,
+    error: null,
+  });
   const { state: turn, send, reset } = useChatTurn();
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -145,22 +153,50 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
     );
   };
 
+  /** After confirm, cancel or a private-contact answer: show the stored outcome. */
+  const afterDraft = async (ticket: TicketConfirmResponse['ticket'] | null) => {
+    if (ticket) setCreated(ticket);
+    if (conversationId) await loadDetail(conversationId);
+    loadList();
+  };
+
+  const answerPrivateContact = async (yes: boolean) => {
+    if (!conversationId) return;
+    setOffer({ busy: true, error: null });
+    try {
+      const ticket = yes ? await api.confirmDraft(conversationId, { edits: {} }) : null;
+      if (!yes) await api.cancelDraft(conversationId);
+      await afterDraft(ticket);
+      setOffer({ busy: false, error: null });
+    } catch (err) {
+      setOffer({ busy: false, error: `${toError(err).message} Please try again.` });
+    }
+  };
+
   const openCitation = (c: CitationDto) =>
     setSource({ chunkId: c.chunkId, sectionPath: c.sectionPath });
 
   const data = detail?.kind === 'ready' ? detail.data : null;
   const messages = data?.messages ?? [];
   const busy = isBusy(turn);
-  const pendingDraft = !!data?.pendingDraft;
+  const draft = busy ? undefined : data?.pendingDraft;
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  // A restricted draft is the sensitive handoff's private-contact offer (ADR-013).
+  const privateContact: PrivateContactOffer | null =
+    draft?.restricted && lastAssistant?.decision === 'SENSITIVE_HANDOFF'
+      ? { ...offer, onAnswer: (yes) => void answerPrivateContact(yes) }
+      : null;
   const canResolve =
     !busy &&
     !!lastAssistant &&
     lastAssistant.status === 'complete' &&
     (lastAssistant.decision === 'ANSWER' || lastAssistant.decision === 'PARTIAL') &&
     !data?.conversation.resolution;
-  const showLive =
-    turn.phase !== 'idle' && !(turn.userMessageId && !busy && turn.phase !== 'error');
+  // A finished turn stays on screen until the reloaded conversation contains its reply
+  // (and any pending draft), so nothing disappears in between.
+  const stored =
+    !!turn.assistantMessageId && messages.some((m) => m.id === turn.assistantMessageId);
+  const showLive = turn.phase !== 'idle' && !(stored && !busy && turn.phase !== 'error');
 
   return (
     <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
@@ -252,6 +288,7 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
                 key={m.id}
                 view={storedView(m)}
                 onCitation={openCitation}
+                privateContact={m.id === lastAssistant?.id ? privateContact : null}
                 footer={
                   m.status !== 'error' ? (
                     <div className="space-y-2">
@@ -277,6 +314,28 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
                 }
               />
             ),
+          )}
+
+          {draft && !draft.restricted && conversationId && (
+            <TicketDraftCard
+              key={`${conversationId}:${lastAssistant?.id ?? ''}`}
+              conversationId={conversationId}
+              draft={draft}
+              onConfirmed={(ticket) => void afterDraft(ticket)}
+              onCancelled={() => void afterDraft(null)}
+            />
+          )}
+          {created && (
+            <p
+              data-testid="ticket-created"
+              role="status"
+              className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+            >
+              Ticket <span className="font-semibold">{created.humanId}</span> is with the team.{' '}
+              <Link href={`/tickets/${created.id}`} className="font-medium underline">
+                View ticket
+              </Link>
+            </p>
           )}
 
           {showLive && (
@@ -306,7 +365,6 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
                     reasonCode: turn.reasonCode,
                     withdrawn: turn.phase === 'withdrawn',
                     handoff: turn.handoff,
-                    ticketDraft: turn.ticketDraft?.draft ?? null,
                   }}
                   onCitation={openCitation}
                 />
@@ -333,13 +391,14 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
           <div ref={bottom} />
         </div>
 
-        {pendingDraft ? (
+        {draft ? (
           <p
             data-testid="draft-pending-note"
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
           >
-            Your ticket draft is waiting for confirmation, which arrives in the next build. Start a
-            new chat to ask something else.
+            {draft.restricted
+              ? 'Please answer the private-contact offer above to continue.'
+              : 'Confirm or cancel the ticket draft above to continue.'}
           </p>
         ) : (
           <Composer

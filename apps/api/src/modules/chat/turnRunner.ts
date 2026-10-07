@@ -2,7 +2,7 @@
 // (playbook sections 4 and 5). One running turn per conversation (409); a
 // conversation whose ticket draft awaits confirmation takes no new turns (409).
 // If the client disconnects, the graph still completes and persists.
-import type { AuthUser, ChatEvent } from '@sd/shared';
+import type { AuthUser, ChatEvent, TicketDraft } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { threadConfig } from '../../ai/graph/checkpointer';
 import type { SupportGraph } from '../../ai/graph/graph';
@@ -32,11 +32,11 @@ export interface TurnRequest {
 export async function pendingDraft(
   graph: SupportGraph,
   conversationId: string,
-): Promise<Record<string, unknown> | undefined> {
+): Promise<TicketDraft | undefined> {
   const snapshot = await graph.getState(threadConfig(conversationId));
   if (!snapshot.next.includes('awaitConfirmation')) return undefined;
-  const draft = (snapshot.values as State).output?.draft;
-  return draft ? { ...draft } : {};
+  // The graph only pauses after a draft was attached (routeAfterPersist).
+  return (snapshot.values as State).output?.draft ?? undefined;
 }
 
 export function createTurnRunner(deps: TurnRunnerDeps) {

@@ -12,6 +12,11 @@ import {
   FeedbackResponseSchema,
   type LoginRequest,
   SourceChunkResponseSchema,
+  TicketConfirmResponseSchema,
+  type TicketDraftConfirmRequest,
+  TicketDetailResponseSchema,
+  TicketListResponseSchema,
+  type TicketStatus,
 } from '@sd/shared';
 import type { z } from 'zod';
 
@@ -23,6 +28,8 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly requestId?: string,
+    /** The envelope's `details` (e.g. the existing ticket of DUPLICATE_CANDIDATE). */
+    readonly details?: unknown,
   ) {
     super(message);
   }
@@ -56,8 +63,8 @@ export async function apiRequest<S extends z.ZodType>(
   if (!res.ok) {
     const envelope = ErrorEnvelopeSchema.safeParse(await res.json().catch(() => null));
     if (envelope.success) {
-      const { code, message, requestId: id } = envelope.data.error;
-      throw new ApiError(res.status, code, message, id);
+      const { code, message, requestId: id, details } = envelope.data.error;
+      throw new ApiError(res.status, code, message, id, details);
     }
     throw new ApiError(res.status, 'INTERNAL', `Request failed (${res.status})`, requestId);
   }
@@ -100,4 +107,29 @@ export const api = {
     }))!.feedback,
   source: async (chunkId: string) =>
     (await apiRequest(`/sources/chunks/${chunkId}`, SourceChunkResponseSchema))!,
+  confirmDraft: async (conversationId: string, body: TicketDraftConfirmRequest) =>
+    (await apiRequest(
+      `/conversations/${conversationId}/ticket-draft/confirm`,
+      TicketConfirmResponseSchema,
+      {
+        method: 'POST',
+        body,
+      },
+    ))!.ticket,
+  cancelDraft: async (conversationId: string) =>
+    (await apiRequest(
+      `/conversations/${conversationId}/ticket-draft/cancel`,
+      ConversationResponseSchema,
+      {
+        method: 'POST',
+        body: {},
+      },
+    ))!.conversation,
+  myTickets: async ({ status, cursor }: { status?: TicketStatus; cursor?: string } = {}) => {
+    const query = new URLSearchParams({ limit: '20' });
+    if (status) query.set('status', status);
+    if (cursor) query.set('cursor', cursor);
+    return (await apiRequest(`/tickets/mine?${query}`, TicketListResponseSchema))!;
+  },
+  ticket: async (id: string) => (await apiRequest(`/tickets/${id}`, TicketDetailResponseSchema))!,
 };
