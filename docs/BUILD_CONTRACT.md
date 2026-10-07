@@ -1,12 +1,14 @@
-# Build Contract — AI Service Desk Front Door
+# Build Contract — Employee Unified AI Gateway & Resolution Hub
 
-|                          |                                                                                         |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| **Version**              | 1.0 (draft for approval)                                                                |
-| **Date**                 | 2026-10-06                                                                              |
-| **Author**               | Dewanshu Chakraborty, written at the manager's request because no prior contract exists |
-| **Approved by**          | _name, date_                                                                            |
-| **Implementation guide** | `docs/PLAYBOOK.pdf` (how it is built); this document says **what** is delivered         |
+|                          |                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| **Version**              | 2.0 (draft for approval)                                                                             |
+| **Date**                 | 2026-10-07                                                                                           |
+| **Author**               | Dewanshu Chakraborty                                                                                 |
+| **Based on**             | "Use Case 1: Employee Unified AI Gateway & Resolution Hub" (project brief, 4 weeks)                  |
+| **Supersedes**           | v1.0 "AI Service Desk Front Door" (draft, never approved); see the change summary at the end         |
+| **Approved by**          | _name, date_                                                                                         |
+| **Implementation guide** | `docs/PLAYBOOK.pdf` for the engineering method; the task list in `docs/PROGRESS.md` for the UC tasks |
 
 Once approved, this document is read-only. Changes follow section U.
 
@@ -14,212 +16,228 @@ Once approved, this document is read-only. Changes follow section U.
 
 ## A. Purpose
 
-Employees ask IT and HR questions in one chat. The assistant answers from company policy with
-cited sources, asks a clarifying question when a request is unclear, hands sensitive topics to
-HR in confidence, and turns problems that need a person into tickets the employee reviews
-before they are created. Agents work those tickets; admins see quality, gaps and costs.
+A single employee portal that brings common employee services into one place: checking assigned
+work, updating timesheets, understanding payroll deductions, finding HR and IT policies, raising
+HR/IT requests and following them up. An **AI Copilot** in the portal answers questions from
+company policy and the employee's own records, performs simple actions (such as logging hours)
+after the employee confirms them, and prepares escalations (a ticket plus an email draft) that the
+employee reviews before anything is sent.
 
-The deliverable is a **working prototype** for demonstration and evaluation, not a production
-service.
+The deliverable is a **working prototype** for demonstration, built on synthetic data and mock
+internal systems. It is not a production service.
 
-## B. Scope
+## B. Scope (MVP)
 
 In scope:
 
-- Employee chat (web) with streamed, cited answers.
-- Ticket creation from chat with employee confirmation, routing and priority by rules.
-- Agent workspace for IT and HR queues.
-- Admin pages: metrics, knowledge gaps, AI traces, document management, evaluation runs.
-- A synthetic policy corpus (section Q), a golden evaluation set and an evaluation runner
-  (sections R and S).
+1. **Unified employee dashboard**: profile, today's/this week's tasks, timesheet status for the
+   week, active requests, in-app notifications, and the AI Copilot.
+2. **Timesheet management**: view timesheet status; log or update hours through the copilot in
+   natural language ("Log 8 hours for the Banking project on September 12") or on a form.
+3. **HR/payroll/IT question answering**: grounded, cited answers from policy documents.
+4. **Payroll investigation**: questions such as "Why was my salary reduced?" are answered from the
+   employee's own payroll, timesheet and attendance records **plus** the relevant policy, with
+   record data and policy text shown separately.
+5. **Escalation and tracking**: when the copilot cannot resolve an issue it offers a request; the
+   AI drafts the ticket and an email to the right team; the employee reviews, edits and approves;
+   the request is created and tracked on the dashboard.
+6. **Audit trail** of every action the copilot takes or proposes.
+7. A synthetic policy corpus (section Q) and mock data for employees, projects, tasks, timesheets,
+   attendance and payroll (section J).
+
+Already built and kept (from v1.0): cited answers with access control, clarifying questions,
+sensitive-topic handoff, out-of-scope replies, ticket drafts with confirmation, duplicate check,
+My Tickets, agent ticket API.
+
+**Deferred — decision pending** (built only if the owner decides so after the MVP): agent AI
+summary and draft reply, agent workspace UI, admin metrics, knowledge gaps, trace viewer,
+document management UI, evaluation UI, judge suite and threshold tuning, historic demo data,
+formal latency tuning. These were v1.0 tasks W3-06 to W4-09.
 
 Out of scope: see section O.
 
 ## C. Users and roles
 
-| Role     | Can do                                                                                     | Cannot do                                       |
-| -------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| Employee | Chat, view own conversations, confirm/cancel ticket drafts, view own tickets, rate replies | See other employees' data, agent or admin pages |
-| Agent    | Work tickets in their assigned queues; HR agents see confidential HR cases                 | See queues not assigned to them, admin pages    |
-| Admin    | Metrics, gaps, traces, documents, evaluations; read the agent queue                        | Act as an employee in chat                      |
+| Role                  | Can do                                                                                                    | Cannot do                                    |
+| --------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Employee              | Dashboard, copilot, own timesheets, own payroll records, own requests, approve/cancel AI-proposed actions | See other employees' data, team/admin pages  |
+| Agent (HR/Payroll/IT) | Work requests in assigned queues and change their status (this moves the employee's tracker)              | See queues not assigned to them, admin pages |
+| Admin                 | Read audit and traces; manage documents and evaluations (deferred UI)                                     | Act as an employee in the copilot            |
 
-Eight demo personas are seeded (no real people): five employees covering US/UK, full-time and
-contractor, and standard and manager access; two agents (IT queues; HR queues, including
-confidential cases); one admin. Sign-in is a demo persona picker; real SSO is out of scope.
+The eight seeded demo personas remain (five employees, two agents, one admin); sign-in is a demo
+persona picker issuing a JWT session cookie. Real SSO is out of scope.
 
 ## D. User flows
 
 Each flow is accepted when it works in the browser and has an automated end-to-end test.
 
-| #   | Flow                                                                                                                                                       | Acceptance                                                                                                                                                                                                                                 |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Cited answer.** An employee asks a policy question and gets an answer drawn only from documents their profile may read, with clickable source citations. | The same question gets profile-specific answers (e.g. US full-time vs UK contractor); a citation opens the source passage; the employee can mark it resolved and rate it, and both are stored.                                             |
-| 2   | **Partial answer.** The policy covers only part of the question.                                                                                           | The answer covers what the sources support and says plainly what they do not cover; "not resolved" offers a ticket.                                                                                                                        |
-| 3   | **Clarification.** The request is too vague to search or act on.                                                                                           | One clarifying question, at most once per topic, then an answer or escalation.                                                                                                                                                             |
-| 4   | **Ticket from chat.** The employee asks for a person, needs an action, or the policy has no answer.                                                        | A ticket draft with AI-filled fields is shown; the employee edits and confirms it; only then is the ticket created, routed to the right queue with a rule-based priority. Missing required details are asked for (at most two rounds).     |
-| 5   | **Duplicate prompt.** The employee already has an open ticket on the same issue (within 7 days).                                                           | Before creating, the employee chooses to add to the existing ticket or create a new one.                                                                                                                                                   |
-| 6   | **Sensitive topic.** Harassment, discrimination, health, legal, grievance or wellbeing.                                                                    | No AI advice and no policy text; a confidential HR contact and the offer "Would you like HR to contact you privately?". On yes, a restricted HR case is created that only HR agents can see.                                               |
-| 7   | **Out of scope.** Not about IT or HR at work.                                                                                                              | A fixed reply saying what the assistant can help with; no search, no answer generation.                                                                                                                                                    |
-| 8   | **Agent works a ticket.**                                                                                                                                  | The agent sees their queue in priority order, opens a ticket with the AI summary, transcript and cited articles, generates and edits a draft reply, adds internal notes, changes status, and corrects category or priority.                |
-| 9   | **Admin oversight.**                                                                                                                                       | Admin sees decision and resolution metrics with latency and cost, knowledge-gap clusters from unanswered questions, the full trace of any AI turn, can upload or re-index documents, and can start evaluation runs and view their results. |
+| #   | Flow                                                                                                    | Acceptance                                                                                                                                                                                                                              |
+| --- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Dashboard.** The employee signs in and lands on the dashboard.                                        | Shows profile, tasks with status, the week's timesheet (submitted, missing, not due), active requests with status, unread notifications, and the copilot.                                                                               |
+| 2   | **Policy answer.** "What is the leave policy?" / "I cannot access VPN."                                 | A grounded answer from documents the employee's profile may read, with clickable citations; IT questions use the IT knowledge base.                                                                                                     |
+| 3   | **Log timesheet by chat.** "Log 8 hours for the Banking project on September 12."                       | The copilot shows a confirmation card (date, project, hours); nothing is saved before the employee confirms; on confirm the entry is saved, the dashboard updates, an audit entry records "triggered by copilot, approved by employee". |
+| 4   | **Timesheet status.** "Which days am I missing this week?"                                              | The answer comes from the employee's timesheet records, not from a model guess.                                                                                                                                                         |
+| 5   | **Payroll investigation (LOP).** "Why was my salary reduced for September 12?"                          | The answer states the employee's record (e.g. no hours logged on Sept 12, LOP deduction of a given amount) and the cited policy rule, in separate parts; it then offers to log the missing timesheet and to raise a payroll request.    |
+| 6   | **Escalation with email draft.** "Contact payroll about my LOP." or an unresolved issue.                | An AI-drafted request and email (subject, issue, system information, action taken, request) is shown; the employee can edit, send or cancel; on send a ticket is created, routed by rules, and the email is recorded in the outbox.     |
+| 7   | **Request tracking.** "Show my pending requests." and the tracker page.                                 | Requests are listed with department and status (list and board views); a status change by an agent appears on the employee's dashboard with a notification.                                                                             |
+| 8   | **Follow-up memory.** "Why was I marked absent on Sept 12?" → "I actually worked that day."             | "That day" resolves to September 12 without asking again.                                                                                                                                                                               |
+| 9   | **Safety rails (kept from v1.0).** Sensitive topics, out-of-scope requests, vague requests, duplicates. | Sensitive topics get the confidential HR handoff with no AI advice; out-of-scope gets a fixed reply; vague requests get one clarifying question; a duplicate open request prompts "add to existing or create new".                      |
 
 ## E. AI behaviour rules
 
-1. **Grounded answers only.** Answers use only retrieved policy text; every factual sentence
-   cites its source; numbers and dates are copied exactly. A number not found in the cited
-   source withdraws the answer.
-2. **Citations are verified by code.** The model can only reference sources it was given; a
-   citation to anything else is removed, and an answer with no valid citation is withdrawn and
-   replaced by an offer to raise a ticket.
-3. **Access control is enforced by code, twice:** in the database query and again before any
-   text reaches the model or the screen. The AI never decides who may read what.
-4. **AI proposes, code decides.** Routing, priority floors, ticket status, decisions, permissions
-   and citations are deterministic code with tests, never prompt instructions.
-5. **Sensitive topics bypass the AI** for advice and field extraction (flow 6).
-6. **Prompt injection** in user text or documents is treated as data and never changes rules.
-7. Every AI call has a validated output schema, a versioned prompt and a stored trace.
+1. **Grounded answers only.** Policy answers use only retrieved policy text and cite it; numbers
+   and dates are copied exactly; an answer with no valid citation is withdrawn.
+2. **Record data comes from code.** Employee figures (hours, deductions, dates, statuses) are read
+   by code from the database and shown as "your records"; the model may explain them but never
+   invents or changes them.
+3. **AI proposes, code decides and executes.** The model extracts intent and fields (date,
+   project, hours, request details). Code resolves relative dates, validates them (own employee
+   ID, known project, allowed date range, hour limits), routes the request, sets queue and
+   priority, and performs the action only after the employee confirms. The model never calls
+   the database or an API directly.
+4. **Human in the loop.** No timesheet write, ticket or email happens without explicit
+   confirmation of the exact content shown to the employee.
+5. **Access control is enforced by code**: employees only ever see their own records and the
+   policies their profile may read.
+6. **Sensitive topics bypass the AI** for advice and field extraction.
+7. **Prompt injection** in user text or documents is treated as data and never changes rules.
+8. Every AI call has a validated output schema, a versioned prompt and a stored trace.
 
-## F. Turn decisions
+## F. Copilot intents and orchestration
 
-Every turn ends in exactly one of six decisions, chosen by an ordered rule table in code:
-SENSITIVE_HANDOFF, OUT_OF_SCOPE, ESCALATE (safety, user request, action needed, no evidence),
-CLARIFY, ANSWER, PARTIAL. Thresholds for ANSWER/PARTIAL are configuration, tuned by evaluation.
+One LangGraph state graph handles every copilot turn. The "specialised agents" of the brief are
+**branches of that graph**, selected by deterministic code from the model's intent analysis:
 
-## G. Tickets
+| Intent                             | Example                             | Branch                                              |
+| ---------------------------------- | ----------------------------------- | --------------------------------------------------- |
+| Policy / IT question               | "What is the leave policy?"         | Policy RAG (HR and IT knowledge)                    |
+| Payroll investigation              | "Why was my salary reduced?"        | Employee records + policy RAG                       |
+| Timesheet action                   | "Log 8 hours for Project A."        | Extract → validate → confirm → write                |
+| Timesheet / task view              | "Which days am I missing?"          | Employee records                                    |
+| Request status                     | "Show my pending requests."         | Ticket store                                        |
+| Escalation                         | "Contact payroll regarding my LOP." | Ticket + email draft → confirm → create and send    |
+| Sensitive / out of scope / unclear | (see flow 9)                        | Fixed handoff, fixed reply, one clarifying question |
 
-- Categories: IT (hardware, software, access, network) and HR (leave, benefits, payroll,
-  policy, employee relations), each routed to one queue by configuration.
-- Priority: AI proposes; code applies floors (safety issues are always critical; org-wide
-  impact at least high).
-- Statuses: new → in progress → waiting on employee → resolved → closed, with allowed
-  transitions enforced in code.
+## G. Requests (tickets)
+
+- Categories: IT (hardware, software, access, network) and HR (leave, benefits, payroll including
+  timesheet and LOP queries, policy, employee relations), each routed to one queue by
+  configuration.
+- Priority: AI proposes; code applies floors (safety issues always critical).
+- Workflow statuses are enforced in code. The tracker shows employee-facing labels (Open, AI
+  investigation, Waiting for you, Escalated, Under review, Resolved), mapped from the workflow
+  statuses by configuration.
 - The requester, queue and priority floor are set by code, never by AI output or edits.
-- No ticket exists until the employee confirms it.
+- No request exists and no email is sent until the employee confirms.
 
-## H. Agent workspace
+## H. Email
 
-As in flow 8. Agents see only their queues; confidential HR cases only for HR agents; every
-change is recorded in the ticket's event history and the audit log.
+- The AI drafts the email; the employee sees and can edit subject and body before sending.
+- Sent emails are stored in an outbox collection with the linked request and shown in the UI.
+- Delivery is **mock by default** (outbox only). Real SMTP via Nodemailer is a configuration
+  switch, enabled only if the network allows it.
 
-## I. Admin
+## I. Audit trail
 
-As in flow 9. Evaluation conversations are excluded from all dashboards.
+Every copilot action and every confirmation is written to the append-only audit log with
+employee ID, action, parameters (e.g. date, hours, project), triggered by (copilot or form),
+approved by, and timestamp. Employees can see their own activity; admins can see all.
 
 ## J. Data and privacy
 
-- **Synthetic data only:** no real employee, HR or company data.
+- **Synthetic data only:** no real employee, HR, payroll or company data. Projects, tasks,
+  timesheets, attendance and payroll records are generated by a deterministic seed script and
+  include the LOP demo scenario.
+- Internal systems (task tracker, HR/payroll system) are **mock APIs inside this application**.
 - User text is redacted (email, phone, ID-like numbers, card, SSN, UK NI) before it is written
-  to traces, gap clusters or evaluation exports; raw text stays only in the conversation,
-  readable by its owner and authorised roles.
-- Another user's conversation or ticket returns "not found", never "forbidden".
+  to traces or evaluation exports.
+- Another user's data returns "not found", never "forbidden".
 
 ## K. Security (prototype level)
 
-Session cookie (httpOnly, 8-hour), role checks on every endpoint, append-only audit log,
+JWT session cookie (httpOnly, 8-hour), role checks on every endpoint, append-only audit log,
 request validation on every endpoint. Production hardening is listed in
 `docs/PRODUCTION_GAPS.md`, not delivered here.
 
 ## L. Technical constraints
 
-Next.js + Tailwind web app; Node.js + Express + TypeScript API; MongoDB (structured data) and
-Qdrant (vector and keyword search); LangChain and one LangGraph state graph; Zod; Jest,
-Supertest and Playwright. One repository (npm workspaces). LLM providers: Google Gemini and
-OpenRouter, switchable by configuration. Runs locally without Docker on the developer machine;
-a Docker Compose setup is provided but optional.
+React (Next.js App Router) + Tailwind web app; Node.js + Express + TypeScript API; MongoDB
+(structured data) and Qdrant (vector and keyword search); LangChain and one LangGraph state graph;
+Zod; Jest, Supertest and Playwright; Nodemailer only if real email is enabled. One repository (npm
+workspaces). LLM providers: Google Gemini and OpenRouter (which also reaches OpenAI and Claude
+models), switchable by configuration. Runs locally without Docker; a Docker Compose setup is
+provided but optional; cloud deployment depends on network approval.
 
 ## M. Integrations
 
-None. ServiceNow, Jira, Slack, email and HR systems are represented by the app's own ticket
-store and seed data.
+None with real systems. Jira-style tasks, HR/payroll data and email are represented by mock
+services and seed data inside the application.
 
 ## N. Non-functional requirements
 
-Measured on the demo machine over 30 scripted turns (playbook W4-09), with the configured
-provider. The thresholds are proposed from today's measurements and should be confirmed at
-approval.
-
-| ID    | Requirement                                                                      | Target                                                                                                                                                                                                                                                  |
-| ----- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NFR-1 | **Responsiveness.** Time to the first word of an answer, and to a complete turn. | p50 first word ≤ 10 s; p90 complete answer turn ≤ 30 s; templated replies (sensitive, out of scope) ≤ 5 s. Progress is shown within 1 s.                                                                                                                |
-| NFR-2 | **Cost.** LLM spend per employee turn.                                           | Average ≤ US$0.01 per turn; a full 80-case evaluation ≤ US$2.                                                                                                                                                                                           |
-| NFR-3 | **Resilience.** Provider errors, timeouts and quota limits.                      | No turn hangs: a failure shows a retryable error within 90 s; no message is lost (failed replies are stored with status error); failures before any text is shown are retried automatically; the app starts and serves non-AI pages without an LLM key. |
+| ID    | Requirement                                                                      | Target                                                                                         |
+| ----- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| NFR-1 | **Responsiveness.** Time to the first word of an answer, and to a complete turn. | p50 first word ≤ 10 s; p90 complete turn ≤ 30 s; actions and fixed replies ≤ 5 s after confirm |
+| NFR-2 | **Cost.** LLM spend per copilot turn.                                            | Average ≤ US$0.01 per turn                                                                     |
+| NFR-3 | **Resilience.** Provider errors, timeouts and quota limits.                      | No turn hangs; a failure shows a retryable error; the dashboard works without an LLM key       |
 
 ## O. Out of scope (do not build)
 
-Microservices or a separate AI service; multi-agent or autonomous loops; LLM calls beyond the
-nine defined prompts; external integrations (section M); real SSO, OAuth or MFA; Redis,
-Kubernetes, job queues, any vector database other than Qdrant; real HR data; notifications,
-SLA timers, exports, file attachments in chat; ORMs, global state libraries, UI kits beyond
-Tailwind, chart libraries. New dependencies need a one-line justification and approval.
+Real payroll, HR or Jira/ServiceNow integration; actual salary processing; autonomous approval of
+payroll corrections; any email or action without employee confirmation; complex multi-department
+workflows; microservices or a separate AI service; autonomous agent loops or tools bound directly
+to the LLM; real SSO, OAuth or MFA; Redis, Kubernetes, job queues, any vector database other than
+Qdrant; real HR data; SLA timers, exports, file attachments; ORMs, global state libraries, UI kits
+beyond Tailwind, chart libraries. New dependencies need a one-line justification and approval.
 
 ## P. Deliverables
 
 1. Source code in one repository with setup instructions (README).
-2. Seed and ingestion scripts; the synthetic corpus (section Q).
-3. The golden set and evaluation runner with stored reports (sections R and S).
-4. Automated tests: unit, API, AI workflow (with fake models) and end-to-end for flows 1–9.
-5. Documentation: architecture, decisions (ADRs), progress log, production gaps.
-6. A demo script covering flows 1–9.
+2. Seed scripts for users and mock HR data; ingestion script; the synthetic corpus.
+3. Automated tests: unit, API, AI workflow (with fake models) and end-to-end for flows 1–9.
+4. Documentation: architecture, decisions (ADRs), progress log, production gaps.
+5. A demo script built around the LOP scenario (brief section 4).
 
 ## Q. Corpus rules
 
-- Synthetic IT and HR policy documents in Markdown with required metadata: slug, title,
-  domain, owner, version, effective date, countries, employment types, access level, status,
-  and the version they supersede.
-- Coverage: US and UK; full-time and contractor variants; manager-only documents; at least one
-  superseded version per trap case (an old policy that would give a wrong answer); tables
-  where facts are tabular; one document containing a planted instruction, for injection tests.
-- Required documents include battery safety and access requests.
-- The corpus validates automatically (`npm run corpus:validate`); invalid metadata fails
-  ingestion.
-- Current corpus: 35 documents (`corpus/README.md` lists them with their key facts).
+- Synthetic IT and HR policy documents in Markdown with validated metadata (as in v1.0).
+- Adds: Loss of Pay (LOP) policy, timesheet policy, attendance policy; work-from-home is covered
+  by the existing flexible-working policy.
+- The corpus validates automatically (`npm run corpus:validate`).
 
-## R. Golden set and evaluation method
+## R. Evaluation
 
-- 80 cases: 35 answerable, 10 partial, 10 clarify, 12 escalate (including 4 multi-turn and 2
-  safety), 8 sensitive (2 phrased indirectly), 5 out of scope; tags for injection (5),
-  superseded traps (4), profile variants, multi-turn, tables, general IT. Format and validation
-  as in playbook section 8.
-- Suites: retrieval (no generation), full (the real graph per case), judge (LLM-judged
-  groundedness of answers). Every run stores its configuration snapshot, per-case results and
-  a report.
+The existing golden set, retrieval eval and full-graph eval are kept and extended with cases for
+the new intents (timesheet extraction, payroll investigation, request status). Hard gates:
+forbidden-document leakage 0, sensitive handoff 100%, citation validity 100%, injection
+resistance 100%, **no timesheet write or email without confirmation (100%)**.
 
-## S. Quality targets
-
-| Metric                     | Target                    |
-| -------------------------- | ------------------------- |
-| Retrieval recall@5         | ≥ 85% (week-1 gate ≥ 75%) |
-| Forbidden-document leakage | 0 (**hard gate**)         |
-| Decision accuracy          | ≥ 85%                     |
-| Sensitive handoff          | 100% (**hard gate**)      |
-| Out-of-scope accuracy      | ≥ 90%                     |
-| Citation validity          | 100% (**hard gate**)      |
-| Ticket category accuracy   | ≥ 90%                     |
-| Ticket field accuracy      | ≥ 85%                     |
-| Invented field values      | 0                         |
-| Safety priority floor      | 100%                      |
-| Injection resistance       | 100% (**hard gate**)      |
-| Groundedness (judge)       | ≥ 90%                     |
-| Key-fact correctness       | ≥ 90%                     |
-| Latency and cost           | NFR-1, NFR-2              |
-
-A run passes when every target is met; a hard gate fails a run on its own.
-
-## T. Acceptance
+## S. Acceptance
 
 The prototype is accepted when:
 
-1. Flows 1–9 work in the browser and their end-to-end tests pass twice in a row.
-2. A full evaluation run meets section S.
-3. NFR-1 to NFR-3 are met on the demo machine.
+1. Flows 1–9 work in the browser and their end-to-end tests pass.
+2. The LOP scenario (brief section 4, steps 1–12) runs end to end in a demo.
+3. The hard gates in section R pass.
 4. Lint, type checks and all automated tests pass.
-5. Two clean demo rehearsals are completed.
 
 ## U. Change control
 
 Changes to this contract are written as a dated amendment below, with the reason, and approved
-by the same approver. Implementation choices that do not change what is delivered are
-recorded as ADRs in `docs/DECISIONS.md` instead.
+by the same approver. Implementation choices that do not change what is delivered are recorded
+as ADRs in `docs/DECISIONS.md`.
+
+### Change summary from v1.0
+
+- Product re-scoped from an IT/HR service desk to the Employee Unified AI Gateway (Use Case 1).
+- Added: dashboard, timesheets, payroll investigation, email drafting and outbox, request
+  tracker, in-app notifications, mock task/HR/payroll data.
+- Deferred (decision pending): agent AI assistance and UI, admin dashboards, knowledge gaps,
+  trace viewer, document and evaluation UIs, judge suite, historic demo data.
+- Removed from "out of scope": in-app notifications and email (both now confirmed by the
+  employee and mock by default).
+- Quality targets reduced to the hard gates; the v1.0 numeric targets remain measurable by the
+  existing eval runner.
 
 ### Amendments
 

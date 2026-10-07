@@ -2,7 +2,7 @@
 
 ## Sources of truth
 
-- `docs/BUILD_CONTRACT.md` — **what** is built (read-only; approved amendments only).
+- `docs/BUILD_CONTRACT.md` — **what** is built: v2.0, Use Case 1 (read-only; approved amendments only).
 - `docs/PLAYBOOK.md` → `docs/PLAYBOOK.pdf` — **how** it is built: task cards, sections 1–15.
 - `docs/ARCHITECTURE.md` (current reality), `docs/DECISIONS.md` (ADRs), `docs/PROGRESS.md` (task status).
 
@@ -67,12 +67,23 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
   traces must identify the text). Switch it in `config/prompts.yaml` only with a full eval run
   noted in `docs/PROGRESS.md`. List a prompt in `prompts.yaml` only once its file exists.
 
-## Do Not Build (playbook section 14 — stop and propose instead)
+## Product scope (Build Contract v2.0, ADR-015)
 
-Microservices / separate AI service / brokers · multi-agent or autonomous loops · LLM calls beyond
-P-1–P-9 · external integrations (ServiceNow, Jira, Slack, …) · real SSO/OAuth/MFA · Redis,
-Kubernetes, job queues, any vector DB other than Qdrant (ADR-004) · real HR data · notifications, SLA timers, exports,
-attachments · Mongoose/ORMs, Redux/Zustand, UI kits beyond Tailwind, chart libraries.
+The product is the **Employee Unified AI Gateway** (Use Case 1): dashboard, timesheets, payroll
+investigation, policy Q&A, escalation with email drafts, request tracking. Tasks are UC-01 – UC-10
+in `docs/PROGRESS.md`; v1.0 tasks W3-06 – W4-09 are deferred. "Agents" in the brief are branches
+of the one graph; "tool calling" means the model proposes a Zod-validated action and code
+executes it only after the employee confirms (`interrupt()`). Employee figures (hours,
+deductions, dates) always come from code, never from the model.
+
+## Do Not Build (stop and propose instead)
+
+Microservices / separate AI service / brokers · multi-agent or autonomous loops · tools bound to
+the LLM · LLM calls beyond P-1–P-9 and the UC prompts approved in ADR-015 · real external
+integrations (ServiceNow, Jira, Slack, payroll, …; mock services only) · any write or email
+without employee confirmation · real SSO/OAuth/MFA · Redis, Kubernetes, job queues, any vector DB
+other than Qdrant (ADR-004) · real HR data · push/email notifications (in-app only), SLA timers,
+exports, attachments · Mongoose/ORMs, Redux/Zustand, UI kits beyond Tailwind, chart libraries.
 Any new dependency outside the approved list needs a one-line justification and approval.
 
 ## Session protocol

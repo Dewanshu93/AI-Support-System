@@ -2,35 +2,53 @@
 
 ## Task status
 
-| Task  | Name                                               | Status                                           | Date       |
-| ----- | -------------------------------------------------- | ------------------------------------------------ | ---------- |
-| W1-01 | Monorepo scaffold                                  | Done (Docker unverified)                         | 2026-10-02 |
-| W1-02 | Config and env loading                             | Done                                             | 2026-10-02 |
-| W1-03 | Shared contracts and error envelope                | Done                                             | 2026-10-02 |
-| W1-04 | Database layer and indexes                         | Done (amended: Qdrant, ADR-004)                  | 2026-10-05 |
-| W1-05 | Users seed and auth                                | Done                                             | 2026-10-05 |
-| W1-06 | Frontend shell and login                           | Done                                             | 2026-10-05 |
-| W1-07 | Corpus authoring and validation                    | Done (pending owner review of numbers)           | 2026-10-05 |
-| W1-08 | Golden set v1                                      | Done (pending owner review)                      | 2026-10-05 |
-| W1-09 | LLM and embedding provider layer                   | Done                                             | 2026-10-05 |
-| W1-10 | Ingestion pipeline                                 | Done                                             | 2026-10-05 |
-| W1-11 | Access filter and hybrid retrieval                 | Done                                             | 2026-10-05 |
-| W1-12 | Retrieval eval runner                              | Done                                             | 2026-10-05 |
-| W2-01 | Prompt registry                                    | Done                                             | 2026-10-05 |
-| W2-02 | Graph state, skeleton and checkpointer             | Done                                             | 2026-10-05 |
-| W2-03 | loadContext, precheck, analyzeTurn                 | Done                                             | 2026-10-06 |
-| W2-04 | retrieve and rerankAssess nodes                    | Done                                             | 2026-10-06 |
-| W2-05 | Decision rules and decide node                     | Done                                             | 2026-10-06 |
-| W2-06 | Grounded answer and citation validation            | Done                                             | 2026-10-06 |
-| W2-07 | Clarify, out-of-scope and sensitive handoff nodes  | Done                                             | 2026-10-06 |
-| W2-08 | Persist node and chat API with SSE                 | Done                                             | 2026-10-06 |
-| W2-09 | Chat UI                                            | Done                                             | 2026-10-06 |
-| W2-10 | Full-graph eval suite                              | Code complete; baseline pending (provider quota) | 2026-10-06 |
-| W3-01 | Ticketing domain rules                             | Done                                             | 2026-10-06 |
-| W3-02 | slotFill and clarifyForTicket nodes                | Done (live P-5 check pending provider quota)     | 2026-10-06 |
-| W3-03 | Human-in-the-loop confirmation and ticket creation | Done                                             | 2026-10-06 |
-| W3-04 | Ticket draft UI, safety flow, My Tickets           | Done                                             | 2026-10-06 |
-| W3-05 | Agent ticket API                                   | Done                                             | 2026-10-07 |
+| Task          | Name                                                                                              | Status                                           | Date       |
+| ------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------- |
+| W1-01         | Monorepo scaffold                                                                                 | Done (Docker unverified)                         | 2026-10-02 |
+| W1-02         | Config and env loading                                                                            | Done                                             | 2026-10-02 |
+| W1-03         | Shared contracts and error envelope                                                               | Done                                             | 2026-10-02 |
+| W1-04         | Database layer and indexes                                                                        | Done (amended: Qdrant, ADR-004)                  | 2026-10-05 |
+| W1-05         | Users seed and auth                                                                               | Done                                             | 2026-10-05 |
+| W1-06         | Frontend shell and login                                                                          | Done                                             | 2026-10-05 |
+| W1-07         | Corpus authoring and validation                                                                   | Done (pending owner review of numbers)           | 2026-10-05 |
+| W1-08         | Golden set v1                                                                                     | Done (pending owner review)                      | 2026-10-05 |
+| W1-09         | LLM and embedding provider layer                                                                  | Done                                             | 2026-10-05 |
+| W1-10         | Ingestion pipeline                                                                                | Done                                             | 2026-10-05 |
+| W1-11         | Access filter and hybrid retrieval                                                                | Done                                             | 2026-10-05 |
+| W1-12         | Retrieval eval runner                                                                             | Done                                             | 2026-10-05 |
+| W2-01         | Prompt registry                                                                                   | Done                                             | 2026-10-05 |
+| W2-02         | Graph state, skeleton and checkpointer                                                            | Done                                             | 2026-10-05 |
+| W2-03         | loadContext, precheck, analyzeTurn                                                                | Done                                             | 2026-10-06 |
+| W2-04         | retrieve and rerankAssess nodes                                                                   | Done                                             | 2026-10-06 |
+| W2-05         | Decision rules and decide node                                                                    | Done                                             | 2026-10-06 |
+| W2-06         | Grounded answer and citation validation                                                           | Done                                             | 2026-10-06 |
+| W2-07         | Clarify, out-of-scope and sensitive handoff nodes                                                 | Done                                             | 2026-10-06 |
+| W2-08         | Persist node and chat API with SSE                                                                | Done                                             | 2026-10-06 |
+| W2-09         | Chat UI                                                                                           | Done                                             | 2026-10-06 |
+| W2-10         | Full-graph eval suite                                                                             | Code complete; baseline pending (provider quota) | 2026-10-06 |
+| W3-01         | Ticketing domain rules                                                                            | Done                                             | 2026-10-06 |
+| W3-02         | slotFill and clarifyForTicket nodes                                                               | Done (live P-5 check pending provider quota)     | 2026-10-06 |
+| W3-03         | Human-in-the-loop confirmation and ticket creation                                                | Done                                             | 2026-10-06 |
+| W3-04         | Ticket draft UI, safety flow, My Tickets                                                          | Done                                             | 2026-10-06 |
+| W3-05         | Agent ticket API                                                                                  | Done                                             | 2026-10-07 |
+| W3-06 – W4-09 | Agent AI, agent UI, extraction metrics, admin pages, judge, hardening, historic data, performance | **Deferred — decision pending** (ADR-015)        | 2026-10-07 |
+| W4-10         | E2E suite, documentation and demo                                                                 | Folded into UC-10                                | 2026-10-07 |
+
+### Use Case 1 tasks (Build Contract v2.0, ADR-015)
+
+| Task  | Name                                                                                                                         | Status | Contract flows |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------- | ------ | -------------- |
+| UC-00 | Pivot documents (contract v2.0, ADR-015, task list)                                                                          | Done   | —              |
+| UC-01 | Mock HR data (projects, tasks, timesheets, attendance, payroll, notifications) and new policies (LOP, timesheet, attendance) | To do  | 1, 4, 5        |
+| UC-02 | Employee data APIs: tasks, timesheets, payroll, notifications, dashboard summary                                             | To do  | 1, 3, 4        |
+| UC-03 | Employee dashboard and timesheet page                                                                                        | To do  | 1              |
+| UC-04 | Copilot intents: P-1 v2 intent field and deterministic branch routing                                                        | To do  | 2–7            |
+| UC-05 | Timesheet action branch: extract → validate → confirm card → write → audit; timesheet status answers                         | To do  | 3, 4, 8        |
+| UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | To do  | 5, 8           |
+| UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | To do  | 6              |
+| UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | To do  | 7              |
+| UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | To do  | all            |
+| UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | To do  | all            |
 
 ## Checkpoints
 

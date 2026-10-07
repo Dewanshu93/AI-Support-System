@@ -398,3 +398,40 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   - Updates are guarded by `updatedAt` (409 if another agent changed the ticket first).
 - **Consequences:** a re-categorised ticket keeps its human ID (an IT ticket moved to HR stays
   `IT-…`). An agent loses sight of a ticket they re-route out of their queues.
+
+## ADR-015 — Pivot to Use Case 1: Employee Unified AI Gateway (Build Contract v2.0)
+
+- **Status:** Accepted by the owner (2026-10-07); Build Contract v2.0 awaits manager approval
+- **Context:** The project brief is "Use Case 1: Employee Unified AI Gateway & Resolution Hub"
+  (timesheets, payroll investigation, policy Q&A, escalation with email drafts, request tracking,
+  dashboard). The playbook and Build Contract v1.0 described a narrower IT/HR service desk with a
+  heavy agent/admin/evaluation scope. About 60% of the built work (auth, MongoDB + Qdrant, RAG
+  with citations, the LangGraph pipeline with `interrupt()` confirmation, ticket rules, chat UI
+  with SSE, audit log) is reused unchanged.
+- **Decision:**
+  - The Build Contract is rewritten as v2.0 for Use Case 1. The remaining v1.0 tasks W3-06 to
+    W4-10 are **deferred, decision pending** (not cut); W4-10's E2E/README/demo work is folded
+    into UC-10.
+  - The brief's "specialised agents" (HR, Payroll, Action, IT, Escalation) are **branches of the
+    one StateGraph**, chosen by deterministic edges from the P-1 intent. No multi-agent design.
+  - The brief's "tool calling" is implemented as **model proposes, code executes**: the model
+    returns a Zod-validated action proposal; code resolves dates, validates against the
+    employee's own data, shows a confirmation card (`interrupt()`), and calls the service only on
+    confirm. No tools are bound to the LLM. This keeps the "AI proposes, code decides" rule and
+    makes every action testable without a model.
+  - Mock internal systems (tasks, timesheets, attendance, payroll) are MongoDB collections with
+    module APIs, seeded deterministically. LOP is modelled as a payroll deduction line linked to
+    dates; the LOP policy applies to all countries' full-time employees (personas are US/UK).
+  - Email: an `email_outbox` collection; delivery is mock by default, Nodemailer behind a config
+    switch (needs approval as a dependency and network access).
+  - In-app notifications are allowed (collection + dashboard list); push/email notifications are
+    not.
+  - UI stays Tailwind (Next.js is React); Material UI/Bootstrap from the brief are not adopted.
+  - New prompts beyond P-1–P-9 (timesheet extraction, payroll explanation, email draft) are
+    approved as part of this pivot, each with a schema, a versioned file and a trace.
+- **Alternatives:** keep v1.0 and add timesheets later (delays the brief's core scenario); start
+  over with a plain React + agent-with-tools design (throws away tested, working foundations and
+  the safety properties).
+- **Consequences:** CLAUDE.md "Do Not Build" is updated. The golden set gains cases for the new
+  intents. Tracker labels are a configuration mapping over the existing ticket state machine, so
+  ADR-012 stays valid.
