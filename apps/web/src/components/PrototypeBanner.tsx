@@ -4,7 +4,7 @@ export function PrototypeBanner() {
     <div
       role="note"
       data-testid="prototype-banner"
-      className="bg-amber-100 px-4 py-1.5 text-center text-xs font-medium text-amber-900"
+      className="flex h-7 items-center justify-center bg-slate-900 px-4 text-center text-[11px] font-medium tracking-wide text-slate-300"
     >
       Prototype — synthetic data, mocked integrations
     </div>

@@ -13,6 +13,7 @@ import type {
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -56,7 +57,14 @@ function storedView(m: MessageDto): AssistantView {
   };
 }
 
-export function ChatWorkspace({ initialConversationId }: { initialConversationId?: string }) {
+export function ChatWorkspace({
+  initialConversationId,
+  initialPrompt,
+}: {
+  initialConversationId?: string;
+  /** Sent as the first message of a new conversation (from /chat?q=…). */
+  initialPrompt?: string;
+}) {
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId ?? null,
   );
@@ -92,6 +100,13 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
   }, []);
 
   useEffect(() => loadList(), [loadList]);
+  // Send the prompt from /chat?q=… once (the ref survives the Strict Mode double effect).
+  const promptSent = useRef(false);
+  useEffect(() => {
+    if (!initialPrompt || initialConversationId || promptSent.current) return;
+    promptSent.current = true;
+    void start(initialPrompt);
+  }, [initialPrompt, initialConversationId]);
   useEffect(() => {
     if (initialConversationId) void loadDetail(initialConversationId);
   }, [initialConversationId, loadDetail]);
@@ -199,8 +214,12 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
   const showLive = turn.phase !== 'idle' && !(stored && !busy && turn.phase !== 'error');
 
   return (
-    <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
-      <nav aria-label="Conversations" data-testid="conversation-sidebar" className="space-y-2">
+    <div className="grid gap-6 pt-4 md:grid-cols-[16rem_1fr]">
+      <nav
+        aria-label="Conversations"
+        data-testid="conversation-sidebar"
+        className="space-y-3 self-start rounded-2xl border border-slate-200/80 bg-white p-3 shadow-card md:sticky md:top-20"
+      >
         {/* Full navigation: after the first message the URL is updated with
             history.replaceState, so the router may still think this is /chat. */}
         <Button
@@ -226,10 +245,12 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
                 <Link
                   href={`/chat/${c.id}`}
                   aria-current={c.id === conversationId ? 'page' : undefined}
-                  className={`block rounded-md px-3 py-2 text-sm ${c.id === conversationId ? 'bg-slate-200 font-medium' : 'hover:bg-slate-100'}`}
+                  className={`block rounded-lg px-3 py-2 text-sm ${c.id === conversationId ? 'bg-brand-50 font-medium text-brand-900' : 'text-slate-700 hover:bg-slate-50'}`}
                 >
                   <span className="line-clamp-1">{c.title || 'New conversation'}</span>
-                  <span className="text-xs text-slate-500">{c.status}</span>
+                  <span className="text-xs text-slate-500 capitalize">
+                    {c.status.replace('_', ' ')}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -237,10 +258,20 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
         )}
       </nav>
 
-      <section className="flex min-h-[70vh] flex-col gap-4">
-        <h1 className="text-lg font-semibold text-slate-900">
-          {data?.conversation.title || 'Chat'}
-        </h1>
+      <section className="flex min-h-[70vh] flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card sm:p-6">
+        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-600 text-white">
+            <Icon name="sparkles" className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold text-slate-900">
+              {data?.conversation.title || 'Copilot'}
+            </h1>
+            <p className="text-xs text-slate-500">
+              Answers cite company policy. Actions and requests always ask you to confirm.
+            </p>
+          </div>
+        </div>
         {detail?.kind === 'loading' && (
           <div className="space-y-3" role="status" aria-label="Loading conversation">
             <Skeleton className="h-10 w-2/3" />
@@ -271,7 +302,7 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
               <p
                 key={m.id}
                 data-testid="user-message"
-                className="ml-auto max-w-[80%] rounded-lg bg-slate-900 px-4 py-2 text-sm whitespace-pre-wrap text-white"
+                className="ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-brand-600 px-4 py-2.5 text-sm whitespace-pre-wrap text-white"
               >
                 {m.content}
               </p>
@@ -342,14 +373,14 @@ export function ChatWorkspace({ initialConversationId }: { initialConversationId
             <div data-testid="live-turn" className="space-y-3">
               {/* After a stored turn fails, the stored messages above already show it. */}
               {!turn.userMessageId && turn.userText && (
-                <p className="ml-auto max-w-[80%] rounded-lg bg-slate-900 px-4 py-2 text-sm whitespace-pre-wrap text-white">
+                <p className="ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-brand-600 px-4 py-2.5 text-sm whitespace-pre-wrap text-white">
                   {turn.userText}
                 </p>
               )}
               {turn.userMessageId && turn.phase !== 'error' && (
                 <p
                   data-testid="user-message"
-                  className="ml-auto max-w-[80%] rounded-lg bg-slate-900 px-4 py-2 text-sm whitespace-pre-wrap text-white"
+                  className="ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-brand-600 px-4 py-2.5 text-sm whitespace-pre-wrap text-white"
                 >
                   {turn.userText}
                 </p>

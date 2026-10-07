@@ -2,13 +2,13 @@
 
 Living summary of what exists in the code. Target design: playbook sections 2–10.
 
-## Repository layout (as of W3-05)
+## Repository layout (as of UC-03)
 
 ```
 /
 ├── CLAUDE.md                 standing instructions + session protocol
-├── docs/                     contract (placeholder), playbook, ADRs, progress, gaps
-├── config/                   nine behaviour YAML files, validated at startup
+├── docs/                     contract v2.0, playbook, ADRs, progress, gaps
+├── config/                   ten behaviour YAML files (incl. workday), validated at startup
 ├── corpus/                   synthetic IT/HR policies (Markdown + frontmatter), README inventory
 ├── apps/
 │   ├── api/                  Express 5 + TS (CommonJS)
@@ -759,13 +759,44 @@ The ticket nodes (W3-02) and the API (W3-04) use these.
   created in the range with at least one `classification_correction` ÷ tickets created (eval
   tickets excluded).
 
+## Employee workspace: mock HR systems (UC-01, UC-02)
+
+Build Contract v2.0 (ADR-015). The task tracker, timesheets and HR/payroll systems are mocked
+inside the app:
+
+- **Collections:** `projects` (with `memberIds`), `tasks` (`PROJ-n` keys), `timesheet_entries`
+  (one per user, day and project; days are `YYYY-MM-DD` strings), `attendance`, `payslips`
+  (earnings and deductions that must balance; LOP lines list their dates) and `notifications`.
+  Shared contracts: `packages/shared/src/api/workspace.ts`.
+- **Rules (`domain/workday.ts`, pure):** day status (complete / partial / missing / today /
+  future / weekend / holiday / leave), cell validation (no future dates, `maxBackDays`, own
+  projects, `hourStep`, day total ≤ `maxHoursPerDay`), pay periods (US semi-monthly, UK
+  monthly), pay dates and late entries. Parameters and holidays: `config/workday.yaml`.
+- **`modules/workspace`:** repository (every query scoped to one user), mappers, service (week
+  view, `saveCells`, dashboard summary) and routes (employee-only). `saveCells` is the only
+  timesheet write path: the form uses it now, the copilot action (UC-05) will too.
+- **Clock:** `AppDeps.clock`; `DEMO_TODAY` pins "today" for rehearsed demos.
+- **Seed (`modules/workspace/seed.ts`):** deterministic from the users and an anchor date, with
+  stable hashed IDs; `npm run seed` replaces the employees' mock records and upserts projects,
+  tasks and three demo requests (`IT-9001`, `HR-9001`, `HR-9002`).
+
+## Employee UI (UC-03)
+
+- **Shell:** desktop sidebar (`components/shell/Sidebar.tsx`, `nav[aria-label=Main]`), sticky
+  top bar with the copilot launcher (Ctrl/⌘ K opens `CopilotPalette`) and `NotificationBell`;
+  a mobile drawer reuses the same parts. Employees land on `/dashboard`.
+- **Pages:** `/dashboard`, `/timesheets` (project × day grid, server errors shown per cell,
+  sticky save bar), `/tasks` (board / list), `/payroll` (payslip list and statement with LOP
+  highlighted), `/tickets` (request tracker, list / board by employee-facing stage), `/chat`
+  (`?q=` sends the question as the first message).
+- **Design system:** tokens in `app/globals.css` (`@theme`: brand palette, shadows, motion);
+  primitives in `components/ui` (Button, Badge, Card, PageHeader, Icon with inline SVG paths,
+  states). Enterprise rules: one accent colour, WCAG AA text contrast (slate-500 minimum for
+  small text), visible focus, labelled controls, loading / empty / error states on every page,
+  reduced-motion respected. No UI kit or icon library (CLAUDE.md).
+- **Data loading:** client components with `hooks/useApi.ts`; responses validated by the shared
+  Zod schemas in `lib/api.ts`.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.
-- The web app has a placeholder home page only. Auth, layouts and the prototype banner come in
-  W1-06.
-
-## Not yet present
-
-Everything under
-`apps/api/src/ai`.

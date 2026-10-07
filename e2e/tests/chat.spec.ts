@@ -7,7 +7,8 @@ import { expect, type Page, test } from '@playwright/test';
 async function signInAs(page: Page, name: string) {
   await page.goto('/login');
   await page.getByRole('button', { name: `Sign in as ${name}` }).click();
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto('/chat');
 }
 
 /** Sends a message in a new conversation and waits for the turn to finish. */

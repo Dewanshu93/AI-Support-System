@@ -6,17 +6,26 @@ import { expect, type Page, test } from '@playwright/test';
 const PERSONAS = [
   {
     name: 'Priya Shah',
-    home: '/chat',
-    nav: ['Chat', 'My tickets'],
+    home: '/dashboard',
+    nav: ['Dashboard', 'Copilot', 'Timesheets', 'My work', 'Payroll', 'Requests'],
     badges: ['Employee', 'US', 'Full-time'],
-    pages: ['/chat', '/chat/abc', '/tickets', '/tickets/abc'],
+    pages: [
+      '/dashboard',
+      '/chat',
+      '/chat/abc',
+      '/timesheets',
+      '/tasks',
+      '/payroll',
+      '/tickets',
+      '/tickets/abc',
+    ],
   },
   {
     name: 'Tom Clarke',
-    home: '/chat',
-    nav: ['Chat', 'My tickets'],
+    home: '/dashboard',
+    nav: ['Dashboard', 'Copilot', 'Timesheets', 'My work', 'Payroll', 'Requests'],
     badges: ['Employee', 'UK', 'Contractor'],
-    pages: ['/chat'],
+    pages: ['/dashboard', '/payroll'],
   },
   {
     name: 'Sam Patel',
@@ -81,24 +90,24 @@ test.describe('login and role navigation', () => {
 
 test('logout returns to login, and protected pages then redirect to login', async ({ page }) => {
   await signInAs(page, 'Priya Shah');
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByTestId('prototype-banner')).toBeVisible();
 
-  await page.goto('/chat');
+  await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/login$/);
 });
 
 test('users opening another role’s area are sent to their own home', async ({ page }) => {
   await signInAs(page, 'Priya Shah');
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.goto('/admin');
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
   await page.goto('/agent/queue');
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
 });
 
 test('signed-in users visiting /login go to their home', async ({ page }) => {

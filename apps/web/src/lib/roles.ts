@@ -1,13 +1,15 @@
 import type { Role } from '@sd/shared';
+import type { IconName } from '@/components/ui/Icon';
 
 export interface NavItem {
   href: string;
   label: string;
+  icon: IconName;
 }
 
-/** Where each role lands after login (playbook section 10). */
+/** Where each role lands after login (playbook section 10; employee: Build Contract v2.0 flow 1). */
 export const HOME_BY_ROLE: Record<Role, string> = {
-  employee: '/chat',
+  employee: '/dashboard',
   agent: '/agent/queue',
   admin: '/admin',
 };
@@ -16,20 +18,24 @@ export function homeFor(role: Role): string {
   return HOME_BY_ROLE[role];
 }
 
-/** Role-specific navigation shown in the AppShell. */
+/** Role-specific navigation shown in the AppShell sidebar. */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   employee: [
-    { href: '/chat', label: 'Chat' },
-    { href: '/tickets', label: 'My tickets' },
+    { href: '/dashboard', label: 'Dashboard', icon: 'home' },
+    { href: '/chat', label: 'Copilot', icon: 'sparkles' },
+    { href: '/timesheets', label: 'Timesheets', icon: 'clock' },
+    { href: '/tasks', label: 'My work', icon: 'checklist' },
+    { href: '/payroll', label: 'Payroll', icon: 'wallet' },
+    { href: '/tickets', label: 'Requests', icon: 'inbox' },
   ],
-  agent: [{ href: '/agent/queue', label: 'Queue' }],
+  agent: [{ href: '/agent/queue', label: 'Queue', icon: 'inbox' }],
   admin: [
-    { href: '/admin', label: 'Overview' },
-    { href: '/admin/gaps', label: 'Knowledge gaps' },
-    { href: '/admin/traces', label: 'Traces' },
-    { href: '/admin/documents', label: 'Documents' },
-    { href: '/admin/evals', label: 'Evaluation' },
-    { href: '/agent/queue', label: 'Agent queue' },
+    { href: '/admin', label: 'Overview', icon: 'grid' },
+    { href: '/admin/gaps', label: 'Knowledge gaps', icon: 'search' },
+    { href: '/admin/traces', label: 'Traces', icon: 'list' },
+    { href: '/admin/documents', label: 'Documents', icon: 'file' },
+    { href: '/admin/evals', label: 'Evaluation', icon: 'checkCircle' },
+    { href: '/agent/queue', label: 'Agent queue', icon: 'inbox' },
   ],
 };
 

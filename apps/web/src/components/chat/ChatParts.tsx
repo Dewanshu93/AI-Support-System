@@ -50,7 +50,10 @@ export function Composer({
     if (e.key === 'Enter' && !e.shiftKey) submit(e);
   };
   return (
-    <form onSubmit={submit} className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+    <form
+      onSubmit={submit}
+      className="space-y-2 rounded-xl border border-slate-300 bg-white p-2 transition focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/10"
+    >
       <label htmlFor="composer" className="sr-only">
         Your message
       </label>
@@ -62,8 +65,8 @@ export function Composer({
         onKeyDown={onKeyDown}
         rows={2}
         maxLength={MAX_MESSAGE_LENGTH}
-        placeholder="Ask an IT or HR question…"
-        className="w-full resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        placeholder="Ask about your timesheet, pay, policies or requests…"
+        className="w-full resize-none bg-transparent px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none"
       />
       <div className="flex items-center justify-between gap-2">
         <Button
@@ -156,17 +159,18 @@ export function FeedbackButtons({
 export const EXAMPLE_PROMPTS = [
   'How many days of annual leave do I get?',
   'My VPN keeps disconnecting. What should I do?',
-  'How do I request access to a new system?',
-  'What is the meal allowance when travelling?',
+  'What is the Loss of Pay policy?',
+  'When do I need to submit my timesheet?',
 ];
 
 export function EmptyChat({ onPick }: { onPick: (prompt: string) => void }) {
   return (
     <div data-testid="empty-chat" className="flex flex-col items-center gap-4 py-10 text-center">
       <div>
-        <p className="text-lg font-semibold text-slate-900">Ask about IT or HR</p>
+        <p className="text-lg font-semibold text-slate-900">How can I help?</p>
         <p className="text-sm text-slate-600">
-          Answers come from company policies, with the sources cited.
+          Ask about policies, your pay or your requests. Answers come from company policy, with
+          sources cited.
         </p>
       </div>
       <div className="grid w-full max-w-xl gap-2 sm:grid-cols-2">
@@ -175,7 +179,7 @@ export function EmptyChat({ onPick }: { onPick: (prompt: string) => void }) {
             key={prompt}
             type="button"
             onClick={() => onPick(prompt)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-800 transition hover:border-brand-200 hover:bg-brand-50/50"
           >
             {prompt}
           </button>

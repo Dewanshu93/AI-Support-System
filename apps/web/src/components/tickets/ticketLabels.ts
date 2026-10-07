@@ -1,17 +1,15 @@
 // Display labels for ticket statuses and public events (employee views).
-import type { TicketEventType, TicketStatus } from '@sd/shared';
+import { REQUEST_STAGE_LABEL, type TicketEventType, type TicketStatus } from '@sd/shared';
 
-export const STATUS_LABEL: Record<TicketStatus, string> = {
-  new: 'New',
-  in_progress: 'In progress',
-  waiting_on_employee: 'Waiting on you',
-  resolved: 'Resolved',
-  closed: 'Closed',
-};
+/** Employee-facing stages (Build Contract v2.0, section G). */
+export const STATUS_LABEL: Record<TicketStatus, string> = REQUEST_STAGE_LABEL;
 
-export const STATUS_TONE: Record<TicketStatus, 'info' | 'warning' | 'success' | 'neutral'> = {
+export const STATUS_TONE: Record<
+  TicketStatus,
+  'info' | 'brand' | 'warning' | 'success' | 'neutral'
+> = {
   new: 'info',
-  in_progress: 'info',
+  in_progress: 'brand',
   waiting_on_employee: 'warning',
   resolved: 'success',
   closed: 'neutral',

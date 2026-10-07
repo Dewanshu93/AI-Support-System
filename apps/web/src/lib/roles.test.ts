@@ -3,7 +3,7 @@ import { AREA_ROLES, homeFor, NAV_BY_ROLE } from './roles';
 
 describe('role routing', () => {
   it('sends each role to its home', () => {
-    expect(homeFor('employee')).toBe('/chat');
+    expect(homeFor('employee')).toBe('/dashboard');
     expect(homeFor('agent')).toBe('/agent/queue');
     expect(homeFor('admin')).toBe('/admin');
   });

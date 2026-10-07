@@ -3,10 +3,12 @@
 import type { DemoUser, Role } from '@sd/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
+import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api';
+import { initials } from '@/lib/format';
 import { EMPLOYMENT_LABEL, homeFor } from '@/lib/roles';
 
 const GROUPS: { role: Role; title: string }[] = [
@@ -97,7 +99,7 @@ export function LoginPicker() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:outline-none"
+            className="block h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none"
           />
         </label>
       )}
@@ -113,7 +115,10 @@ export function LoginPicker() {
         if (people.length === 0) return null;
         return (
           <section key={role} aria-labelledby={`group-${role}`} className="space-y-3">
-            <h2 id={`group-${role}`} className="text-sm font-semibold text-slate-700">
+            <h2
+              id={`group-${role}`}
+              className="text-xs font-semibold tracking-wide text-slate-500 uppercase"
+            >
               {title}
             </h2>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -124,19 +129,27 @@ export function LoginPicker() {
                     onClick={() => signIn(user)}
                     disabled={pending !== null || needsPassword}
                     aria-label={`Sign in as ${user.name}`}
-                    className="w-full space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-400 hover:shadow focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-card transition hover:border-brand-300 hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span className="block text-sm font-semibold text-slate-900">
-                      {user.name}
-                      {pending === user.id && (
-                        <span className="ml-2 text-xs font-normal text-slate-500">Signing in…</span>
-                      )}
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+                      {initials(user.name)}
                     </span>
-                    <span className="block text-xs text-slate-600">{user.jobTitle}</span>
-                    <span className="flex gap-1">
-                      <Badge>{user.country}</Badge>
-                      <Badge>{EMPLOYMENT_LABEL[user.employmentType]}</Badge>
+                    <span className="min-w-0 flex-1 space-y-1">
+                      <span className="block text-sm font-semibold text-slate-900">
+                        {user.name}
+                        {pending === user.id && (
+                          <span className="ml-2 text-xs font-normal text-slate-500">
+                            Signing in…
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-xs text-slate-600">{user.jobTitle}</span>
+                      <span className="flex gap-1">
+                        <Badge>{user.country}</Badge>
+                        <Badge>{EMPLOYMENT_LABEL[user.employmentType]}</Badge>
+                      </span>
                     </span>
+                    <Icon name="arrowRight" className="h-4 w-4 text-slate-400" />
                   </button>
                 </li>
               ))}

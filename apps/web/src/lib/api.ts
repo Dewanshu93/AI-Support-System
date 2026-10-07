@@ -17,6 +17,15 @@ import {
   TicketDetailResponseSchema,
   TicketListResponseSchema,
   type TicketStatus,
+  DashboardResponseSchema,
+  NotificationListResponseSchema,
+  NotificationReadResponseSchema,
+  PayslipListResponseSchema,
+  PayslipResponseSchema,
+  TaskListResponseSchema,
+  type TimesheetSaveRequest,
+  TimesheetSaveResponseSchema,
+  TimesheetWeekResponseSchema,
 } from '@sd/shared';
 import type { z } from 'zod';
 
@@ -132,4 +141,29 @@ export const api = {
     return (await apiRequest(`/tickets/mine?${query}`, TicketListResponseSchema))!;
   },
   ticket: async (id: string) => (await apiRequest(`/tickets/${id}`, TicketDetailResponseSchema))!,
+
+  // Employee workspace (UC-02).
+  dashboard: async () => (await apiRequest('/dashboard', DashboardResponseSchema))!,
+  myTasks: async (view: 'open' | 'all' = 'all') =>
+    (await apiRequest(`/tasks/mine?view=${view}`, TaskListResponseSchema))!,
+  timesheetWeek: async (date?: string) =>
+    (await apiRequest(
+      `/timesheets/week${date ? `?date=${date}` : ''}`,
+      TimesheetWeekResponseSchema,
+    ))!,
+  saveTimesheet: async (body: TimesheetSaveRequest) =>
+    (await apiRequest('/timesheets/entries', TimesheetSaveResponseSchema, {
+      method: 'POST',
+      body,
+    }))!,
+  payslips: async () => (await apiRequest('/payslips/mine', PayslipListResponseSchema))!,
+  payslip: async (id: string) =>
+    (await apiRequest(`/payslips/${id}`, PayslipResponseSchema))!.payslip,
+  notifications: async (limit = 20) =>
+    (await apiRequest(`/notifications?limit=${limit}`, NotificationListResponseSchema))!,
+  markNotificationsRead: async (ids?: string[]) =>
+    (await apiRequest('/notifications/read', NotificationReadResponseSchema, {
+      method: 'POST',
+      body: ids ? { ids } : {},
+    }))!,
 };

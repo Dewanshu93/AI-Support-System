@@ -2,5 +2,7 @@ import { APP_NAME } from '@sd/shared';
 
 export const site = {
   name: APP_NAME,
-  tagline: 'Ask about IT or HR — get a cited answer or a ready-to-confirm ticket.',
+  subtitle: 'Unified AI Gateway',
+  tagline:
+    'Your timesheets, pay, policies and requests in one place, with an AI Copilot that can explain and act.',
 } as const;

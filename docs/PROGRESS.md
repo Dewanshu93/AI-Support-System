@@ -1372,3 +1372,42 @@ reuses the same validation.
 | Supertest          | Pass: `test/api/workspace.test.ts` (30): 401 and agent/admin 403 on every route; dashboard numbers for Priya and Tom; week view (Labor Day holiday, LOP day missing, 32 h required); late LOP entry saved and audited; update/remove; future date, foreign project and 12.5 h day rejected with per-cell issues; payslip 404 across employees; attendance bounds; notifications read/scoping |
 | Route policy table | Pass: the 10 routes are in `http/routes.test.ts`                                                                                                                                                                                                                                                                                                                                             |
 | Live API (LAN DB)  | Pass: `GET /api/health` up; dashboard and week served for the seeded data                                                                                                                                                                                                                                                                                                                    |
+
+## UC-03 Employee dashboard and workspace UI — 2026-10-07
+
+**Delivered (Tailwind only, enterprise style; see ARCHITECTURE "Employee UI"):**
+
+- New shell: sidebar navigation, sticky top bar with the copilot launcher (Ctrl/⌘ K palette with
+  suggestions) and a notification bell; mobile drawer. Employees now land on `/dashboard`.
+- `/dashboard`: greeting with an inline copilot box and suggestions, key numbers (hours this week,
+  days without hours, open tasks, active requests), week strip, tasks, pay card with the LOP
+  alert ("Ask why" opens the copilot), requests with stage progress, notifications.
+- `/timesheets`: project × day grid with day statuses, holiday/leave labels, "Fill to 8h", late
+  and copilot markers, per-cell server errors and a sticky save bar; locked while a week loads.
+- `/payroll` (statement with LOP itemised and linked to the copilot and the timesheet; contractors
+  see "paid by your agency"), `/tasks` (board / list, project filter), `/tickets` restyled as the
+  request tracker (list / board by employee-facing stage), `/chat?q=` sends the question.
+- Restyled login, chat, primitives; WCAG AA text contrast; `APP_NAME` "Employee Hub".
+
+**Verification**
+
+| Check                          | Result                                                                                                                                                                                 |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| lint / typecheck / unit        | Pass: web 48 tests; shared 44; api 893 (28 integration skipped)                                                                                                                        |
+| Production build               | Pass: `next build` with all routes                                                                                                                                                     |
+| Visual review                  | Screenshots of every page at 1440 px and the dashboard at 390 px; fixed mobile overflow, a cramped alert, an ambiguous legend colour and a missing full stop                           |
+| Playwright `workspace.spec.ts` | Pass (6): dashboard (week, LOP, request, notifications), payslip LOP line, contractor payroll, timesheet over-12 h rejection then save and restore, tracker list/board, Ctrl+K palette |
+| Existing specs                 | Updated for the new home and navigation                                                                                                                                                |
+| Full Playwright run (replay)   | **25 / 27 pass.** The 2 failures are contractor chat recordings (see notes)                                                                                                            |
+
+**Notes**
+
+- The three new policies changed retrieval for "How many days of annual leave do I get?", so the
+  recorded LLM replies for chat flow 1 were re-recorded (`E2E_LLM=record`).
+- **Open follow-up:** `hr-timesheet-policy` is the only new document contractors can read, so
+  it changes their retrieval candidates and the recorded prompts for Tom (chat flow 1) and Marcus
+  (tickets flow 5) no longer match. Re-recording failed on 2026-10-07: the Gemini quality model
+  hit its free-tier daily quota (20 requests/day, 429) and the OpenRouter key is out of credit
+  (402). Re-run `E2E_LLM=record npx playwright test -g "flow 5|Tom"` once quota resets.
+- The Next dev server hit Windows `EPERM` rename errors in `.next`; production builds are
+  unaffected. If it recurs locally, delete `apps/web/.next` and restart `npm run dev:web`.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 
 export function LogoutButton() {
@@ -24,7 +25,14 @@ export function LogoutButton() {
   }
 
   return (
-    <Button variant="secondary" onClick={logout} disabled={!ready || busy}>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="mt-2 w-full justify-start"
+      onClick={logout}
+      disabled={!ready || busy}
+    >
+      <Icon name="logout" className="h-4 w-4" />
       {busy ? 'Signing out…' : 'Sign out'}
     </Button>
   );

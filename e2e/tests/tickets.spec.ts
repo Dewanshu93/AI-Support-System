@@ -12,7 +12,8 @@ test.slow(LIVE, 'several live LLM turns');
 async function signInAs(page: Page, name: string) {
   await page.goto('/login');
   await page.getByRole('button', { name: `Sign in as ${name}` }).click();
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto('/chat');
 }
 
 async function waitForTurn(page: Page) {
@@ -66,7 +67,7 @@ async function confirmDraft(page: Page, onDuplicate: 'new' | 'same' = 'new') {
   return ((await created.locator('span.font-semibold').textContent()) ?? '').trim();
 }
 
-test('flow 4: ticket from chat, edited and confirmed, then tracked in My tickets', async ({
+test('flow 4: ticket from chat, edited and confirmed, then tracked in the request tracker', async ({
   page,
 }) => {
   await signInAs(page, 'Ravi Iyer');
@@ -93,7 +94,7 @@ test('flow 4: ticket from chat, edited and confirmed, then tracked in My tickets
   await expect(page.getByTestId('ticket-status')).toHaveAttribute('data-status', 'new');
   await expect(page.getByTestId('ticket-event').first()).toHaveAttribute('data-type', 'created');
 
-  await page.getByRole('link', { name: 'My tickets' }).first().click();
+  await page.getByRole('link', { name: 'Requests' }).first().click();
   await expect(page.getByTestId('ticket-row').filter({ hasText: humanId })).toBeVisible();
   await page.getByTestId('status-filter').selectOption('resolved');
   await expect(page).toHaveURL(/status=resolved/);

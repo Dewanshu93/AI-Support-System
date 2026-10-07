@@ -37,7 +37,7 @@ describe('employee ticket views', () => {
     const html = renderToStaticMarkup(<TicketDetailView data={DATA} />);
     expect(html).toContain('IT-0012');
     expect(html).toMatch(/data-testid="ticket-status" data-status="waiting_on_employee"/);
-    expect(html).toContain('Waiting on you');
+    expect(html).toContain('Waiting for you');
     expect(html).toContain('IT Hardware');
     expect(html).toContain('Dell Latitude 7440');
     expect(html).not.toContain('Asset tag'); // "unknown" fields are hidden
@@ -59,6 +59,6 @@ describe('employee ticket views', () => {
     expect(html).toContain('href="/tickets/6ac4eacc592a1f25e55be24e"');
     expect(html).toContain('data-human-id="IT-0012"');
     expect(html).toContain('High');
-    expect(html).toContain('Waiting on you');
+    expect(html).toContain('Waiting for you');
   });
 });
