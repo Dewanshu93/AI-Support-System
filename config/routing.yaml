@@ -1,11 +1,14 @@
 # Category → queue routing. Agents are assigned queues in users.queues.
 # Restricted (sensitive handoff) tickets always go to sensitiveQueue.
+# email: where escalation emails for the queue go (UC-07, ADR-017). The
+# sensitive queue never has one: confidential cases are never emailed.
 version: 1
 queues:
-  - { id: it_hardware, domain: IT, label: IT Hardware }
-  - { id: it_software, domain: IT, label: IT Software }
-  - { id: it_access, domain: IT, label: IT Access }
-  - { id: hr_general, domain: HR, label: HR General }
+  - { id: it_hardware, domain: IT, label: IT Hardware, email: it-support@example.com }
+  - { id: it_software, domain: IT, label: IT Software, email: it-support@example.com }
+  - { id: it_access, domain: IT, label: IT Access, email: it-support@example.com }
+  - { id: hr_general, domain: HR, label: HR General, email: hr@example.com }
+  - { id: hr_payroll, domain: HR, label: Payroll, email: payroll@example.com }
   - { id: hr_case, domain: HR, label: HR Confidential Cases }
 sensitiveQueue: hr_case
 routes:
@@ -15,6 +18,6 @@ routes:
   network: it_software
   leave: hr_general
   benefits: hr_general
-  payroll: hr_general
+  payroll: hr_payroll
   policy: hr_general
   employee_relations: hr_case

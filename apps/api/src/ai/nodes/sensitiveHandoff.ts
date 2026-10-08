@@ -40,6 +40,7 @@ export function restrictedDraft(deps: SensitiveHandoffDeps, matchedRules: string
     requiredMissing: [],
     articlesShown: [],
     restricted: true,
+    recordFilledFields: [],
   };
 }
 

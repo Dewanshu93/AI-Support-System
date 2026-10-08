@@ -1,8 +1,11 @@
-// In-memory tickets storage for tests; writes are validated with the MongoDB
+// In-memory tickets and email outbox storage for tests; writes are validated with the MongoDB
 // schemas, like the real repository.
 import { PRIORITIES } from '@sd/shared';
+import type { ObjectId } from 'mongodb';
 import { validateForWrite } from '../../src/db/collections';
 import {
+  type EmailOutboxDoc,
+  EmailOutboxSchema,
   type TicketDoc,
   type TicketEventDoc,
   TicketEventSchema,
@@ -15,6 +18,9 @@ import {
   overrideRateOf,
 } from '../../src/modules/agent/repository';
 import { decodeCursor, encodeCursor } from '../../src/modules/conversations/repository';
+import { type EmailRepository, MAX_ERROR_LENGTH } from '../../src/modules/email/repository';
+import { createEmailService, type EmailService } from '../../src/modules/email/service';
+import { createMockTransport, type EmailTransport } from '../../src/modules/email/transport';
 import { formatHumanId, type TicketsRepository } from '../../src/modules/tickets/repository';
 
 export interface MemoryTickets extends TicketsRepository {
@@ -132,4 +138,77 @@ export function memoryAgentTicketsRepository(store: MemoryTickets): AgentTickets
       );
     },
   };
+}
+
+export interface MemoryEmails extends EmailRepository {
+  rows: EmailOutboxDoc[];
+}
+
+/** In-memory email_outbox with the same once-only insert and status gate as MongoDB. */
+export function memoryEmailRepository(): MemoryEmails {
+  const rows: EmailOutboxDoc[] = [];
+  // Copies, so callers cannot change stored rows (ObjectIds and Dates are shared, never mutated).
+  const copy = (doc: EmailOutboxDoc): EmailOutboxDoc => ({
+    ...doc,
+    from: { ...doc.from },
+    to: { ...doc.to },
+    aiDraft: { ...doc.aiDraft },
+    edited: { ...doc.edited },
+    delivery: { ...doc.delivery },
+  });
+  const queued = (id: ObjectId) =>
+    rows.find((r) => r._id.equals(id) && r.delivery.status === 'queued');
+  return {
+    rows,
+    async recordOnce(doc) {
+      const existing = rows.find((r) => r.conversationId.equals(doc.conversationId));
+      if (existing) return { doc: copy(existing), inserted: false };
+      const valid = validateForWrite('email_outbox', EmailOutboxSchema, doc);
+      rows.push(valid);
+      return { doc: copy(valid), inserted: true };
+    },
+    findByConversation: async (id) => {
+      const row = rows.find((r) => r.conversationId.equals(id));
+      return row ? copy(row) : null;
+    },
+    listForTicket: async (ticketId) =>
+      rows
+        .filter((r) => r.ticketId.equals(ticketId))
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .map(copy),
+    async markDelivered(id, { status, providerMessageId, at }) {
+      const row = queued(id);
+      if (!row) return null;
+      row.delivery = {
+        ...row.delivery,
+        status,
+        providerMessageId,
+        deliveredAt: at,
+        lastError: null,
+        attempts: row.delivery.attempts + 1,
+      };
+      row.updatedAt = at;
+      return copy(row);
+    },
+    async markFailed(id, { error, at }) {
+      const row = queued(id);
+      if (!row) return null;
+      row.delivery = {
+        ...row.delivery,
+        status: 'failed',
+        lastError: error.slice(0, MAX_ERROR_LENGTH),
+        attempts: row.delivery.attempts + 1,
+      };
+      row.updatedAt = at;
+      return copy(row);
+    },
+  };
+}
+
+/** The email service over an in-memory outbox and the mock transport. */
+export function memoryEmailService(
+  repository: MemoryEmails = memoryEmailRepository(),
+  transport: EmailTransport = createMockTransport(),
+): EmailService & { outbox: MemoryEmails } {
+  return { ...createEmailService({ repository, transport }), outbox: repository };
 }

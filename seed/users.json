@@ -87,7 +87,7 @@
     "department": "People Team",
     "jobTitle": "HR Advisor",
     "accessLevel": "standard",
-    "queues": ["hr_general", "hr_case"],
+    "queues": ["hr_general", "hr_payroll", "hr_case"],
     "isDemo": true
   },
   {

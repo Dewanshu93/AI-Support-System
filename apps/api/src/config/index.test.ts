@@ -89,6 +89,15 @@ describe('loadConfig', () => {
       edit('routing.yaml', 'sensitiveQueue: hr_case', 'sensitiveQueue: it_access');
       expect(messageOf()).toContain('sensitiveQueue "it_access" must be an HR queue');
     });
+
+    it('rejects an email address on the sensitive queue', () => {
+      edit(
+        'routing.yaml',
+        'label: HR Confidential Cases }',
+        'label: HR Confidential Cases, email: cases@example.com }',
+      );
+      expect(messageOf()).toContain('sensitiveQueue "hr_case" must not have an email');
+    });
   });
 });
 

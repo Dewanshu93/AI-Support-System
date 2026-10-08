@@ -14,6 +14,7 @@ import {
 } from '../enums';
 import { ObjectIdStringSchema, PaginationQuerySchema, paginatedSchema } from './common';
 import { CitationDtoSchema } from './conversations';
+import { TicketEmailSchema } from './tickets';
 
 export const AgentTicketListQuerySchema = PaginationQuerySchema.extend({
   /** One of the agent's queues (403 otherwise); all of them when absent. */
@@ -101,6 +102,8 @@ export const AgentTicketDetailResponseSchema = z.object({
   transcript: z.array(TranscriptMessageSchema),
   /** Every validated citation shown to the employee in the conversation. */
   citationsShown: z.array(CitationDtoSchema),
+  /** Escalation emails linked to the ticket (UC-07), oldest first; never on restricted cases. */
+  emails: z.array(TicketEmailSchema).default([]),
 });
 export type AgentTicketDetailResponse = z.infer<typeof AgentTicketDetailResponseSchema>;
 

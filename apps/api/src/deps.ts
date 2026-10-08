@@ -4,6 +4,7 @@ import type { AgentTicketsRepository } from './modules/agent/repository';
 import type { AuditRepository } from './modules/audit/repository';
 import type { ConversationsRepository } from './modules/conversations/repository';
 import type { SourcesReader } from './modules/documents/repository';
+import type { EmailService } from './modules/email/service';
 import type { TicketsRepository } from './modules/tickets/repository';
 import type { UsersRepository } from './modules/users/repository';
 import type { WorkspaceRepository } from './modules/workspace/repository';
@@ -35,6 +36,8 @@ export interface AppDeps {
   /** config/templates.yaml: fixed replies used by the API (errors, resolution). */
   templates: ConfigFiles['templates']['templates'];
   tickets: TicketsRepository;
+  /** Escalation email outbox (UC-07, ADR-017): written by the graph, read by the ticket views. */
+  email: Pick<EmailService, 'findByConversation' | 'listForTicket'>;
   /** Agent queue queries, guarded updates and the override rate (W3-05). */
   agentTickets: AgentTicketsRepository;
   /** Config the ticket endpoints need (routing, taxonomy, field schemas, duplicate window). */

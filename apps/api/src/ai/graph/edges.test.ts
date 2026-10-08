@@ -189,6 +189,7 @@ describe('routeAfterPersist and routeAfterConfirmation', () => {
     requiredMissing: [],
     articlesShown: [],
     restricted: false,
+    recordFilledFields: [],
   };
   const output = { text: '', citations: [], uncovered: [], withdrawn: false };
 

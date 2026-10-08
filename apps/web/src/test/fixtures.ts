@@ -24,4 +24,33 @@ export const DRAFT: TicketDraft = {
   requiredMissing: ['asset_tag'],
   articlesShown: [],
   restricted: false,
+  recordFilledFields: [],
+};
+
+/** A payroll draft with the escalation email code drafted (UC-07). */
+export const EMAIL_DRAFT: TicketDraft = {
+  ...DRAFT,
+  domain: 'HR',
+  category: 'payroll',
+  subcategory: null,
+  queue: { id: 'hr_payroll', label: 'Payroll' },
+  priority: 'medium',
+  priorityFloorApplied: null,
+  summary: 'Loss of Pay deduction on the latest payslip',
+  description: 'The employee asks payroll to review a Loss of Pay deduction.',
+  fields: {
+    pay_period: '1 Sept – 15 Sept 2026 (paid 15 Sept 2026)',
+    question: 'Please review my Loss of Pay deduction.',
+  },
+  aiFilledFields: ['question'],
+  requiredMissing: [],
+  recordFilledFields: ['pay_period'],
+  email: {
+    to: { queueId: 'hr_payroll', label: 'Payroll', address: 'payroll@example.com' },
+    from: { name: 'Priya Shah', address: 'priya.shah@example.com' },
+    subject: 'Payroll request: Loss of Pay deduction on the latest payslip',
+    body: 'Hello Payroll team,\n\nIssue:\nThe employee asks payroll to review a Loss of Pay deduction.',
+    issueSource: 'model',
+    recordsAsOf: '2026-09-15',
+  },
 };

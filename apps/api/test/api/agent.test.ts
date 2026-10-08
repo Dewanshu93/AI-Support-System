@@ -7,7 +7,7 @@ import { buildTestApp, loginCookie, type TestContext, userByEmail } from '../hel
 import type { MemoryTickets } from '../helpers/tickets';
 
 const SAM = 'sam.patel@example.com'; // IT queues
-const HANA = 'hana.kim@example.com'; // hr_general + hr_case
+const HANA = 'hana.kim@example.com'; // hr_general + hr_payroll + hr_case
 const ALEX = 'alex.morgan@example.com'; // admin
 const PRIYA = 'priya.shah@example.com'; // employee, requester of every fixture
 
@@ -447,7 +447,7 @@ describe('classification corrections', () => {
       category: 'payroll',
       subcategory: null,
       priority: 'high',
-      queue: 'hr_general',
+      queue: 'hr_payroll',
       domain: 'HR',
     });
     const events = memory(ctx).events.filter((e) => e.type === 'classification_correction');
@@ -456,13 +456,13 @@ describe('classification corrections', () => {
       ['subcategory', 'laptop_fault', null, 'internal'],
       ['priority', 'low', 'high', 'internal'],
     ]);
-    expect(events[0]!.body).toBe('Re-routed to HR General');
+    expect(events[0]!.body).toBe('Re-routed to Payroll');
     expect(ctx.audit.filter((a) => a.action === 'ticket.classification')).toEqual([
       expect.objectContaining({
         metadata: expect.objectContaining({
           changed: ['category', 'subcategory', 'priority'],
           rerouted: true,
-          queue: 'hr_general',
+          queue: 'hr_payroll',
         }),
       }),
     ]);

@@ -71,6 +71,8 @@ export interface TicketFlow {
    * detected on turn 1 still applies when the draft is built on a later turn.
    */
   matchedRules?: string[];
+  /** Field keys code filled from the employee's records (UC-07), never from the model. */
+  recordFilledFields?: string[];
 }
 export const EMPTY_TICKET_FLOW: TicketFlow = {
   active: false,
@@ -170,6 +172,8 @@ export interface Output {
     offerPrivateContact?: boolean;
   };
   ticketId?: string;
+  /** The escalation email recorded by sendEmail after confirm (UC-07). */
+  emailId?: string;
   /** A copilot action waiting for confirmation (UC-05); nothing is saved before confirm. */
   action?: TimesheetAction;
   /** Set by applyAction after the employee confirmed. */
@@ -181,6 +185,8 @@ export const ConfirmationSchema = z.strictObject({
   action: z.enum(['confirm', 'cancel']),
   edits: z.record(z.string(), z.string()).optional(),
   duplicateDecision: z.enum(['new', 'same']).optional(),
+  /** The confirmed email text (UC-07); absent means the drafted text that was shown. */
+  email: z.strictObject({ subject: z.string(), body: z.string() }).optional(),
 });
 export type Confirmation = z.infer<typeof ConfirmationSchema>;
 

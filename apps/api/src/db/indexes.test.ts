@@ -25,6 +25,7 @@ describe('index definitions (playbook section 3)', () => {
     ['tickets', { conversationId: 1 }, { unique: true, sparse: true }],
     ['feedback', { messageId: 1, userId: 1 }, { unique: true }],
     ['evalResults', { runId: 1, caseId: 1 }, { unique: true }],
+    ['emailOutbox', { conversationId: 1 }, { unique: true }],
   ])('%s has unique index %j', (collection, key, options) => {
     const spec = REGULAR_INDEXES[collection].find(
       (s) => JSON.stringify(s.key) === JSON.stringify(key),
@@ -38,6 +39,8 @@ describe('index definitions (playbook section 3)', () => {
     expect(keys('tickets')).toContainEqual({ queue: 1, status: 1, priority: -1, createdAt: 1 });
     expect(keys('tickets')).toContainEqual({ requesterId: 1, category: 1, status: 1 });
     expect(keys('turnTraces')).toContainEqual({ 'decision.value': 1, createdAt: -1 });
+    expect(keys('emailOutbox')).toContainEqual({ ticketId: 1, createdAt: 1 });
+    expect(keys('emailOutbox')).toContainEqual({ 'delivery.status': 1, createdAt: -1 });
   });
 });
 

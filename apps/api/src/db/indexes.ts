@@ -97,6 +97,13 @@ export const REGULAR_INDEXES: Record<CollectionKey, IndexSpec[]> = {
     { name: 'userId_createdAt', key: { userId: 1, createdAt: -1 } },
     { name: 'userId_readAt', key: { userId: 1, readAt: 1 } },
   ],
+  emailOutbox: [
+    // One email per escalation conversation; writes are $setOnInsert upserts.
+    { name: 'conversationId_unique', key: { conversationId: 1 }, unique: true },
+    { name: 'ticketId_createdAt', key: { ticketId: 1, createdAt: 1 } },
+    { name: 'requesterId_createdAt', key: { requesterId: 1, createdAt: -1 } },
+    { name: 'deliveryStatus_createdAt', key: { 'delivery.status': 1, createdAt: -1 } },
+  ],
 };
 
 /** Creates any collection that does not exist yet. */

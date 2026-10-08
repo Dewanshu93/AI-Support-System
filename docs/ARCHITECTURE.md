@@ -309,7 +309,7 @@ agent, each a compiled subgraph over the same `GraphState`:
 | Agent             | Nodes                                                                                                      | Entered when                                                                                        |
 | ----------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `knowledgeAgent`  | retrieve, rerankAssess, decide, answer, validateCitations, clarify, outOfScope                             | default (policy questions, IT issues)                                                               |
-| `escalationAgent` | slotFill, clarifyForTicket, buildDraft                                                                     | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
+| `escalationAgent` | slotFill, clarifyForTicket, buildDraft (ticket draft + escalation email, UC-07)                            | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
 | `timesheetAgent`  | timesheetStatus (records), timesheetLog (P-10 extraction → code checks → proposal)                         | P-1 v2 `workspaceIntent` timesheet_status / timesheet_log                                           |
 | `requestsAgent`   | requestStatus (records)                                                                                    | `workspaceIntent` request_status                                                                    |
 | `payrollAgent`    | payrollRecords (records), retrieve, rerankAssess, payrollExplain (P-11), validateCitations, payrollCompose | `workspaceIntent` payroll_explain                                                                   |
@@ -378,17 +378,19 @@ graph TD;
 	persist(persist)
 	awaitConfirmation(awaitConfirmation)
 	createTicket(createTicket)
+	sendEmail(sendEmail)
 	applyAction(applyAction)
 	agentSummary(agentSummary)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> loadContext;
 	agentSummary --> __end__;
 	applyAction --> __end__;
-	createTicket --> agentSummary;
+	createTicket --> sendEmail;
 	escalationAgent___end__ --> persist;
 	loadContext --> precheck;
 	payrollAgent_payrollCompose --> persist;
 	requestsAgent --> persist;
+	sendEmail --> agentSummary;
 	sensitiveHandoff --> persist;
 	timesheetAgent___end__ --> persist;
 	precheck -.-> sensitiveHandoff;
@@ -876,6 +878,37 @@ inside the app:
   reduced-motion respected. No UI kit or icon library (CLAUDE.md).
 - **Data loading:** client components with `hooks/useApi.ts`; responses validated by the shared
   Zod schemas in `lib/api.ts`.
+
+## Escalation email (UC-07, ADR-017)
+
+- **Draft (code, no new LLM call):** `buildDraft` attaches `draft.email` when the routed queue
+  has an `email` in `routing.yaml` and the case is not restricted. `domain/escalationEmail.ts`
+  (`composeEscalationEmail`, pure) writes greeting, **Issue** (P-5's description), **System
+  information** (employee, category, priority, known fields, payroll lines from
+  `payrollEmailLines`, "Records as of"), **Action taken**, **Request** and sign-off from
+  templates. Any digit in model text that the employee never typed sends Issue and Subject back
+  to their own redacted words (`issueSource: employee_words`, flag `EMAIL_ISSUE_FALLBACK`). For
+  payroll, `slotFill` fills `pay_period` from payslips (`recordFilledFields`, "From your
+  records" in the UI), so the employee is not asked for it.
+- **Send (code, graph-owned):** `createTicket → sendEmail → agentSummary`. `sendEmail`
+  recomputes the recipient from the ticket's queue (a "same issue" link goes to the linked
+  ticket's queue), takes the sender from the user record and stores exactly the confirmed text
+  (`confirmation.email`, or the drafted text shown when absent). `email_outbox` holds one row
+  per conversation (unique `conversationId`, `$setOnInsert` upsert); delivery moves a row out of
+  `queued` once, then writes one public `email_sent` ticket event and one chat note (no subject
+  or body). A crash leaves `next = [sendEmail]` and the confirm retry resumes there.
+- **Module `modules/email`:** repository (`recordOnce`, `markDelivered`/`markFailed` gated on
+  `queued`), transport (`createMockTransport`: status `recorded`, deterministic message ID;
+  `EMAIL_DELIVERY=smtp` stops startup until a mail dependency is approved), service, mappers.
+- **API:** `POST …/ticket-draft/confirm` accepts optional strict `email {subject, body}`
+  (subject 1–150 chars, no CR/LF; body 1–5000) and returns `email {id, status, mode}`; audit
+  `email.send` with IDs and flags only. `GET /api/tickets/:id` (requester's own) and
+  `GET /api/agent/tickets/:id` (queue access) list `emails`.
+- **UI:** `EmailDraftSection` in the draft card (read-only To/From, editable subject and body,
+  "Send request and email", "Cancel (nothing is sent)"); `EmailCard` in the ticket detail.
+  The agent ticket workspace page is still a placeholder (W3-07, deferred).
+- **Privacy:** no model sees the email, the outbox or the payroll figures; traces hold counts
+  and flags; `hr_case` can never have an address (config cross-check and outbox schema).
 
 ## Runtime
 

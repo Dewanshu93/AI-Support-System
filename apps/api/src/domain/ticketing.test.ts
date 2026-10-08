@@ -26,7 +26,7 @@ describe('routing', () => {
     ['network', 'it_software'],
     ['leave', 'hr_general'],
     ['benefits', 'hr_general'],
-    ['payroll', 'hr_general'],
+    ['payroll', 'hr_payroll'],
     ['policy', 'hr_general'],
     ['employee_relations', 'hr_case'],
   ])('%s → %s', (category, queue) => {

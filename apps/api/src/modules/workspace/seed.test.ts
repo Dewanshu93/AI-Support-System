@@ -83,6 +83,6 @@ describe('mock HR data', () => {
       expect(NotificationSchema.safeParse(n).success).toBe(true);
     const requests = buildMockRequests({ users, today: '2026-10-07', routing: config.routing });
     for (const t of requests.tickets) expect(TicketSchema.safeParse(t).success).toBe(true);
-    expect(requests.tickets.map((t) => t.queue)).toEqual(['it_access', 'hr_general', 'hr_general']);
+    expect(requests.tickets.map((t) => t.queue)).toEqual(['it_access', 'hr_general', 'hr_payroll']);
   });
 });

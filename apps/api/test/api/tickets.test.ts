@@ -85,7 +85,11 @@ describe('confirm (flow 4)', () => {
       question: 'How many annual leave days do I have left?',
     });
     expect(ticket.aiFilledFields).toEqual(['leave_type']); // the edited field is the employee's
-    expect(ctx.tickets.events.map((e) => [e.type, e.visibility])).toEqual([['created', 'public']]);
+    // hr_general has an address, so the escalation email follows the ticket (UC-07).
+    expect(ctx.tickets.events.map((e) => [e.type, e.visibility])).toEqual([
+      ['created', 'public'],
+      ['email_sent', 'public'],
+    ]);
 
     const conversation = ctx.conversations.conversations.find((c) => c._id.toHexString() === id)!;
     expect(conversation).toMatchObject({ status: 'escalated' });
@@ -148,7 +152,9 @@ describe('duplicate prompt (flow 5)', () => {
     expect(same.status).toBe(200);
     expect(same.body.ticket.humanId).toBe('HR-0001');
     expect(ctx.tickets.tickets).toHaveLength(1);
-    expect(ctx.conversations.messages.at(-1)!.content).toContain('existing ticket HR-0001');
+    // The link note, then the email note (UC-07): the email is attached to the linked ticket.
+    expect(ctx.conversations.messages.at(-2)!.content).toContain('existing ticket HR-0001');
+    expect(ctx.conversations.messages.at(-1)!.content).toContain('linked to HR-0001');
 
     const third = await escalate(ctx, cookie);
     const created = await confirm(ctx, cookie, third.id, { duplicateDecision: 'new' });
@@ -280,7 +286,10 @@ describe('employee ticket views', () => {
     });
     expect(detail.body.ticket.agentBrief).toBeUndefined();
     expect(detail.body.ticket.requesterSnapshot).toBeUndefined();
-    expect(detail.body.events.map((e: { type: string }) => e.type)).toEqual(['created']);
+    expect(detail.body.events.map((e: { type: string }) => e.type)).toEqual([
+      'created',
+      'email_sent',
+    ]);
 
     const tom = await loginCookie(ctx.app, TOM);
     expect(

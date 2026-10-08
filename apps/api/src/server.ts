@@ -17,6 +17,9 @@ import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
 import { mongoConversationsRepository } from './modules/conversations/repository';
 import { mongoDocumentsRepository, mongoSourcesReader } from './modules/documents/repository';
+import { mongoEmailRepository } from './modules/email/repository';
+import { createEmailService } from './modules/email/service';
+import { createEmailTransport, type EmailTransport } from './modules/email/transport';
 import { mongoAgentTicketsRepository } from './modules/agent/repository';
 import { mongoTicketsRepository } from './modules/tickets/repository';
 import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
@@ -36,11 +39,20 @@ function demoClock(demoToday: string | undefined): (() => Date) | undefined {
   return () => new Date(`${demoToday}T${new Date().toISOString().slice(11)}`);
 }
 
-function startupConfig(): { config: AppConfig; prompts: PromptRegistry } {
+function startupConfig(): {
+  config: AppConfig;
+  prompts: PromptRegistry;
+  emailTransport: EmailTransport;
+} {
   loadDotEnv();
   try {
     const config = initConfig();
-    return { config, prompts: loadPromptRegistry(config.prompts.active) };
+    return {
+      config,
+      prompts: loadPromptRegistry(config.prompts.active),
+      // EMAIL_DELIVERY=smtp stops here until a mail dependency is approved (ADR-017).
+      emailTransport: createEmailTransport(config.env.EMAIL_DELIVERY),
+    };
   } catch (err) {
     if (err instanceof ConfigError || err instanceof PromptError) {
       // Plain stderr, not JSON: this message is read by a person fixing their setup.
@@ -52,7 +64,7 @@ function startupConfig(): { config: AppConfig; prompts: PromptRegistry } {
 }
 
 async function main() {
-  const { config, prompts } = startupConfig();
+  const { config, prompts, emailTransport } = startupConfig();
   logger.level = config.env.LOG_LEVEL;
   logger.info({ prompts: Object.values(prompts.active()).map((p) => p.ref) }, 'prompts loaded');
 
@@ -84,6 +96,10 @@ async function main() {
   const documents = mongoDocumentsRepository(collections);
   const tickets = mongoTicketsRepository(collections);
   const workspace = mongoWorkspaceRepository(collections);
+  const email = createEmailService({
+    repository: mongoEmailRepository(collections),
+    transport: emailTransport,
+  });
   const clock = demoClock(config.env.DEMO_TODAY);
   // The copilot agents read the same records as the workspace endpoints.
   const records = createWorkspaceRecords({
@@ -144,6 +160,7 @@ async function main() {
     conversations,
     tickets,
     records,
+    email,
     checkpointer,
     retrieve: (input) =>
       retrieve(input, {
@@ -164,6 +181,7 @@ async function main() {
     chat: { graph },
     templates: config.templates.templates,
     tickets,
+    email,
     agentTickets: mongoAgentTicketsRepository(collections),
     ticketConfig: {
       routing: config.routing,

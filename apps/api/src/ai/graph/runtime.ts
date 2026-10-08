@@ -24,6 +24,7 @@ import { createPersist } from '../nodes/persist';
 import { createPrecheck } from '../nodes/precheck';
 import { createRerankAssess } from '../nodes/rerankAssess';
 import { createRetrieve, type RetrieveNodeDeps } from '../nodes/retrieve';
+import { createSendEmail, type SendEmailDeps } from '../nodes/sendEmail';
 import { createSensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { createValidateCitations } from '../nodes/validateCitations';
 import {
@@ -57,6 +58,8 @@ export interface TurnGraphDeps {
   now?: () => Date;
   /** The employee's own records for the timesheet and requests agents (UC-04). */
   records?: WorkspaceRecords;
+  /** The escalation email outbox (UC-07); without it confirmed escalations send no email. */
+  email?: SendEmailDeps['email'];
   /** Eval runs: persisted records are marked isEval. */
   isEval?: boolean;
 }
@@ -92,6 +95,7 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         ...llm,
         taxonomy: config.taxonomy,
         ticketSchemas: config.ticketSchemas.schemas,
+        records: deps.records,
       }),
       clarifyForTicket: createClarifyForTicket({
         ...llm,
@@ -103,6 +107,9 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         priorityRules: config.priorityRules,
         ticketSchemas: config.ticketSchemas.schemas,
         templates,
+        taxonomy: config.taxonomy,
+        users: deps.users,
+        records: deps.records,
       }),
       createTicket: createCreateTicket({
         tickets: deps.tickets,
@@ -115,6 +122,19 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
         now: deps.now,
         isEval: deps.isEval,
+      }),
+      // Without an email service (older tests, eval runner) the default stub records nothing.
+      ...(deps.email && {
+        sendEmail: createSendEmail({
+          email: deps.email,
+          tickets: deps.tickets,
+          users: deps.users,
+          conversations: deps.conversations,
+          routing: config.routing,
+          templates,
+          now: deps.now,
+          isEval: deps.isEval,
+        }),
       }),
       timesheetStatus: createTimesheetStatus({ records: deps.records }),
       timesheetLog: createTimesheetLog({ ...llm, records: deps.records }),

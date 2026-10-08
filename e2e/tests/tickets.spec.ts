@@ -139,7 +139,10 @@ test('flow 5: a second ticket on the same issue offers to add to the existing on
 
   await page.getByTestId('duplicate-same').click();
   await expect(page.getByTestId('ticket-created')).toContainText(first);
-  await expect(page.getByTestId('system-message').last()).toContainText(`existing ticket ${first}`);
+  // The link note; the escalation email note (UC-07) may follow it.
+  await expect(
+    page.getByTestId('system-message').filter({ hasText: `existing ticket ${first}` }),
+  ).toBeVisible();
 });
 
 test('flow 6: "Yes" creates a confidential HR case', async ({ page }) => {

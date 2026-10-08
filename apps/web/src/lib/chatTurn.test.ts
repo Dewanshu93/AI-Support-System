@@ -131,6 +131,7 @@ describe('turnReducer (SSE state machine)', () => {
       requiredMissing: [],
       articlesShown: [],
       restricted: false,
+      recordFilledFields: [],
     };
     const s = run([
       started,

@@ -41,6 +41,10 @@ export function findCrossFileProblems(files: ConfigFiles): string[] {
   if (sensitiveQueue && sensitiveQueue.domain !== 'HR') {
     problems.push(`routing.yaml sensitiveQueue "${sensitiveQueue.id}" must be an HR queue`);
   }
+  // Confidential cases are never emailed (UC-07, ADR-017).
+  if (sensitiveQueue?.email !== undefined) {
+    problems.push(`routing.yaml sensitiveQueue "${sensitiveQueue.id}" must not have an email`);
+  }
 
   return problems;
 }

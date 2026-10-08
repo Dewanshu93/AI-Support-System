@@ -6,6 +6,11 @@ import {
   AttendanceStatusSchema,
   ConversationStatusSchema,
   DeductionCodeSchema,
+  EmailBodySchema,
+  EmailDeliveryModeSchema,
+  EmailIssueSourceSchema,
+  EmailStatusSchema,
+  EmailSubjectSchema,
   IsoDateSchema,
   NotificationKindSchema,
   TaskPrioritySchema,
@@ -495,6 +500,50 @@ export const NotificationSchema = z.object({
   createdAt: z.date(),
 });
 export type NotificationDoc = z.infer<typeof NotificationSchema>;
+
+// --- email_outbox (UC-07, ADR-017) -------------------------------------------
+
+/**
+ * One escalation email per conversation, written only after the employee
+ * confirms. Recipient and sender are set by code (routing config and the user
+ * record); subject and body are exactly the confirmed text.
+ */
+export const EmailOutboxSchema = z
+  .object({
+    _id: zObjectId,
+    /** Idempotency key: one email per escalation conversation. */
+    conversationId: zObjectId,
+    ticketId: zObjectId,
+    /** Metadata only; never written into the subject or body. */
+    ticketHumanId: z.string().regex(/^(IT|HR)-\d{4,}$/),
+    requesterId: zObjectId,
+    from: z.object({ name: NonEmpty, address: z.email() }),
+    to: z.object({ queueId: NonEmpty, label: NonEmpty, address: z.email() }),
+    subject: EmailSubjectSchema,
+    body: EmailBodySchema,
+    /** The text as drafted, before the employee's edits (audit). */
+    aiDraft: z.object({ subject: z.string(), body: z.string() }),
+    edited: z.object({ subject: z.boolean(), body: z.boolean() }),
+    issueSource: EmailIssueSourceSchema,
+    recordsAsOf: IsoDateSchema,
+    delivery: z.object({
+      mode: EmailDeliveryModeSchema,
+      status: EmailStatusSchema,
+      attempts: Count,
+      lastError: nullable(z.string()),
+      deliveredAt: nullable(z.date()),
+      providerMessageId: nullable(NonEmpty),
+    }),
+    isEval: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+  // Confidential cases are never emailed (mirrors the routing cross-check).
+  .refine((e) => e.to.queueId !== 'hr_case', {
+    path: ['to', 'queueId'],
+    message: 'emails to the sensitive queue hr_case are not allowed',
+  });
+export type EmailOutboxDoc = z.infer<typeof EmailOutboxSchema>;
 
 export const COUNTER_IDS = ['IT', 'HR'] as const;
 export const CounterSchema = z.object({ _id: z.enum(COUNTER_IDS), seq: Count });

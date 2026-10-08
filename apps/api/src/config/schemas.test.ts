@@ -165,6 +165,18 @@ const invalidCases: Case[] = [
     (d) => (d.templates.ticket_confirmed = 'Ticket created.'),
     'must contain the placeholder {ticketHumanId}',
   ],
+  [
+    'templates: email sign-off without the employee name',
+    'templates',
+    (d) => (d.templates.email_sign_off = 'Regards,\n{department}'),
+    'must contain the placeholder {employeeName}',
+  ],
+  [
+    'routing: invalid queue email',
+    'routing',
+    (d) => (d.queues[0].email = 'not-an-address'),
+    'queues.0.email',
+  ],
 ];
 
 describe('invalid fixtures', () => {
@@ -172,5 +184,31 @@ describe('invalid fixtures', () => {
     const data = fixture(key);
     mutate(data);
     expect(issuesFor(key, data)).toContain(expected);
+  });
+});
+
+describe('routing queue email', () => {
+  it('is optional on a queue', () => {
+    const data = fixture('routing') as { queues: { email?: string }[] };
+    for (const queue of data.queues) delete queue.email;
+    expect(issuesFor('routing', data)).toBe('');
+  });
+
+  // Shipped-config rules (UC-07, ADR-017): kept here, not in the schema, so test fixtures stay free.
+  it('ships an address on every queue except the sensitive one, and routes payroll to Payroll', () => {
+    const data = fixture('routing') as {
+      queues: { id: string; label: string; email?: string }[];
+      sensitiveQueue: string;
+      routes: Record<string, string>;
+    };
+    for (const queue of data.queues) {
+      if (queue.id === data.sensitiveQueue) expect(queue.email).toBeUndefined();
+      else expect(queue.email).toMatch(/@example\.com$/);
+    }
+    expect(data.routes.payroll).toBe('hr_payroll');
+    expect(data.queues.find((q) => q.id === 'hr_payroll')).toMatchObject({
+      label: 'Payroll',
+      email: 'payroll@example.com',
+    });
   });
 });

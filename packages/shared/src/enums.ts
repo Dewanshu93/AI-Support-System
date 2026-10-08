@@ -76,9 +76,26 @@ export const TICKET_EVENT_TYPES = [
   'status_change',
   'classification_correction',
   'ai_draft_generated',
+  /** UC-07: an escalation email was recorded for the ticket (public; never carries the subject). */
+  'email_sent',
 ] as const;
 export type TicketEventType = (typeof TICKET_EVENT_TYPES)[number];
 export const TicketEventTypeSchema = z.enum(TICKET_EVENT_TYPES);
+
+// Escalation emails (UC-07, ADR-017). 'recorded' is mock delivery: stored in
+// email_outbox, never sent.
+export const EMAIL_STATUSES = ['queued', 'recorded', 'sent', 'failed'] as const;
+export type EmailStatus = (typeof EMAIL_STATUSES)[number];
+export const EmailStatusSchema = z.enum(EMAIL_STATUSES);
+
+export const EMAIL_DELIVERY_MODES = ['mock', 'smtp'] as const;
+export type EmailDeliveryMode = (typeof EMAIL_DELIVERY_MODES)[number];
+export const EmailDeliveryModeSchema = z.enum(EMAIL_DELIVERY_MODES);
+
+/** Where the email's Issue text came from: P-5's text, or the employee's own words. */
+export const EMAIL_ISSUE_SOURCES = ['model', 'employee_words'] as const;
+export type EmailIssueSource = (typeof EMAIL_ISSUE_SOURCES)[number];
+export const EmailIssueSourceSchema = z.enum(EMAIL_ISSUE_SOURCES);
 
 export const EVENT_VISIBILITIES = ['public', 'internal'] as const;
 export type EventVisibility = (typeof EVENT_VISIBILITIES)[number];

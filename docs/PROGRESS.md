@@ -39,13 +39,13 @@
 | Task  | Name                                                                                                                         | Status | Contract flows |
 | ----- | ---------------------------------------------------------------------------------------------------------------------------- | ------ | -------------- |
 | UC-00 | Pivot documents (contract v2.0, ADR-015, task list)                                                                          | Done   | —              |
-| UC-01 | Mock HR data (projects, tasks, timesheets, attendance, payroll, notifications) and new policies (LOP, timesheet, attendance) | To do  | 1, 4, 5        |
-| UC-02 | Employee data APIs: tasks, timesheets, payroll, notifications, dashboard summary                                             | To do  | 1, 3, 4        |
-| UC-03 | Employee dashboard and timesheet page                                                                                        | To do  | 1              |
-| UC-04 | Copilot intents: P-1 v2 intent field and deterministic branch routing                                                        | To do  | 2–7            |
-| UC-05 | Timesheet action branch: extract → validate → confirm card → write → audit; timesheet status answers                         | To do  | 3, 4, 8        |
-| UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | To do  | 5, 8           |
-| UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | To do  | 6              |
+| UC-01 | Mock HR data (projects, tasks, timesheets, attendance, payroll, notifications) and new policies (LOP, timesheet, attendance) | Done   | 1, 4, 5        |
+| UC-02 | Employee data APIs: tasks, timesheets, payroll, notifications, dashboard summary                                             | Done   | 1, 3, 4        |
+| UC-03 | Employee dashboard and timesheet page                                                                                        | Done   | 1              |
+| UC-04 | Copilot intents: P-1 v2 intent field and deterministic branch routing                                                        | Done   | 2–7            |
+| UC-05 | Timesheet action branch: extract → validate → confirm card → write → audit; timesheet status answers                         | Done   | 3, 4, 8        |
+| UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | Done   | 5, 8           |
+| UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | Done   | 6              |
 | UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | To do  | 7              |
 | UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | To do  | all            |
 | UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | To do  | all            |
@@ -1541,3 +1541,59 @@ regression hunters (3 skeptics each). Confirmed and fixed:
 sentence; a live answer contained one uncited general sentence ("income tax and national
 insurance are standard statutory deductions"). P-3 shares this; the groundedness judge (W4-06,
 deferred) is the planned check.
+
+## UC-07 Escalation with email draft — 2026-10-08
+
+Owner decisions (ADR-017): a dedicated **Payroll** queue (`hr_payroll`, payroll@example.com;
+Hana Kim gets it), a **fully editable** email body, and the new `modules/email` folder and
+`email_outbox` collection.
+
+**Delivered:**
+
+- **Draft (code):** `buildDraft` attaches an email when the queue has an address and the case is
+  not restricted. `domain/escalationEmail.ts` assembles it: Issue (P-5's text), System information
+  (employee, category, priority, fields, payroll lines from records), Action taken, Request,
+  sign-off. A number in model text that the employee never typed sends Issue and Subject back to
+  their own words. For payroll, `pay_period` is filled from payslips ("From your records").
+- **Send (code, after confirm only):** `createTicket → sendEmail → agentSummary`. One outbox row
+  per conversation, recipient recomputed from the ticket's queue, exactly the confirmed text
+  stored, one `email_sent` ticket event and one chat note; a crash resumes at `sendEmail`.
+  `EMAIL_DELIVERY=mock` (default) records without sending; `smtp` stops startup (no approved
+  mail dependency).
+- **API:** confirm accepts optional strict `email {subject, body}` and returns the email status;
+  audit `email.send` (IDs and flags only); emails on the employee and agent ticket detail.
+- **UI:** email section in the draft card (read-only To/From, editable subject and body,
+  counters, "Send request and email", "Cancel (nothing is sent)", reset to drafted text); an
+  Emails section on the ticket page.
+- **Docs:** ARCHITECTURE.md (escalation email section, Mermaid with `sendEmail`), ADR-017.
+
+**No eval run needed:** no prompt was added or changed (P-12 email prose prompt deferred).
+
+**Found by the new tests and fixed:**
+
+- No email was ever drafted: `routeTicket` returns the queue without its address. `buildDraft`
+  now reads the address from routing config by queue id.
+- `deliver` could call the transport twice with a stale copy of an already-delivered row (a
+  double send once SMTP exists). It now re-reads the row's status first.
+
+**Verification**
+
+| Check                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run typecheck`            | Pass (all workspaces, tests included)                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `npm test`                                      | Pass: shared 67, API 1043 (28 skipped: live-database suites), web 68. Three `tickets.test.ts` expectations updated for the new behaviour (an `email_sent` event and an email note now follow a confirmed `hr_general` ticket)                                                                                                                                                                                                                   |
+| API `escalationEmail.test.ts` (17, fake models) | Draft from records (Payroll, pay period, exact LOP line); **no model call sees the LOP amount or date**; edited text stored exactly; drafted text when omitted; repeat confirm and crash-resume give one ticket, one email, one event, one audit; cancel writes nothing; 400 for newline / empty subject, 5001-char body, extra key, email on a draft without one; restricted case has no email; requester and Payroll agent see it, others 404 |
+| `modules/email/service.test.ts` (8)             | Once-only record, mock delivery, single transport call, failure path, ordering, smtp blocked                                                                                                                                                                                                                                                                                                                                                    |
+| Web (draft card, reducer, ticket detail)        | Email section, markers, Send disabled on empty subject, confirm body, reset, email card states                                                                                                                                                                                                                                                                                                                                                  |
+
+**Deviations from the plan:**
+
+- The agent ticket page is still a placeholder (W3-07, deferred), so emails reach agents through
+  `GET /api/agent/tickets/:id` only; `EmailCard` has an agent variant ready for it.
+- The E2E spec `escalation-email.spec.ts` is not written yet: it needs one small `E2E_LLM=record`
+  pass (Gemini quota). `tickets.spec.ts` flow 4 now finds the link note by text, because the
+  email note can follow it.
+
+**Follow-ups:** re-seed (`npm run seed`) so Hana has `hr_payroll`, and run `npm run db:indexes`
+for `email_outbox`; record the E2E spec; P-12 email prose prompt when quota allows; existing
+payroll tickets in a live database stay in `hr_general`.

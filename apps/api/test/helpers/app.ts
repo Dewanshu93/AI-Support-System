@@ -16,6 +16,7 @@ import { VALID_ENV } from './config';
 import { memoryConversationsRepository, memorySourcesReader } from './conversations';
 import {
   memoryAgentTicketsRepository,
+  memoryEmailService,
   memoryTicketsRepository,
   type MemoryTickets,
 } from './tickets';
@@ -64,6 +65,8 @@ export interface TestAppOptions extends CreateAppOptions {
   /** Defaults to an empty in-memory workspace. */
   workspace?: AppDeps['workspace'];
   clock?: AppDeps['clock'];
+  /** Defaults to an empty in-memory outbox (UC-07). */
+  email?: AppDeps['email'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -86,6 +89,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     },
     templates: config.templates.templates,
     tickets,
+    email: options.email ?? memoryEmailService(),
     agentTickets: options.agentTickets ?? memoryAgentTicketsRepository(tickets as MemoryTickets),
     ticketConfig: {
       routing: config.routing,

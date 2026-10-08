@@ -3,8 +3,11 @@
 // chosen, merges known values across turns, normalises fields to the category
 // schema and decides what is still missing (domain/ticketSchemas). Failure →
 // template fallback (all unknown, redacted transcript as the description).
+// UC-07: for payroll requests code fills pay_period from the employee's own
+// payslips (never from the model), so the employee is not asked for it.
 import type { ConfigFiles } from '../../config/schemas';
 import { normaliseFields, requiredMissing, UNKNOWN } from '../../domain/ticketSchemas';
+import { payPeriodText } from '../../domain/workspaceReplies';
 import type { State, StateUpdate, TicketExtraction } from '../graph/state';
 import { redactPII } from '../guards/redaction';
 import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
@@ -13,8 +16,11 @@ import { slotFillSchema } from '../schemas';
 import { formatTaxonomy } from './analyzeTurn';
 import { formatConversation, formatFieldSchemas, formatProfile } from './promptFormat';
 import { structuredCallWithRetry } from './structuredCall';
+import type { WorkspaceRecords } from './workspaceAgents';
 
 export const SLOT_FILL_FALLBACK = 'SLOT_FILL_FALLBACK';
+/** The employee's records could not be read for an escalation (UC-07); nothing else changes. */
+export const ESCALATION_RECORDS_UNAVAILABLE = 'ESCALATION_RECORDS_UNAVAILABLE';
 const NODE = 'slotFill';
 
 export interface SlotFillDeps {
@@ -24,6 +30,36 @@ export interface SlotFillDeps {
   costs: CostTable;
   taxonomy: ConfigFiles['taxonomy'];
   ticketSchemas: ConfigFiles['ticketSchemas']['schemas'];
+  /** The employee's records (UC-07 pay_period pre-fill); absent in graphs without workspace data. */
+  records?: WorkspaceRecords;
+}
+
+/** The ticket field code fills from payroll records. */
+const PAY_PERIOD = 'pay_period';
+
+/**
+ * Fills pay_period of a payroll request from the employee's payslips when it
+ * is still unknown. Returns the filled value, null when there is nothing to
+ * fill, or 'unavailable' when the records could not be read.
+ */
+async function payPeriodFromRecords(
+  records: WorkspaceRecords | undefined,
+  state: State,
+  category: string,
+  fields: Record<string, string>,
+): Promise<string | null | 'unavailable'> {
+  if (category !== 'payroll' || fields[PAY_PERIOD] !== UNKNOWN) return null;
+  if (!records || !state.profile || state.precheckResult?.sensitiveHit) return null;
+  try {
+    const facts = await records.payroll({
+      id: state.input.userId,
+      country: state.profile.country,
+      employmentType: state.profile.employmentType,
+    });
+    return payPeriodText(facts);
+  } catch {
+    return 'unavailable';
+  }
 }
 
 const words = (text: string, max: number) => text.trim().split(/\s+/).slice(0, max).join(' ');
@@ -92,6 +128,12 @@ export function createSlotFill(deps: SlotFillDeps) {
       if (value.trim() && value.trim().toLowerCase() !== UNKNOWN) merged[key] = value;
     }
     const fields = normaliseFields(deps.ticketSchemas, category, merged);
+    const recordFilled = (flow.recordFilledFields ?? []).filter((key) => fields[key] !== UNKNOWN);
+    const prefill = await payPeriodFromRecords(deps.records, state, category, fields);
+    if (prefill && prefill !== 'unavailable') {
+      fields[PAY_PERIOD] = prefill;
+      recordFilled.push(PAY_PERIOD);
+    }
     const missing = requiredMissing(deps.ticketSchemas, category, fields);
 
     const extraction: TicketExtraction = data
@@ -118,6 +160,7 @@ export function createSlotFill(deps: SlotFillDeps) {
         fields,
         requiredMissing: missing,
         extraction,
+        recordFilledFields: [...new Set(recordFilled)],
         matchedRules: [
           ...new Set([...(flow.matchedRules ?? []), ...(state.precheckResult?.matchedRules ?? [])]),
         ],
@@ -125,7 +168,10 @@ export function createSlotFill(deps: SlotFillDeps) {
       trace: {
         llmCalls,
         errors,
-        flags: data ? [] : [SLOT_FILL_FALLBACK],
+        flags: [
+          ...(data ? [] : [SLOT_FILL_FALLBACK]),
+          ...(prefill === 'unavailable' ? [ESCALATION_RECORDS_UNAVAILABLE] : []),
+        ],
         outputs: {
           slotFill: {
             category,
@@ -133,6 +179,7 @@ export function createSlotFill(deps: SlotFillDeps) {
             requiredMissing: missing,
             modelRequiredMissing: data?.requiredMissing ?? null,
             fallback: !data,
+            recordFilledFields: [...new Set(recordFilled)],
           },
         },
       },

@@ -4,7 +4,7 @@
 // in each state.
 import { renderToStaticMarkup } from 'react-dom/server';
 import { draftReducer, type DraftState, initialDraftState } from '@/lib/ticketDraft';
-import { DRAFT } from '@/test/fixtures';
+import { DRAFT, EMAIL_DRAFT } from '@/test/fixtures';
 import { HandoffCard } from './HandoffCard';
 import { TicketDraftView } from './TicketDraftCard';
 
@@ -107,6 +107,71 @@ describe('TicketDraftView', () => {
     });
     expect(html).not.toContain('<fieldset');
     expect(html).toContain('data-testid="draft-confirm"');
+  });
+});
+
+describe('TicketDraftView with an escalation email (UC-07)', () => {
+  const emailHtml = (state = initialDraftState(EMAIL_DRAFT)) => render(state, EMAIL_DRAFT);
+
+  it('shows read-only To/From, the editable subject and body, and the Send wording', () => {
+    const html = emailHtml();
+    expect(html).toContain('Request and email · not sent yet');
+    expect(html).toContain('data-testid="email-draft"');
+    expect(html).toMatch(/data-testid="email-to"[^>]*>Payroll &lt;payroll@example.com&gt;/);
+    expect(html).toMatch(/data-testid="email-from"[^>]*>Priya Shah &lt;priya.shah@example.com&gt;/);
+    expect(html).not.toMatch(/<input[^>]*id="email-(to|from)"/);
+    expect(html).toContain('value="Payroll request: Loss of Pay deduction on the latest payslip"');
+    expect(html).toContain('data-testid="email-body"');
+    expect(html).toContain('Drafted by the assistant; figures come from your records');
+    expect(html).toContain('Send request and email');
+    expect(html).toContain('Cancel (nothing is sent)');
+    expect(html).toContain('Nothing is sent until you press Send');
+    expect(html).not.toContain('data-testid="email-edited"');
+  });
+
+  it('marks the record-filled pay period "From your records", not AI-filled', () => {
+    const html = emailHtml();
+    expect(fieldHtml(html, 'pay_period')).toContain('data-testid="record-filled"');
+    expect(fieldHtml(html, 'pay_period')).not.toContain('ai-filled');
+    expect(fieldHtml(html, 'question')).toContain('data-testid="ai-filled"');
+  });
+
+  it('shows "Edited by you" with a reset link once changed', () => {
+    const state = draftReducer(initialDraftState(EMAIL_DRAFT), {
+      type: 'emailEdit',
+      field: 'subject',
+      value: 'Please review my LOP',
+    });
+    const html = emailHtml(state);
+    expect(html).toContain('data-testid="email-edited"');
+    expect(html).toContain('Reset to drafted text');
+    expect(html).toContain('value="Please review my LOP"');
+  });
+
+  it('blocks Send with the reason while the subject is empty', () => {
+    const state = draftReducer(initialDraftState(EMAIL_DRAFT), {
+      type: 'emailEdit',
+      field: 'subject',
+      value: '  ',
+    });
+    const html = emailHtml(state);
+    expect(html).toMatch(/data-testid="draft-confirm" disabled/);
+    expect(html).toContain('Add a subject to the email.');
+  });
+
+  it('says the email came from the employee’s words after the number check', () => {
+    const draft = {
+      ...EMAIL_DRAFT,
+      email: { ...EMAIL_DRAFT.email!, issueSource: 'employee_words' as const },
+    };
+    expect(render(initialDraftState(draft), draft)).toContain('Drafted from your own words');
+  });
+
+  it('a draft without an email keeps the ticket wording and has no email section', () => {
+    const html = render(initialDraftState(DRAFT));
+    expect(html).toContain('Ticket draft · not sent yet');
+    expect(html).not.toContain('data-testid="email-draft"');
+    expect(html).toContain('>Cancel<');
   });
 });
 

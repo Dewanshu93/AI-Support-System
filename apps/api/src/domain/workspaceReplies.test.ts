@@ -1,5 +1,9 @@
 import type { TimesheetDay } from '@sd/shared';
 import {
+  lateLoggingLines,
+  lopDatesText,
+  payPeriodText,
+  payrollEmailLines,
   type PayrollFacts,
   payrollFactsForModel,
   payrollNextSteps,
@@ -156,5 +160,76 @@ describe('payroll replies (UC-06)', () => {
     expect(replayed).toContain('Policy text [S1].');
     expect(replayed).toContain('If you worked on Fri 11 Sept');
     expect(withoutPayrollRecords('Any other reply')).toBe('Any other reply');
+  });
+
+  describe('escalation email lines (UC-07)', () => {
+    it('writes one line per LOP day whose amounts add up to the deduction', () => {
+      // A $400.01 deduction over three days, split in cents by the workspace service.
+      const base = facts();
+      const days = [
+        { ...base.lopDays[0]!, date: '2026-09-09', amount: 133.33 },
+        { ...base.lopDays[0]!, date: '2026-09-10', amount: 133.33 },
+        { ...base.lopDays[0]!, date: '2026-09-11', amount: 133.35 },
+      ];
+      const lines = payrollEmailLines({ ...base, lopDays: days });
+      expect(lines[0]).toBe(
+        'Latest payslip Wed 16 Sept 2026 – Wed 30 Sept 2026, paid Wed 30 Sept 2026.',
+      );
+      expect(lines.slice(1)).toHaveLength(3);
+      const amounts = lines.slice(1).map((l) => Number(/\$([\d.]+)/.exec(l)![1]));
+      expect(amounts.reduce((s, a) => s + a * 100, 0)).toBe(40001);
+      expect(lopDatesText({ ...base, lopDays: days })).toBe(
+        'Wed 9 Sept 2026, Thu 10 Sept 2026, Fri 11 Sept 2026',
+      );
+    });
+
+    it('formats the currency, attendance and late logging', () => {
+      const line = payrollEmailLines({
+        ...facts({ hoursNow: 8, lateHours: 4, attendanceNote: null }),
+        currency: 'GBP',
+      })[1];
+      expect(line).toBe(
+        'Loss of Pay £400.00 for Fri 11 Sept 2026 (payslip paid Wed 30 Sept 2026); attendance: absent; timesheet now 8 of 8 h, 4 h of it logged after the pay period closed.',
+      );
+      expect(payrollEmailLines(facts({ attendance: null }))[1]).toContain('attendance: no record;');
+      expect(lateLoggingLines(facts({ hoursNow: 8, lateHours: 4 }))).toEqual([
+        'Logged 4 h for Fri 11 Sept 2026 after the pay period closed.',
+      ]);
+      expect(lateLoggingLines(facts())).toEqual([]);
+    });
+
+    it('covers agency pay, no payslips and no LOP', () => {
+      expect(
+        payrollEmailLines({ paidByAgency: true, currency: null, payslips: [], lopDays: [] }),
+      ).toEqual(['Paid by agency; no company payslips.']);
+      expect(payrollEmailLines({ ...facts(), payslips: [], lopDays: [] })).toEqual([
+        'No payslips on record yet.',
+      ]);
+      expect(payrollEmailLines({ ...facts(), lopDays: [] })[1]).toBe(
+        'No Loss of Pay deduction on the recent payslips.',
+      );
+    });
+
+    it('writes the pay period of the first LOP day, else the latest payslip', () => {
+      expect(payPeriodText(facts())).toBe('Wed 16 Sept – Wed 30 Sept (paid Wed 30 Sept 2026)');
+      const older = {
+        ...facts().payslips[0]!,
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-15',
+        payDate: '2026-09-15',
+      };
+      const lopInOlder = {
+        ...facts(),
+        payslips: [facts().payslips[0]!, older],
+        lopDays: [{ ...facts().lopDays[0]!, payDate: '2026-09-15' }],
+      };
+      expect(payPeriodText(lopInOlder)).toBe('Tue 1 Sept – Tue 15 Sept (paid Tue 15 Sept 2026)');
+      expect(payPeriodText({ ...facts(), lopDays: [] })).toBe(
+        'Wed 16 Sept – Wed 30 Sept (paid Wed 30 Sept 2026)',
+      );
+      expect(
+        payPeriodText({ paidByAgency: true, currency: null, payslips: [], lopDays: [] }),
+      ).toBeNull();
+    });
   });
 });

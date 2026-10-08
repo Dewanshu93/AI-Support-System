@@ -42,6 +42,12 @@ export const EnvSchema = z.object({
    */
   LLM_MODE: z.preprocess(blankToUndefined, z.enum(['live', 'record', 'replay']).default('live')),
   LLM_RECORDINGS_FILE: optionalString,
+  /**
+   * Escalation email delivery (UC-07, ADR-017). `mock` stores emails in
+   * email_outbox without sending them; `smtp` needs an approved mail
+   * dependency and refuses to start until one exists.
+   */
+  EMAIL_DELIVERY: z.preprocess(blankToUndefined, z.enum(['mock', 'smtp']).default('mock')),
   /** Pins "today" (YYYY-MM-DD) for timesheets and the dashboard in demos and E2E runs. */
   DEMO_TODAY: z.preprocess(
     blankToUndefined,

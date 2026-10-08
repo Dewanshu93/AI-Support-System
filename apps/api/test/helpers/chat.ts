@@ -14,7 +14,12 @@ import type { ChunkDoc } from '../../src/db/schemas';
 import { buildTestApp, loginCookie, seededUsers, type TestContext } from './app';
 import { VALID_ENV } from './config';
 import { type MemoryConversations, memoryConversationsRepository } from './conversations';
-import { type MemoryTickets, memoryTicketsRepository } from './tickets';
+import {
+  type MemoryEmails,
+  memoryEmailService,
+  type MemoryTickets,
+  memoryTicketsRepository,
+} from './tickets';
 import { type MemoryWorkspace, memoryWorkspaceRepository } from './workspace';
 import { buildMockHrData } from '../../src/modules/workspace/seed';
 import { createWorkspaceRecords } from '../../src/modules/workspace/records';
@@ -114,6 +119,8 @@ export const answerReply = (prose: string, uncovered: string[] = []) =>
 export interface ChatTestContext extends TestContext {
   conversations: MemoryConversations;
   tickets: MemoryTickets;
+  /** The escalation email outbox (UC-07) shared by the graph and the endpoints. */
+  emails: MemoryEmails;
   chat: ReturnType<typeof fakeChatHandle>;
   /** The mock HR data (seed for CHAT_TODAY) the copilot agents read and write. */
   workspace: MemoryWorkspace;
@@ -127,6 +134,7 @@ export function buildChatTestApp(
   const users = seededUsers();
   const conversations = memoryConversationsRepository();
   const tickets = memoryTicketsRepository();
+  const email = memoryEmailService();
   const clock = () => new Date(`${CHAT_TODAY}T12:00:00Z`);
   const workspace = memoryWorkspaceRepository(
     buildMockHrData({ users, today: CHAT_TODAY, workday: config.workday }),
@@ -160,14 +168,16 @@ export function buildChatTestApp(
     conversations,
     tickets,
     records,
+    email,
     retrieve: options.retrieve ?? (async () => retrievalOf(LEAVE_CHUNKS)),
     checkpointer: createMemoryCheckpointer(),
   });
-  const ctx = buildTestApp({ users, conversations, graph, tickets, workspace, clock });
+  const ctx = buildTestApp({ users, conversations, graph, tickets, workspace, clock, email });
   return {
     ...ctx,
     conversations,
     tickets,
+    emails: email.outbox,
     workspace,
     chat,
     script: (replies) => void queue.push(...replies),

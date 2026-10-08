@@ -464,3 +464,34 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   choosing agents (forbidden: non-deterministic routing); tools bound to the model (forbidden).
 - **Consequences:** a new agent is a subgraph plus one case in `routeAfterAnalysis`. The Mermaid
   export uses `xray` to show agent internals.
+
+## ADR-017 — Escalation email: code-built draft, confirm-then-send, mock outbox (UC-07)
+
+- **Status:** Accepted by the owner (2026-10-08)
+- **Context:** Build Contract v2.0 flow 6 and section H: escalations come with an AI-drafted email
+  the employee can edit, send or cancel; sent emails are stored in an outbox, linked to the
+  request and shown in the UI; delivery is mock by default. P-1 v2 is not active and the Gemini
+  quality tier has no free quota, so no new prompt can be evaluated now. Chosen by a judge-panel
+  design workflow (3 designs, 3 judges, synthesis).
+- **Decision:**
+  - The email is an optional `draft.email` on the existing ticket draft, so it travels with the
+    draft (SSE `ticket_draft`, `pendingDraft`, message snapshot) and the same confirm/cancel.
+  - **Code builds the email** (`domain/escalationEmail.ts`): recipient and sender, greeting,
+    "System information" (employee, request, fields, and for payroll the exact payslip and Loss of
+    Pay lines from the records), "Action taken", request line and sign-off. The only model text is
+    P-5's summary and description; any digit sequence the employee never typed sends them back to
+    the employee's own (redacted) words. **No new LLM call**; a P-12 prose prompt is a follow-up.
+  - Sending is a new code-only graph node, **`sendEmail`**, after `createTicket`: it recomputes the
+    recipient from the ticket's queue, records the confirmed text once (`email_outbox`, unique per
+    conversation, `$setOnInsert`), delivers through the transport, writes one public `email_sent`
+    event and a system note without the subject or body. A crash resumes at `sendEmail`.
+  - The employee may edit the **whole** subject and body; the AI draft and `edited` flags are kept.
+  - **Payroll queue:** new `hr_payroll` ("Payroll", payroll@example.com), handled by Hana; the
+    confidential `hr_case` queue can never have an address (config cross-check and schema refine).
+  - New module `apps/api/src/modules/email/` and collection `email_outbox` (approved).
+    `EMAIL_DELIVERY=mock` (default) records only; `smtp` refuses to start until Nodemailer is
+    approved.
+- **Alternatives:** a separate email endpoint and card (more churn, a second confirmation); a model-
+  written email (figures and privacy risk, needs evaluation); a locked system-information block.
+- **Consequences:** payroll tickets route to Payroll (existing database tickets stay where they
+  are; re-seed for Hana's queues). Confirm-path node sequences gain `sendEmail`.

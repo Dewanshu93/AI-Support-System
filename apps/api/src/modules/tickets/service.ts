@@ -13,16 +13,19 @@ import { threadConfig } from '../../ai/graph/checkpointer';
 import type { SupportGraph } from '../../ai/graph/graph';
 import type { State } from '../../ai/graph/state';
 import type { ConfigFiles } from '../../config/schemas';
-import type { ConversationDoc, TicketDoc } from '../../db/schemas';
+import type { ConversationDoc, EmailOutboxDoc, TicketDoc } from '../../db/schemas';
 import { findDuplicate } from '../../domain/duplicateCheck';
 import { unknownEditKeys } from '../../domain/ticketSchemas';
 import { AppError } from '../../lib/errors';
 import type { ConversationsRepository } from '../conversations/repository';
+import type { EmailService } from '../email/service';
 import type { TicketsRepository } from './repository';
 
 export interface TicketServiceDeps {
   graph: SupportGraph;
   tickets: TicketsRepository;
+  /** The escalation email outbox (UC-07): read back after confirm. */
+  email: Pick<EmailService, 'findByConversation'>;
   conversations: Pick<ConversationsRepository, 'findConversation' | 'insertMessage'>;
   getOwned(id: string, user: AuthUser): Promise<ConversationDoc>;
   /** Serialises confirm/cancel with chat turns of the same conversation. */
@@ -58,21 +61,42 @@ export function createTicketService(deps: TicketServiceDeps) {
       id: string,
       user: AuthUser,
       req: TicketDraftConfirmRequest,
-    ): Promise<{ ticket: TicketDoc; created: boolean }> {
+    ): Promise<{
+      ticket: TicketDoc;
+      created: boolean;
+      email: EmailOutboxDoc | null;
+      emailCreated: boolean;
+    }> {
       const conversation = await deps.getOwned(id, user);
       return deps.exclusive(id, async () => {
         const { next, draft } = await pausedDraft(id);
         const config = threadConfig(id);
+        const conversationId = new ObjectId(id);
+        const emailBefore = await deps.email.findByConversation(conversationId);
+        const result = async (created: boolean) => {
+          const email = await deps.email.findByConversation(conversationId);
+          return {
+            ticket: await ticketOf(id),
+            created,
+            email,
+            // Only the call that recorded the email audits it.
+            emailCreated: email !== null && emailBefore === null,
+          };
+        };
 
-        // A previous confirm failed inside createTicket: continue it (retryable).
-        if (next.includes('createTicket')) {
+        // A previous confirm failed inside createTicket or sendEmail: continue it (retryable).
+        if (next.includes('createTicket') || next.includes('sendEmail')) {
           await deps.graph.invoke(null, config);
-          return { ticket: await ticketOf(id), created: true };
+          return result(true);
         }
         if (!next.includes('awaitConfirmation') || !draft) {
           // Idempotent: confirming again returns the ticket already created.
-          if (conversation.ticketId) return { ticket: await ticketOf(id), created: false };
+          if (conversation.ticketId) return result(false);
           throw new AppError('NOT_FOUND', 'There is no ticket draft to confirm');
+        }
+
+        if (req.email && !draft.email) {
+          throw new AppError('VALIDATION_ERROR', 'This request has no email to send');
         }
 
         const unknown = unknownEditKeys(deps.ticketSchemas, draft.category, req.edits);
@@ -117,11 +141,13 @@ export function createTicketService(deps: TicketServiceDeps) {
               action: 'confirm',
               edits: req.edits,
               ...(req.duplicateDecision && { duplicateDecision: req.duplicateDecision }),
+              // Absent: send the drafted text the employee was shown.
+              ...(req.email && { email: req.email }),
             },
           }),
           config,
         );
-        return { ticket: await ticketOf(id), created: true };
+        return result(true);
       });
     },
 

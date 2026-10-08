@@ -58,6 +58,7 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
       createTicketService({
         graph: deps.chat.graph,
         tickets: deps.tickets,
+        email: deps.email,
         conversations: deps.conversations,
         getOwned: conversations.getOwned,
         exclusive: runner.exclusive,

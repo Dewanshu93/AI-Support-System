@@ -82,7 +82,7 @@ describe('applyClassification', () => {
 
   it('moves a ticket across domains (IT → HR) when the category is HR', () => {
     const r = applyClassification(config, ticket, { category: 'payroll', subcategory: null });
-    expect(r.ok && r.next).toMatchObject({ queue: 'hr_general', domain: 'HR' });
+    expect(r.ok && r.next).toMatchObject({ queue: 'hr_payroll', domain: 'HR' });
   });
 
   it('a category in the same queue is not a re-route', () => {

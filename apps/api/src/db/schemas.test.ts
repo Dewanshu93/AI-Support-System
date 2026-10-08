@@ -6,6 +6,7 @@ import {
   ConversationSchema,
   CounterSchema,
   DocumentSchema,
+  EmailOutboxSchema,
   EvalResultSchema,
   EvalRunSchema,
   FeedbackSchema,
@@ -297,6 +298,32 @@ const valid = {
     exampleQuestions: ['Can I expense a monitor for home?'],
     messageIds: [id()],
   }),
+  emailOutbox: () => ({
+    _id: id(),
+    conversationId: id(),
+    ticketId: id(),
+    ticketHumanId: 'HR-1001',
+    requesterId: id(),
+    from: { name: 'Priya Shah', address: 'priya@example.com' },
+    to: { queueId: 'hr_payroll', label: 'Payroll', address: 'payroll@example.com' },
+    subject: 'Payroll request: Loss of Pay applied in error',
+    body: 'Hello Payroll team,\n\nIssue: ...\n\nRegards,\nPriya Shah',
+    aiDraft: { subject: 'Payroll request: Loss of Pay applied in error', body: 'Hello' },
+    edited: { subject: false, body: true },
+    issueSource: 'model',
+    recordsAsOf: '2026-10-02',
+    delivery: {
+      mode: 'mock',
+      status: 'recorded',
+      attempts: 1,
+      lastError: null,
+      deliveredAt: now,
+      providerMessageId: '<abc@outbox.mock>',
+    },
+    isEval: false,
+    createdAt: now,
+    updatedAt: now,
+  }),
 };
 
 const schemas: Record<keyof typeof valid, z.ZodType> = {
@@ -314,6 +341,7 @@ const schemas: Record<keyof typeof valid, z.ZodType> = {
   auditLog: AuditLogSchema,
   counters: CounterSchema,
   gapClusters: GapClusterSchema,
+  emailOutbox: EmailOutboxSchema,
 };
 
 const issues = (key: keyof typeof valid, doc: unknown) => {
@@ -396,6 +424,25 @@ const invalidCases: [string, keyof typeof valid, (d: Doc) => void, string][] = [
   ['evalRuns: unknown suite', 'evalRuns', (d) => (d.suite = 'smoke'), 'suite'],
   ['auditLog: action without namespace', 'auditLog', (d) => (d.action = 'login'), 'action'],
   ['counters: unknown counter', 'counters', (d) => (d._id = 'FIN'), '_id'],
+  [
+    'emailOutbox: to the sensitive queue',
+    'emailOutbox',
+    (d) => (d.to.queueId = 'hr_case'),
+    'to.queueId: emails to the sensitive queue hr_case are not allowed',
+  ],
+  [
+    'emailOutbox: subject with a line break',
+    'emailOutbox',
+    (d) => (d.subject = 'Payroll\r\nBcc: someone@example.com'),
+    'subject',
+  ],
+  ['emailOutbox: body over 5000 chars', 'emailOutbox', (d) => (d.body = 'x'.repeat(5001)), 'body'],
+  [
+    'emailOutbox: unknown status',
+    'emailOutbox',
+    (d) => (d.delivery.status = 'bounced'),
+    'delivery.status',
+  ],
 ];
 
 describe('collection schemas reject invalid documents', () => {

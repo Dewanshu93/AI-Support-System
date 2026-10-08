@@ -22,6 +22,7 @@ export const EVENT_LABEL: Record<TicketEventType, string> = {
   status_change: 'Status changed',
   classification_correction: 'Category updated',
   ai_draft_generated: 'Draft prepared',
+  email_sent: 'Email sent',
 };
 
 export const formatDateTime = (iso: string) =>

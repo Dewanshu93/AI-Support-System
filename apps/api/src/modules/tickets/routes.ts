@@ -20,6 +20,7 @@ import { validate } from '../../http/validate';
 import { AppError } from '../../lib/errors';
 import { createAuditService } from '../audit/service';
 import { toConversationDto } from '../conversations/mappers';
+import { toTicketEmail } from '../email/mappers';
 import type { TicketService } from './service';
 
 export function ticketRoutes(deps: AppDeps, service: TicketService): RouteDef[] {
@@ -37,7 +38,7 @@ export function ticketRoutes(deps: AppDeps, service: TicketService): RouteDef[] 
         validate({ params: ConversationParamsSchema, body: TicketDraftConfirmRequestSchema }),
         async (req, res) => {
           const { id } = req.validated.params as { id: string };
-          const { ticket, created } = await service.confirm(
+          const { ticket, created, email, emailCreated } = await service.confirm(
             id,
             req.user!,
             req.body as TicketDraftConfirmRequest,
@@ -51,6 +52,25 @@ export function ticketRoutes(deps: AppDeps, service: TicketService): RouteDef[] 
               metadata: { conversationId: id, humanId: ticket.humanId },
             });
           }
+          // Also on a "same issue" link, where no ticket was created.
+          if (email && emailCreated) {
+            await audit.record(req, {
+              action: 'email.send',
+              actor: req.user!,
+              targetType: 'email',
+              targetId: email._id.toHexString(),
+              // IDs and flags only: never the subject, body or address.
+              metadata: {
+                conversationId: id,
+                ticketHumanId: email.ticketHumanId,
+                queue: email.to.queueId,
+                mode: email.delivery.mode,
+                status: email.delivery.status,
+                editedSubject: email.edited.subject,
+                editedBody: email.edited.body,
+              },
+            });
+          }
           const body: TicketConfirmResponse = {
             ticket: {
               id: ticket._id.toHexString(),
@@ -59,6 +79,13 @@ export function ticketRoutes(deps: AppDeps, service: TicketService): RouteDef[] 
               priority: ticket.priority,
               status: ticket.status,
             },
+            email: email
+              ? {
+                  id: email._id.toHexString(),
+                  status: email.delivery.status,
+                  mode: email.delivery.mode,
+                }
+              : null,
           };
           res.json(body);
         },
@@ -119,6 +146,10 @@ export function ticketRoutes(deps: AppDeps, service: TicketService): RouteDef[] 
             throw new AppError('NOT_FOUND', 'Ticket not found');
           }
           const events = await deps.tickets.listEvents(t._id, 'public');
+          // A linked ticket can hold emails from several conversations: only the requester's own.
+          const emails = (await deps.email.listForTicket(t._id)).filter(
+            (e) => e.requesterId.toHexString() === req.user!.id,
+          );
           const body: TicketDetailResponse = {
             ticket: {
               id: t._id.toHexString(),
@@ -143,6 +174,7 @@ export function ticketRoutes(deps: AppDeps, service: TicketService): RouteDef[] 
               body: e.body,
               createdAt: e.createdAt.toISOString(),
             })),
+            emails: emails.map(toTicketEmail),
           };
           res.json(body);
         },

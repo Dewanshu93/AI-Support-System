@@ -307,6 +307,62 @@ export function payrollFactsForModel(f: PayrollFacts): string {
     .join('\n');
 }
 
+// --- escalation email (UC-07) ----------------------------------------------------------
+
+/** A date in an email to a team: "Fri 11 Sept 2026" (with the year, unlike chat replies). */
+export const emailDate = (iso: string) => `${label(iso)} ${iso.slice(0, 4)}`;
+
+/** The LOP dates of the facts, in words, for the email's request line. */
+export const lopDatesText = (f: PayrollFacts) => f.lopDays.map((d) => emailDate(d.date)).join(', ');
+
+/**
+ * The payroll lines of the escalation email's "System information". Every
+ * figure is copied from the records (per-day amounts already split in cents
+ * so they add up to the deduction); the model never writes any of them.
+ */
+export function payrollEmailLines(f: PayrollFacts): string[] {
+  if (f.paidByAgency) return ['Paid by agency; no company payslips.'];
+  const latest = f.payslips[0];
+  if (!latest) return ['No payslips on record yet.'];
+  const lines = [
+    `Latest payslip ${emailDate(latest.periodStart)} – ${emailDate(latest.periodEnd)}, paid ${emailDate(latest.payDate)}.`,
+  ];
+  if (f.lopDays.length === 0) {
+    lines.push('No Loss of Pay deduction on the recent payslips.');
+    return lines;
+  }
+  for (const d of f.lopDays) {
+    const attendance = d.attendance
+      ? `${d.attendance}${d.attendanceNote ? ` (${d.attendanceNote})` : ''}`
+      : 'no record';
+    const hoursNow = Number.isInteger(d.hoursNow) ? d.hoursNow : d.hoursNow.toFixed(1);
+    lines.push(
+      `Loss of Pay ${money(d.amount, f.currency)} for ${emailDate(d.date)} (payslip paid ${emailDate(d.payDate)}); attendance: ${attendance}; timesheet now ${hoursNow} of ${h(d.requiredHours)}${lateNote(d)}.`,
+    );
+  }
+  return lines;
+}
+
+/**
+ * The pay period a payroll request is about, written by code for the ticket's
+ * pay_period field: the payslip holding the first Loss of Pay day, else the
+ * latest payslip. Null when there is none (contractors, no payslips yet).
+ */
+export function payPeriodText(f: PayrollFacts): string | null {
+  const firstLop = f.lopDays[0];
+  const slip =
+    (firstLop && f.payslips.find((p) => p.payDate === firstLop.payDate)) || f.payslips[0];
+  if (f.paidByAgency || !slip) return null;
+  return `${label(slip.periodStart)} – ${label(slip.periodEnd)} (paid ${emailDate(slip.payDate)})`;
+}
+
+/** The email's "Action taken" lines for hours logged after a LOP day's pay period closed. */
+export function lateLoggingLines(f: PayrollFacts): string[] {
+  return f.lopDays
+    .filter((d) => d.lateHours > 0)
+    .map((d) => `Logged ${h(d.lateHours)} for ${emailDate(d.date)} after the pay period closed.`);
+}
+
 /** Heading lines of the payroll reply (payrollReply). */
 export const PAYROLL_REPLY_SECTIONS = {
   records: 'Your records',

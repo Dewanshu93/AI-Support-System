@@ -12,6 +12,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { fieldLabel, UNKNOWN } from '@/lib/ticketDraft';
+import { TicketEmails } from './EmailCard';
 import { EVENT_LABEL, formatDateTime, STATUS_LABEL, STATUS_TONE } from './ticketLabels';
 
 export function TicketDetailView({ data }: { data: TicketDetailResponse }) {
@@ -56,6 +57,8 @@ export function TicketDetailView({ data }: { data: TicketDetailResponse }) {
           </div>
         ))}
       </dl>
+
+      <TicketEmails emails={data.emails} />
 
       <section aria-labelledby="timeline-title" className="space-y-3">
         <h2 id="timeline-title" className="text-sm font-semibold text-slate-900">

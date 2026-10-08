@@ -74,7 +74,17 @@ export const TaxonomySchema = z
 export const RoutingSchema = z
   .strictObject({
     version: Version,
-    queues: z.array(z.strictObject({ id: Id, domain: Domain, label: Label })).min(1),
+    queues: z
+      .array(
+        z.strictObject({
+          id: Id,
+          domain: Domain,
+          label: Label,
+          /** Where escalation emails go (UC-07); a queue without one gets no email. */
+          email: z.email().optional(),
+        }),
+      )
+      .min(1),
     sensitiveQueue: Id,
     routes: z.record(Id, Id),
   })
@@ -316,6 +326,15 @@ export const TEMPLATE_PLACEHOLDERS = {
   ticket_linked: ['ticketHumanId'],
   restricted_case_summary: [],
   restricted_case_description: [],
+  // Escalation email (UC-07)
+  email_greeting: ['queueLabel'],
+  email_sign_off: ['employeeName', 'department'],
+  email_request_lop: ['dates'],
+  email_request_default: [],
+  email_records_unavailable: [],
+  email_draft_ready: ['queueLabel'],
+  email_recorded: ['queueLabel', 'ticketHumanId'],
+  email_failed: ['ticketHumanId'],
 } as const satisfies Record<string, readonly string[]>;
 export type TemplateName = keyof typeof TEMPLATE_PLACEHOLDERS;
 

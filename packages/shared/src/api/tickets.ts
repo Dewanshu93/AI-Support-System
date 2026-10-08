@@ -1,11 +1,53 @@
 // Ticket drafts (playbook sections 5 and 10; contract flow 4). The draft the
 // graph builds (buildDraft) and the employee reviews before any ticket exists.
 import { z } from 'zod';
-import { DomainSchema, PrioritySchema, TicketEventTypeSchema, TicketStatusSchema } from '../enums';
+import {
+  DomainSchema,
+  EmailDeliveryModeSchema,
+  EmailIssueSourceSchema,
+  EmailStatusSchema,
+  PrioritySchema,
+  TicketEventTypeSchema,
+  TicketStatusSchema,
+} from '../enums';
 import { ObjectIdStringSchema, PaginationQuerySchema, paginatedSchema } from './common';
 
 export const IMPACT_SCOPES = ['me', 'team', 'org', 'unknown'] as const;
 export type ImpactScope = (typeof IMPACT_SCOPES)[number];
+
+// --- Escalation email (UC-07, ADR-017) ---------------------------------------
+
+/** Length limits shared by the API and the web form. */
+export const EMAIL_LIMITS = { subject: 150, body: 5000 } as const;
+
+/** CRLF and lone CR become LF, so stored bodies use one newline form. */
+export const normaliseNewlines = (text: string): string => text.replace(/\r\n?/g, '\n');
+
+/** One line: CR, LF and other control characters are rejected (header-injection guard). */
+export const EmailSubjectSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(EMAIL_LIMITS.subject)
+  // eslint-disable-next-line no-control-regex
+  .regex(/^[^\x00-\x1f\x7f]+$/, 'must be a single line without control characters');
+
+export const EmailBodySchema = z
+  .string()
+  .transform(normaliseNewlines)
+  .pipe(z.string().trim().min(1).max(EMAIL_LIMITS.body));
+
+/** The email code drafts alongside a ticket draft. Recipient and sender are set by code. */
+export const EmailDraftSchema = z.object({
+  to: z.object({ queueId: z.string().min(1), label: z.string().min(1), address: z.email() }),
+  from: z.object({ name: z.string().min(1), address: z.email() }),
+  subject: EmailSubjectSchema,
+  body: EmailBodySchema,
+  issueSource: EmailIssueSourceSchema,
+  /** The date (YYYY-MM-DD) the records in the body were read. */
+  recordsAsOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type EmailDraft = z.infer<typeof EmailDraftSchema>;
 
 export const TicketDraftSchema = z.object({
   domain: DomainSchema,
@@ -37,6 +79,10 @@ export const TicketDraftSchema = z.object({
   articlesShown: z.array(z.object({ documentId: z.string(), docTitle: z.string() })),
   /** Sensitive (restricted) HR case. */
   restricted: z.boolean(),
+  /** Field keys filled by code from the employee's records (UC-07), not by the AI. */
+  recordFilledFields: z.array(z.string()).default([]),
+  /** The escalation email, when the routed queue has an address and the case is not restricted. */
+  email: EmailDraftSchema.optional(),
 });
 export type TicketDraft = z.infer<typeof TicketDraftSchema>;
 
@@ -52,6 +98,11 @@ export const TicketDraftConfirmRequestSchema = z.strictObject({
   edits: z.record(z.string(), z.string().trim().max(500)).default({}),
   /** Required after a DUPLICATE_CANDIDATE answer: create a new ticket or add to the existing one. */
   duplicateDecision: z.enum(DUPLICATE_DECISIONS).optional(),
+  /**
+   * The on-screen email text (UC-07). Only subject and body: recipient and
+   * sender are set by code. Absent means "send the drafted text shown".
+   */
+  email: z.strictObject({ subject: EmailSubjectSchema, body: EmailBodySchema }).optional(),
 });
 export type TicketDraftConfirmRequest = z.infer<typeof TicketDraftConfirmRequestSchema>;
 
@@ -68,7 +119,14 @@ export const TicketRefSchema = z.object({
   priority: PrioritySchema,
   status: TicketStatusSchema,
 });
-export const TicketConfirmResponseSchema = z.object({ ticket: TicketRefSchema });
+export const TicketConfirmResponseSchema = z.object({
+  ticket: TicketRefSchema,
+  /** The recorded email, null when the request had none. */
+  email: z
+    .object({ id: z.string(), status: EmailStatusSchema, mode: EmailDeliveryModeSchema })
+    .nullable()
+    .optional(),
+});
 export type TicketConfirmResponse = z.infer<typeof TicketConfirmResponseSchema>;
 
 // --- Employee ticket views (no internal fields) ------------------------------
@@ -105,10 +163,26 @@ export const EmployeeTicketSchema = EmployeeTicketSummarySchema.extend({
   createdAt: z.string(),
   resolvedAt: z.string().nullable(),
 });
+/** An escalation email as shown to the requester and queue agents (no delivery internals). */
+export const TicketEmailSchema = z.object({
+  id: z.string(),
+  to: z.object({ label: z.string(), address: z.email() }),
+  subject: z.string(),
+  body: z.string(),
+  status: EmailStatusSchema,
+  mode: EmailDeliveryModeSchema,
+  edited: z.object({ subject: z.boolean(), body: z.boolean() }),
+  createdAt: z.string(),
+  deliveredAt: z.string().nullable(),
+});
+export type TicketEmail = z.infer<typeof TicketEmailSchema>;
+
 export const TicketDetailResponseSchema = z.object({
   ticket: EmployeeTicketSchema,
   /** Public events only (no internal notes). */
   events: z.array(PublicTicketEventSchema),
+  /** Escalation emails linked to the ticket, oldest first. */
+  emails: z.array(TicketEmailSchema).default([]),
 });
 export type TicketDetailResponse = z.infer<typeof TicketDetailResponseSchema>;
 export const TicketParamsSchema = z.object({ id: ObjectIdStringSchema });

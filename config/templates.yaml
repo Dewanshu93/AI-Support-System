@@ -36,3 +36,22 @@ templates:
   restricted_case_description: >-
     The employee asked HR to contact them privately about a sensitive matter. The conversation is
     not attached; contact the employee directly.
+  # Escalation email (UC-07, ADR-017). Code assembles the body; figures come from records.
+  email_greeting: Hello {queueLabel} team,
+  email_sign_off: |-
+    Regards,
+    {employeeName}
+    {department}
+  email_request_lop: >-
+    Please review the Loss of Pay deduction for {dates} and correct it if it was applied in error.
+  email_request_default: Please look into this and let me know the next steps.
+  email_records_unavailable: My pay records could not be read when this email was drafted.
+  email_draft_ready: >-
+    I've prepared a request and an email to the {queueLabel} team. Check both below and edit
+    anything you need. Nothing is sent until you press Send.
+  email_recorded: >-
+    Your email to the {queueLabel} team is in the outbox and linked to {ticketHumanId}. Delivery
+    is simulated in this prototype.
+  email_failed: >-
+    Your request {ticketHumanId} was created, but the email could not be delivered. The team can
+    still see your request.

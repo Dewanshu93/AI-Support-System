@@ -36,7 +36,7 @@ describe('seed/users.json', () => {
     });
     expect(by('hana.kim@example.com')).toMatchObject({
       role: 'agent',
-      queues: ['hr_general', 'hr_case'],
+      queues: ['hr_general', 'hr_payroll', 'hr_case'],
     });
     expect(by('alex.morgan@example.com')).toMatchObject({ role: 'admin' });
     expect(users.every((u) => u.isDemo)).toBe(true);

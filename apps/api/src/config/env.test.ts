@@ -26,7 +26,13 @@ describe('parseEnv', () => {
       LOG_LEVEL: 'info',
       QDRANT_URL: 'http://localhost:6333',
       LLM_MODE: 'live',
+      EMAIL_DELIVERY: 'mock',
     });
+  });
+
+  it('accepts EMAIL_DELIVERY=smtp and treats a blank value as mock', () => {
+    expect(parseEnv({ ...valid, EMAIL_DELIVERY: 'smtp' }).EMAIL_DELIVERY).toBe('smtp');
+    expect(parseEnv({ ...valid, EMAIL_DELIVERY: '' }).EMAIL_DELIVERY).toBe('mock');
   });
 
   it('coerces API_PORT and accepts mongodb+srv URIs', () => {
@@ -60,6 +66,7 @@ describe('parseEnv', () => {
     ['API_PORT', 'abc', 'API_PORT:'],
     ['NODE_ENV', 'staging', 'NODE_ENV:'],
     ['WEB_ORIGIN', 'not a url', 'WEB_ORIGIN:'],
+    ['EMAIL_DELIVERY', 'sendgrid', 'EMAIL_DELIVERY:'],
   ])('rejects invalid %s=%s', (key, value, expected) => {
     expect(errorOf(() => parseEnv({ ...valid, [key]: value })).message).toContain(expected);
   });

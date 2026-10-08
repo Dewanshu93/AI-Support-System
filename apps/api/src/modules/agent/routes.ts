@@ -30,6 +30,7 @@ import { validate } from '../../http/validate';
 import { AppError } from '../../lib/errors';
 import { createAuditService } from '../audit/service';
 import { toMessageDto } from '../conversations/mappers';
+import { toTicketEmail } from '../email/mappers';
 import type { AgentService } from './service';
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
@@ -131,9 +132,11 @@ export function agentRoutes(deps: AppDeps, service: AgentService): RouteDef[] {
         validate({ params: AgentTicketParamsSchema }),
         async (req, res) => {
           const ticket = await service.getVisible(idOf(req), req.user!);
-          const [events, messages] = await Promise.all([
+          const [events, messages, emails] = await Promise.all([
             deps.tickets.listEvents(ticket._id),
             deps.conversations.listMessages(ticket.conversationId),
+            // Restricted tickets never get an email (ADR-017); skip the read.
+            ticket.restricted ? Promise.resolve([]) : deps.email.listForTicket(ticket._id),
           ]);
           if (ticket.restricted) {
             await audit.record(req, {
@@ -161,6 +164,7 @@ export function agentRoutes(deps: AppDeps, service: AgentService): RouteDef[] {
               createdAt: m.createdAt,
             })),
             citationsShown: [...citations.values()],
+            emails: emails.map(toTicketEmail),
           };
           res.json(body);
         },

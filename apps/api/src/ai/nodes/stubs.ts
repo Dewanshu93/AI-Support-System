@@ -212,6 +212,7 @@ export function stubBuildDraft(state: State): StateUpdate {
         requiredMissing: [],
         articlesShown: [],
         restricted: false,
+        recordFilledFields: [],
       },
     },
   };
@@ -222,6 +223,11 @@ export function stubCreateTicket(state: State): StateUpdate {
     ticketFlow: EMPTY_TICKET_FLOW,
     output: { ...STUB_OUTPUT, ...state.output, ticketId: 'stub-ticket' },
   };
+}
+
+/** Records no email (UC-07); the real node writes the outbox row after confirm. */
+export function stubSendEmail(_state: State): StateUpdate {
+  return {};
 }
 
 const recordsReply = (text: string, reasonCode: string): StateUpdate => ({

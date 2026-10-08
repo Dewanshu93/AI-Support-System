@@ -35,6 +35,7 @@ import {
   stubRequestStatus,
   stubRerankAssess,
   stubRetrieve,
+  stubSendEmail,
   stubSensitiveHandoff,
   stubSlotFill,
   stubTimesheetStatus,
@@ -95,6 +96,7 @@ export const DEFAULT_NODES = {
   persist: stubPersist,
   awaitConfirmation,
   createTicket: stubCreateTicket,
+  sendEmail: stubSendEmail,
   applyAction: stubApplyAction,
   agentSummary,
 } satisfies Record<string, NodeFn>;
@@ -193,37 +195,42 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addEdge('requestStatus', END)
     .compile({ name: 'requestsAgent' });
 
-  return new StateGraph(GraphState)
-    .addNode('loadContext', node('loadContext'))
-    .addNode('precheck', node('precheck'))
-    .addNode('analyzeTurn', node('analyzeTurn'))
-    .addNode('knowledgeAgent', knowledgeAgent)
-    .addNode('escalationAgent', escalationAgent)
-    .addNode('timesheetAgent', timesheetAgent)
-    .addNode('requestsAgent', requestsAgent)
-    .addNode('payrollAgent', payrollAgent)
-    .addNode('sensitiveHandoff', node('sensitiveHandoff'))
-    .addNode('persist', node('persist'))
-    .addNode('awaitConfirmation', node('awaitConfirmation'))
-    .addNode('createTicket', node('createTicket'))
-    .addNode('applyAction', node('applyAction'))
-    .addNode('agentSummary', node('agentSummary'))
-    .addEdge(START, 'loadContext')
-    .addEdge('loadContext', 'precheck')
-    .addConditionalEdges('precheck', routeAfterPrecheck, [...AFTER_PRECHECK])
-    .addConditionalEdges('analyzeTurn', routeAfterAnalysis, [...AFTER_ANALYSIS])
-    .addConditionalEdges('knowledgeAgent', routeAfterKnowledge, [...AFTER_KNOWLEDGE])
-    .addEdge('escalationAgent', 'persist')
-    .addEdge('timesheetAgent', 'persist')
-    .addEdge('requestsAgent', 'persist')
-    .addEdge('payrollAgent', 'persist')
-    .addEdge('sensitiveHandoff', 'persist')
-    .addConditionalEdges('persist', routeAfterPersist, [...AFTER_PERSIST])
-    .addConditionalEdges('awaitConfirmation', routeAfterConfirmation, [...AFTER_CONFIRMATION])
-    .addEdge('createTicket', 'agentSummary')
-    .addEdge('applyAction', END)
-    .addEdge('agentSummary', END)
-    .compile({ checkpointer, name: GRAPH_NAME });
+  return (
+    new StateGraph(GraphState)
+      .addNode('loadContext', node('loadContext'))
+      .addNode('precheck', node('precheck'))
+      .addNode('analyzeTurn', node('analyzeTurn'))
+      .addNode('knowledgeAgent', knowledgeAgent)
+      .addNode('escalationAgent', escalationAgent)
+      .addNode('timesheetAgent', timesheetAgent)
+      .addNode('requestsAgent', requestsAgent)
+      .addNode('payrollAgent', payrollAgent)
+      .addNode('sensitiveHandoff', node('sensitiveHandoff'))
+      .addNode('persist', node('persist'))
+      .addNode('awaitConfirmation', node('awaitConfirmation'))
+      .addNode('createTicket', node('createTicket'))
+      .addNode('sendEmail', node('sendEmail'))
+      .addNode('applyAction', node('applyAction'))
+      .addNode('agentSummary', node('agentSummary'))
+      .addEdge(START, 'loadContext')
+      .addEdge('loadContext', 'precheck')
+      .addConditionalEdges('precheck', routeAfterPrecheck, [...AFTER_PRECHECK])
+      .addConditionalEdges('analyzeTurn', routeAfterAnalysis, [...AFTER_ANALYSIS])
+      .addConditionalEdges('knowledgeAgent', routeAfterKnowledge, [...AFTER_KNOWLEDGE])
+      .addEdge('escalationAgent', 'persist')
+      .addEdge('timesheetAgent', 'persist')
+      .addEdge('requestsAgent', 'persist')
+      .addEdge('payrollAgent', 'persist')
+      .addEdge('sensitiveHandoff', 'persist')
+      .addConditionalEdges('persist', routeAfterPersist, [...AFTER_PERSIST])
+      .addConditionalEdges('awaitConfirmation', routeAfterConfirmation, [...AFTER_CONFIRMATION])
+      // The escalation email is sent only after the ticket exists (UC-07).
+      .addEdge('createTicket', 'sendEmail')
+      .addEdge('sendEmail', 'agentSummary')
+      .addEdge('applyAction', END)
+      .addEdge('agentSummary', END)
+      .compile({ checkpointer, name: GRAPH_NAME })
+  );
 }
 export type SupportGraph = ReturnType<typeof buildSupportGraph>;
 

@@ -181,12 +181,13 @@ describe('confirmation (interrupt and resume)', () => {
     return (await graph.invoke(new Command({ resume: value }), threadConfig(id))) as State;
   }
 
-  it('confirm → createTicket → agentSummary → END', async () => {
+  it('confirm → createTicket → sendEmail → agentSummary → END', async () => {
     const { id } = await run({}, { forceEscalate: true });
     const state = await resume(id, { action: 'confirm' });
-    expect(state.trace.steps.map((s) => s.node).slice(-3)).toEqual([
+    expect(state.trace.steps.map((s) => s.node).slice(-4)).toEqual([
       'awaitConfirmation',
       'createTicket',
+      'sendEmail',
       'agentSummary',
     ]);
     expect(state.output?.ticketId).toBe('stub-ticket');

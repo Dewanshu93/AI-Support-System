@@ -12,14 +12,20 @@ import { api, ApiError } from '@/lib/api';
 import {
   confirmBody,
   type DraftState,
+  draftedEmail,
   draftReducer,
   duplicateFrom,
+  emailEdited,
+  emailProblems,
+  type EmailValues,
   fieldLabel,
   initialDraftState,
   isAiFilled,
+  isRecordFilled,
   MAX_FIELD_LENGTH,
   missingRequired,
 } from '@/lib/ticketDraft';
+import { EmailDraftSection } from './EmailDraftSection';
 
 export const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'warning' | 'danger'> = {
   low: 'neutral',
@@ -85,6 +91,8 @@ export function TicketDraftView({
   onCancel,
   onDuplicate,
   onBack,
+  onEmailEdit = () => {},
+  onEmailReset = () => {},
 }: {
   draft: TicketDraft;
   state: DraftState;
@@ -93,19 +101,24 @@ export function TicketDraftView({
   onCancel: () => void;
   onDuplicate: (decision: 'same' | 'new') => void;
   onBack: () => void;
+  onEmailEdit?: (field: keyof EmailValues, value: string) => void;
+  onEmailReset?: () => void;
 }) {
   const busy = state.phase === 'submitting' || state.phase === 'cancelling';
   const missing = missingRequired(draft, state.values);
   const keys = Object.keys(draft.fields);
+  // UC-07: only drafts with an email change the wording; others read as before.
+  const withEmail = Boolean(draft.email && state.email);
+  const problems = emailProblems(state.email);
   return (
     <section
       data-testid="ticket-draft-card"
-      aria-label="Ticket draft"
+      aria-label={withEmail ? 'Request and email draft' : 'Ticket draft'}
       className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-sm"
     >
       <header className="space-y-1">
         <p className="text-xs font-medium tracking-wide text-amber-800 uppercase">
-          Ticket draft · not sent yet
+          {withEmail ? 'Request and email · not sent yet' : 'Ticket draft · not sent yet'}
         </p>
         <p data-testid="draft-summary" className="text-base font-semibold text-slate-900">
           {draft.summary}
@@ -153,10 +166,16 @@ export function TicketDraftView({
                   <label htmlFor={id} className="font-medium text-slate-800">
                     {fieldLabel(key)}
                   </label>
-                  {isAiFilled(draft, state.values, key) && (
-                    <span data-testid="ai-filled" className="text-xs text-violet-700">
-                      AI-filled
+                  {isRecordFilled(draft, state.values, key) ? (
+                    <span data-testid="record-filled" className="text-xs text-teal-700">
+                      From your records
                     </span>
+                  ) : (
+                    isAiFilled(draft, state.values, key) && (
+                      <span data-testid="ai-filled" className="text-xs text-violet-700">
+                        AI-filled
+                      </span>
+                    )
                   )}
                   {isMissing && (
                     <span data-testid="required-missing" className="text-xs text-rose-700">
@@ -183,6 +202,17 @@ export function TicketDraftView({
         </fieldset>
       )}
 
+      {withEmail && draft.email && state.email && (
+        <EmailDraftSection
+          drafted={draft.email}
+          email={state.email}
+          edited={emailEdited(draft, state.email)}
+          disabled={busy || state.phase === 'duplicate'}
+          onEdit={onEmailEdit}
+          onReset={onEmailReset}
+        />
+      )}
+
       {state.phase === 'duplicate' && state.duplicate && (
         <DuplicatePrompt
           existing={state.duplicate}
@@ -198,12 +228,32 @@ export function TicketDraftView({
       )}
       {state.phase !== 'duplicate' && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button data-testid="draft-confirm" disabled={busy} onClick={onConfirm}>
-            {state.phase === 'submitting' ? 'Creating…' : 'Confirm and create ticket'}
+          <Button
+            data-testid="draft-confirm"
+            disabled={busy || problems.length > 0}
+            aria-describedby={problems.length > 0 ? 'email-problems' : undefined}
+            onClick={onConfirm}
+          >
+            {withEmail
+              ? state.phase === 'submitting'
+                ? 'Sending…'
+                : 'Send request and email'
+              : state.phase === 'submitting'
+                ? 'Creating…'
+                : 'Confirm and create ticket'}
           </Button>
           <Button variant="secondary" data-testid="draft-cancel" disabled={busy} onClick={onCancel}>
-            Cancel
+            {withEmail ? 'Cancel (nothing is sent)' : 'Cancel'}
           </Button>
+          {problems.length > 0 && (
+            <span
+              id="email-problems"
+              data-testid="email-problems"
+              className="text-xs text-rose-700"
+            >
+              {problems.join(' ')}
+            </span>
+          )}
           {missing.length > 0 && (
             <span className="text-xs text-slate-600">
               Adding the needed details helps the team act faster.
@@ -233,7 +283,10 @@ export function TicketDraftCard({
     dispatch({ type: 'submit' });
     try {
       onConfirmed(
-        await api.confirmDraft(conversationId, confirmBody(draft, state.values, duplicateDecision)),
+        await api.confirmDraft(
+          conversationId,
+          confirmBody(draft, state.values, duplicateDecision, state.email),
+        ),
       );
     } catch (err) {
       const existing = err instanceof ApiError ? duplicateFrom(err.details) : null;
@@ -264,6 +317,11 @@ export function TicketDraftCard({
       onCancel={() => void cancel()}
       onDuplicate={(decision) => void confirm(decision)}
       onBack={() => dispatch({ type: 'back' })}
+      onEmailEdit={(field, value) => dispatch({ type: 'emailEdit', field, value })}
+      onEmailReset={() => {
+        const email = draftedEmail(draft);
+        if (email) dispatch({ type: 'emailReset', email });
+      }}
     />
   );
 }
