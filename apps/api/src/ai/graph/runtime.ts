@@ -19,6 +19,7 @@ import { createClarify } from '../nodes/clarify';
 import { createDecide } from '../nodes/decide';
 import { createLoadContext } from '../nodes/loadContext';
 import { createOutOfScope } from '../nodes/outOfScope';
+import { createPayrollExplain, createPayrollRecords } from '../nodes/payrollAgent';
 import { createPersist } from '../nodes/persist';
 import { createPrecheck } from '../nodes/precheck';
 import { createRerankAssess } from '../nodes/rerankAssess';
@@ -124,6 +125,8 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         isEval: deps.isEval,
       }),
       requestStatus: createRequestStatus({ records: deps.records }),
+      payrollRecords: createPayrollRecords({ records: deps.records }),
+      payrollExplain: createPayrollExplain(llm),
       persist: createPersist({
         conversations: deps.conversations,
         thresholds: config.thresholds.decision,

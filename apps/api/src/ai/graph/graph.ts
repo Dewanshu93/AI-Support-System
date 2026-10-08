@@ -5,6 +5,7 @@
 //   escalationAgent — ticket drafts (slot filling, clarification, draft)
 //   timesheetAgent  — the employee's timesheet (status; log hours, confirmed by the employee)
 //   requestsAgent   — the employee's requests
+//   payrollAgent    — the employee's pay records explained with cited policy
 // Agents share the graph state and are compiled subgraphs, so their nodes stream
 // and trace like any other node. Wiring only; nodes live in ai/nodes, routing in edges.ts.
 import {
@@ -27,6 +28,8 @@ import {
   stubDecide,
   stubLoadContext,
   stubOutOfScope,
+  stubPayrollExplain,
+  stubPayrollRecords,
   stubPersist,
   stubPrecheck,
   stubRequestStatus,
@@ -37,12 +40,15 @@ import {
   stubTimesheetStatus,
   stubValidateCitations,
 } from '../nodes/stubs';
+import { payrollCompose } from '../nodes/payrollAgent';
 import { timesheetLog } from '../nodes/workspaceAgents';
 import { type NodeFn, traced } from '../tracing/traced';
 import {
   AFTER_ANALYSIS,
   AFTER_CONFIRMATION,
   AFTER_KNOWLEDGE,
+  AFTER_PAYROLL_EXPLAIN,
+  AFTER_PAYROLL_RECORDS,
   AFTER_PERSIST,
   AFTER_PRECHECK,
   AFTER_SLOT_FILL,
@@ -51,6 +57,8 @@ import {
   routeAfterAnalysis,
   routeAfterConfirmation,
   routeAfterKnowledge,
+  routeAfterPayrollExplain,
+  routeAfterPayrollRecords,
   routeAfterPersist,
   routeAfterPrecheck,
   routeAfterSlotFill,
@@ -81,6 +89,9 @@ export const DEFAULT_NODES = {
   timesheetStatus: stubTimesheetStatus,
   timesheetLog,
   requestStatus: stubRequestStatus,
+  payrollRecords: stubPayrollRecords,
+  payrollExplain: stubPayrollExplain,
+  payrollCompose,
   persist: stubPersist,
   awaitConfirmation,
   createTicket: stubCreateTicket,
@@ -103,6 +114,15 @@ export const AGENTS = {
   escalationAgent: ['slotFill', 'clarifyForTicket', 'buildDraft'],
   timesheetAgent: ['timesheetStatus', 'timesheetLog'],
   requestsAgent: ['requestStatus'],
+  // Reuses the knowledge agent's retrieval, rerank and citation check.
+  payrollAgent: [
+    'payrollRecords',
+    'retrieve',
+    'rerankAssess',
+    'payrollExplain',
+    'validateCitations',
+    'payrollCompose',
+  ],
 } as const satisfies Record<string, readonly NodeName[]>;
 export type AgentName = keyof typeof AGENTS;
 
@@ -151,6 +171,22 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addEdge('timesheetLog', END)
     .compile({ name: 'timesheetAgent' });
 
+  const payrollAgent = new StateGraph(GraphState)
+    .addNode('payrollRecords', node('payrollRecords'))
+    .addNode('retrieve', node('retrieve'))
+    .addNode('rerankAssess', node('rerankAssess'))
+    .addNode('payrollExplain', node('payrollExplain'))
+    .addNode('validateCitations', node('validateCitations'))
+    .addNode('payrollCompose', node('payrollCompose'))
+    .addEdge(START, 'payrollRecords')
+    .addConditionalEdges('payrollRecords', routeAfterPayrollRecords, [...AFTER_PAYROLL_RECORDS])
+    .addEdge('retrieve', 'rerankAssess')
+    .addEdge('rerankAssess', 'payrollExplain')
+    .addConditionalEdges('payrollExplain', routeAfterPayrollExplain, [...AFTER_PAYROLL_EXPLAIN])
+    .addEdge('validateCitations', 'payrollCompose')
+    .addEdge('payrollCompose', END)
+    .compile({ name: 'payrollAgent' });
+
   const requestsAgent = new StateGraph(GraphState)
     .addNode('requestStatus', node('requestStatus'))
     .addEdge(START, 'requestStatus')
@@ -165,6 +201,7 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addNode('escalationAgent', escalationAgent)
     .addNode('timesheetAgent', timesheetAgent)
     .addNode('requestsAgent', requestsAgent)
+    .addNode('payrollAgent', payrollAgent)
     .addNode('sensitiveHandoff', node('sensitiveHandoff'))
     .addNode('persist', node('persist'))
     .addNode('awaitConfirmation', node('awaitConfirmation'))
@@ -179,6 +216,7 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addEdge('escalationAgent', 'persist')
     .addEdge('timesheetAgent', 'persist')
     .addEdge('requestsAgent', 'persist')
+    .addEdge('payrollAgent', 'persist')
     .addEdge('sensitiveHandoff', 'persist')
     .addConditionalEdges('persist', routeAfterPersist, [...AFTER_PERSIST])
     .addConditionalEdges('awaitConfirmation', routeAfterConfirmation, [...AFTER_CONFIRMATION])

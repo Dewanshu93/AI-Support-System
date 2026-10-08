@@ -222,6 +222,8 @@ export const PROMPT_NAMES = [
   'eval_judge',
   // Build Contract v2.0 (ADR-015): P-10, copilot timesheet entries.
   'timesheet_extract',
+  // P-11, the payroll agent's explanation (UC-06).
+  'payroll_explain',
 ] as const;
 export type PromptName = (typeof PROMPT_NAMES)[number];
 

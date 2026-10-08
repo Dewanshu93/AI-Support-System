@@ -15,6 +15,7 @@ import {
 import { ObjectId } from 'mongodb';
 import type { ConfigFiles } from '../../config/schemas';
 import type { ProjectDoc } from '../../db/schemas';
+import type { PayrollFacts } from '../../domain/workspaceReplies';
 import {
   addDays,
   dateRange,
@@ -243,6 +244,68 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     return { items: docs.map(toPayslipSummary), paidByAgency };
   }
 
+  /**
+   * The records behind "why was my pay reduced?" (UC-06): the two latest
+   * payslips and, for every Loss of Pay day on them, the attendance record and
+   * the hours on the timesheet now. Read by code; the copilot only explains.
+   */
+  async function payrollFacts(user: Who & Pick<AuthUser, 'employmentType'>): Promise<PayrollFacts> {
+    if (user.employmentType === 'contractor') {
+      return { paidByAgency: true, currency: null, payslips: [], lopDays: [] };
+    }
+    const docs = await workspace.payslips(uid(user), 2);
+    const lop = docs.flatMap((p) =>
+      p.deductions
+        .filter((d) => d.code === 'lop')
+        .flatMap((d) => {
+          // Split in cents, the last day taking the remainder, so the days add up
+          // exactly to the deduction on the payslip.
+          const cents = Math.round(d.amount * 100);
+          const share = Math.floor(cents / d.dates.length);
+          const last = cents - share * (d.dates.length - 1);
+          return d.dates.map((date, i) => ({
+            date,
+            amount: (i === d.dates.length - 1 ? last : share) / 100,
+            payDate: p.payDate,
+          }));
+        }),
+    );
+    const lopDays = await Promise.all(
+      lop.map(async (l) => {
+        const [attendance, entries] = await Promise.all([
+          workspace.attendance(uid(user), l.date, l.date),
+          workspace.timesheetEntries(uid(user), l.date, l.date),
+        ]);
+        return {
+          ...l,
+          attendance: attendance[0]?.status ?? null,
+          attendanceNote: attendance[0]?.note ?? null,
+          hoursNow: round2(entries.reduce((s, e) => s + e.hours, 0)),
+          lateHours: round2(entries.filter((e) => e.late).reduce((s, e) => s + e.hours, 0)),
+          requiredHours: rules.requiredHoursPerDay,
+        };
+      }),
+    );
+    return {
+      paidByAgency: false,
+      currency: docs[0]?.currency ?? null,
+      payslips: docs.map((p) => ({
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
+        payDate: p.payDate,
+        gross: p.gross,
+        net: p.net,
+        deductions: p.deductions.map(({ code, label, amount, dates }) => ({
+          code,
+          label,
+          amount,
+          dates,
+        })),
+      })),
+      lopDays,
+    };
+  }
+
   async function dashboard(user: AuthUser): Promise<DashboardResponse> {
     const now = today();
     const thisWeek = weekStartOf(now);
@@ -322,6 +385,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     projects: async (user: Pick<Who, 'id'>) =>
       (await workspace.projectsForMember(uid(user))).map(toProject),
     payslips,
+    payrollFacts,
     payslip: (user: AuthUser, id: string) => workspace.payslip(uid(user), id),
     attendance: (user: AuthUser, from: IsoDate, to: IsoDate) =>
       workspace.attendance(uid(user), from, to),

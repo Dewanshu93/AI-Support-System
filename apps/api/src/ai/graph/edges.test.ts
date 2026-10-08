@@ -5,6 +5,8 @@ import {
   routeAfterAnalysis,
   routeAfterConfirmation,
   routeAfterKnowledge,
+  routeAfterPayrollExplain,
+  routeAfterPayrollRecords,
   routeAfterPersist,
   routeAfterSlotFill,
   routeByDecision,
@@ -92,7 +94,7 @@ describe('intent router (UC-04)', () => {
     ['timesheet_log', 'timesheetAgent'],
     ['timesheet_status', 'timesheetAgent'],
     ['request_status', 'requestsAgent'],
-    ['payroll_explain', 'knowledgeAgent'],
+    ['payroll_explain', 'payrollAgent'],
     ['none', 'knowledgeAgent'],
   ])('workspaceIntent %s → %s', (intent, agent) => {
     expect(routeAfterAnalysis(withIntent(intent))).toBe(agent);
@@ -240,5 +242,26 @@ describe('traceReducer', () => {
   it('a single-node update identical to the trace is appended, not merged', () => {
     const one = { steps: [{ node: 'a', latencyMs: 0 }], stepLatencyMs: { a: 0 } };
     expect(traceReducer(traceReducer(EMPTY_TRACE, one), one).steps).toHaveLength(2);
+  });
+});
+
+describe('routeAfterPayrollRecords (UC-06)', () => {
+  const facts = { paidByAgency: false, currency: 'USD' as const, payslips: [], lopDays: [] };
+  it('searches the policy for employees with records; ends for contractors or a fixed reply', () => {
+    expect(routeAfterPayrollRecords(at({ payroll: facts, output: null }))).toBe('retrieve');
+    expect(
+      routeAfterPayrollRecords(at({ payroll: { ...facts, paidByAgency: true }, output: null })),
+    ).toBe(END);
+    const output = { text: 'unavailable', citations: [], uncovered: [], withdrawn: false };
+    expect(routeAfterPayrollRecords(at({ payroll: null, output }))).toBe(END);
+  });
+});
+
+describe('routeAfterPayrollExplain (UC-06)', () => {
+  const out = (text: string) => ({ text, citations: [], uncovered: [], withdrawn: false });
+  it('checks a written explanation; composes directly when there is none', () => {
+    expect(routeAfterPayrollExplain(at({ output: out('Policy [S1].') }))).toBe('validateCitations');
+    expect(routeAfterPayrollExplain(at({ output: out('') }))).toBe('payrollCompose');
+    expect(routeAfterPayrollExplain(at({ output: null }))).toBe('payrollCompose');
   });
 });

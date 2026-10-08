@@ -306,12 +306,13 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 `loadContext → precheck → analyzeTurn`, then `routeAfterAnalysis` (code) hands the turn to one
 agent, each a compiled subgraph over the same `GraphState`:
 
-| Agent             | Nodes                                                                              | Entered when                                                                                        |
-| ----------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `knowledgeAgent`  | retrieve, rerankAssess, decide, answer, validateCitations, clarify, outOfScope     | default (policy questions, IT issues; payroll until UC-06)                                          |
-| `escalationAgent` | slotFill, clarifyForTicket, buildDraft                                             | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
-| `timesheetAgent`  | timesheetStatus (records), timesheetLog (P-10 extraction → code checks → proposal) | P-1 v2 `workspaceIntent` timesheet_status / timesheet_log                                           |
-| `requestsAgent`   | requestStatus (records)                                                            | `workspaceIntent` request_status                                                                    |
+| Agent             | Nodes                                                                                                      | Entered when                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `knowledgeAgent`  | retrieve, rerankAssess, decide, answer, validateCitations, clarify, outOfScope                             | default (policy questions, IT issues)                                                               |
+| `escalationAgent` | slotFill, clarifyForTicket, buildDraft                                                                     | ticket flow active, "talk to a person", or the knowledge agent decided ESCALATE / gave safety steps |
+| `timesheetAgent`  | timesheetStatus (records), timesheetLog (P-10 extraction → code checks → proposal)                         | P-1 v2 `workspaceIntent` timesheet_status / timesheet_log                                           |
+| `requestsAgent`   | requestStatus (records)                                                                                    | `workspaceIntent` request_status                                                                    |
+| `payrollAgent`    | payrollRecords (records), retrieve, rerankAssess, payrollExplain (P-11), validateCitations, payrollCompose | `workspaceIntent` payroll_explain                                                                   |
 
 **Copilot actions (UC-05).** `timesheetLog` asks P-10 `timesheet_extract` (fast tier) only for date
 phrases, a project code from the employee's own projects (enum injected per call) and hours. Code
@@ -323,6 +324,16 @@ in `awaitConfirmation` like a ticket draft (SSE `action_draft`, `pendingAction` 
 node) saves through `saveCells` with `source: copilot`, records the outcome in the conversation,
 and the endpoint audits `timesheet.save` (triggered by copilot, approved by employee). Confirm is
 idempotent; `/cancel` saves nothing; a rule that fails at confirm time saves nothing and says why.
+
+**Payroll agent (UC-06).** `payrollRecords` reads the two latest payslips and, per Loss of Pay day,
+the attendance record and the hours on the timesheet now (`WorkspaceService.payrollFacts`; multi-day
+deductions split in cents). Contractors get the agency reply and the agent ends. Otherwise the search
+query is widened by code (`retrievalQuery`, per turn; the analysis is left unchanged), the policy is
+retrieved and reranked, and P-11 `payroll_explain` (fast tier) explains it from a **figure-free**
+summary of the situation (`payrollFactsForModel`): no pay, amounts or dates reach the model.
+`validateCitations` checks the explanation (an empty one skips it); `payrollCompose` writes "Your
+records" (code), "What the policy says" (the checked explanation, or a fixed line if it was withdrawn),
+and "Next steps" (code), recorded as ANSWER / `PAYROLL_EXPLAINED` or `PAYROLL_RECORDS_ONLY`.
 
 Sensitive turns never reach an agent. Records agents answer from data read by code
 (`ai/nodes/workspaceAgents.ts`, `domain/workspaceReplies.ts`, `modules/workspace/records.ts`) and
@@ -357,6 +368,12 @@ graph TD;
 	timesheetAgent_timesheetLog(timesheetLog)
 	timesheetAgent___end__(<p>__end__</p>)
 	requestsAgent(requestsAgent)
+	payrollAgent_payrollRecords(payrollRecords)
+	payrollAgent_retrieve(retrieve)
+	payrollAgent_rerankAssess(rerankAssess)
+	payrollAgent_payrollExplain(payrollExplain)
+	payrollAgent_validateCitations(validateCitations)
+	payrollAgent_payrollCompose(payrollCompose)
 	sensitiveHandoff(sensitiveHandoff)
 	persist(persist)
 	awaitConfirmation(awaitConfirmation)
@@ -370,6 +387,7 @@ graph TD;
 	createTicket --> agentSummary;
 	escalationAgent___end__ --> persist;
 	loadContext --> precheck;
+	payrollAgent_payrollCompose --> persist;
 	requestsAgent --> persist;
 	sensitiveHandoff --> persist;
 	timesheetAgent___end__ --> persist;
@@ -379,6 +397,7 @@ graph TD;
 	analyzeTurn -.-> escalationAgent_slotFill;
 	analyzeTurn -.-> timesheetAgent___start__;
 	analyzeTurn -.-> requestsAgent;
+	analyzeTurn -.-> payrollAgent_payrollRecords;
 	analyzeTurn -.-> knowledgeAgent_retrieve;
 	knowledgeAgent___end__ -.-> sensitiveHandoff;
 	knowledgeAgent___end__ -.-> escalationAgent_slotFill;
@@ -411,6 +430,14 @@ graph TD;
 	timesheetAgent_timesheetStatus --> timesheetAgent___end__;
 	timesheetAgent___start__ -.-> timesheetAgent_timesheetLog;
 	timesheetAgent___start__ -.-> timesheetAgent_timesheetStatus;
+	end
+	subgraph payrollAgent
+	payrollAgent_rerankAssess --> payrollAgent_payrollExplain;
+	payrollAgent_retrieve --> payrollAgent_rerankAssess;
+	payrollAgent_validateCitations --> payrollAgent_payrollCompose;
+	payrollAgent_payrollRecords -.-> payrollAgent_retrieve;
+	payrollAgent_payrollExplain -.-> payrollAgent_validateCitations;
+	payrollAgent_payrollExplain -.-> payrollAgent_payrollCompose;
 	end
 	classDef default fill:#f2f0ff,line-height:1.2;
 	classDef first fill-opacity:0;

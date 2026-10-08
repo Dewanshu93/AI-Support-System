@@ -40,6 +40,7 @@ export function createWorkspaceRecords(deps: {
       return { saved: result.saved };
     },
     days: (who, from, to) => deps.service.days(who, from, to),
+    payroll: (who) => deps.service.payrollFacts(who),
     async requests(userId) {
       const page = await deps.tickets.listForRequester(new ObjectId(userId), { limit: 50 });
       return page.items.map((t) => ({

@@ -20,6 +20,7 @@ export const AFTER_ANALYSIS = [
   'escalationAgent',
   'timesheetAgent',
   'requestsAgent',
+  'payrollAgent',
   'knowledgeAgent',
 ] as const;
 export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number] {
@@ -33,7 +34,8 @@ export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number
       return 'timesheetAgent';
     case 'request_status':
       return 'requestsAgent';
-    // payroll_explain: the policy answer until the payroll agent (UC-06).
+    case 'payroll_explain':
+      return 'payrollAgent';
     default:
       return 'knowledgeAgent';
   }
@@ -114,4 +116,18 @@ export function routeAfterSlotFill(state: State): (typeof AFTER_SLOT_FILL)[numbe
 export const TIMESHEET_START = ['timesheetLog', 'timesheetStatus'] as const;
 export function routeTimesheetStart(state: State): (typeof TIMESHEET_START)[number] {
   return workspaceIntentOf(state.analysis) === 'timesheet_log' ? 'timesheetLog' : 'timesheetStatus';
+}
+
+// --- payrollAgent (records + cited policy) -------------------------------------------
+
+export const AFTER_PAYROLL_RECORDS = ['retrieve', END] as const;
+/** Contractors (paid by agency) and unavailable records are answered without search. */
+export function routeAfterPayrollRecords(state: State): (typeof AFTER_PAYROLL_RECORDS)[number] {
+  return state.payroll && !state.payroll.paidByAgency && !state.output ? 'retrieve' : END;
+}
+
+/** No explanation (no policy context or the model failed): nothing to check, compose directly. */
+export const AFTER_PAYROLL_EXPLAIN = ['validateCitations', 'payrollCompose'] as const;
+export function routeAfterPayrollExplain(state: State): (typeof AFTER_PAYROLL_EXPLAIN)[number] {
+  return state.output?.text ? 'validateCitations' : 'payrollCompose';
 }

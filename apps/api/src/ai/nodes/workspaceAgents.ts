@@ -3,6 +3,7 @@
 // (Build Contract v2.0, rule E.2). The timesheet log action arrives in UC-05.
 import type { Country, IsoDate, TimesheetDay } from '@sd/shared';
 import {
+  type PayrollFacts,
   type RequestSummary,
   requestStatusReply,
   TIMESHEET_LOG_PENDING_REPLY,
@@ -38,6 +39,12 @@ export interface WorkspaceRecords {
   ): Promise<{ saved: number }>;
   days(who: { id: string; country: Country }, from: IsoDate, to: IsoDate): Promise<TimesheetDay[]>;
   requests(userId: string): Promise<RequestSummary[]>;
+  /** Payslips, Loss of Pay days and their attendance/timesheet records (UC-06). */
+  payroll(who: {
+    id: string;
+    country: Country;
+    employmentType: 'full_time' | 'contractor';
+  }): Promise<PayrollFacts>;
 }
 
 export interface WorkspaceAgentDeps {

@@ -42,7 +42,8 @@ export function domainHint(state: State): Domain | undefined {
 export function createRetrieve(deps: RetrieveNodeDeps) {
   return async function retrieve(state: State): Promise<StateUpdate> {
     if (!state.profile) throw new Error('retrieve: profile not loaded');
-    const query = state.analysis?.searchQuery ?? state.input.text;
+    // An agent may widen the query for this turn (payroll: terms from the records).
+    const query = state.retrievalQuery ?? state.analysis?.searchQuery ?? state.input.text;
     const { candidates, trace } = await deps.retrieve({
       query,
       profile: state.profile,

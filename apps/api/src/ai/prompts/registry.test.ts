@@ -158,6 +158,7 @@ describe('committed prompts', () => {
     clarifying_question: ['mode', 'needed', 'profile', 'question'],
     ticket_slot_fill: ['analysis', 'conversation', 'fieldSchemas', 'profile', 'taxonomy'],
     timesheet_extract: ['history', 'message', 'projects', 'today'],
+    payroll_explain: ['question', 'records', 'sources'],
   } as const;
 
   it.each(Object.entries(expected))('%s v1 loads with its documented variables', (name, vars) => {
@@ -176,7 +177,7 @@ describe('committed prompts', () => {
     }
   });
 
-  it('activates exactly the prompts built so far (P-1 to P-5, P-10)', () => {
+  it('activates exactly the prompts built so far (P-1 to P-5, P-10, P-11)', () => {
     expect(Object.keys(registry.active()).sort()).toEqual(Object.keys(expected).sort());
   });
 });

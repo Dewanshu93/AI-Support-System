@@ -1,5 +1,14 @@
 import type { TimesheetDay } from '@sd/shared';
-import { requestStatusReply, timesheetStatusReply } from './workspaceReplies';
+import {
+  type PayrollFacts,
+  payrollFactsForModel,
+  payrollNextSteps,
+  payrollRecordsText,
+  payrollReply,
+  requestStatusReply,
+  timesheetStatusReply,
+  withoutPayrollRecords,
+} from './workspaceReplies';
 
 const day = (
   date: string,
@@ -74,5 +83,78 @@ describe('requestStatusReply', () => {
 
   it('handles no requests at all', () => {
     expect(requestStatusReply([])).toContain('no requests yet');
+  });
+});
+
+describe('payroll replies (UC-06)', () => {
+  const facts = (over: Partial<PayrollFacts['lopDays'][number]> = {}): PayrollFacts => ({
+    paidByAgency: false,
+    currency: 'USD',
+    payslips: [
+      {
+        periodStart: '2026-09-16',
+        periodEnd: '2026-09-30',
+        payDate: '2026-09-30',
+        gross: 4333.33,
+        net: 2571.83,
+        deductions: [
+          { code: 'retirement', label: '401(k) contribution (5%)', amount: 216.67, dates: [] },
+          { code: 'lop', label: 'Loss of Pay (1 day)', amount: 400, dates: ['2026-09-11'] },
+        ],
+      },
+    ],
+    lopDays: [
+      {
+        date: '2026-09-11',
+        amount: 400,
+        payDate: '2026-09-30',
+        attendance: 'absent',
+        attendanceNote: 'No badge-in on 11/09 at 09:00',
+        hoursNow: 0,
+        lateHours: 0,
+        requiredHours: 8,
+        ...over,
+      },
+    ],
+  });
+
+  it('the model summary contains no digit at all (no amount, date, hour or note figure)', () => {
+    for (const f of [facts(), facts({ hoursNow: 4, lateHours: 4 }), { ...facts(), lopDays: [] }]) {
+      expect(payrollFactsForModel(f)).not.toMatch(/[0-9]/);
+    }
+    expect(payrollFactsForModel(facts())).toContain('attendance recorded as absent');
+    expect(payrollFactsForModel({ ...facts(), lopDays: [] })).toContain('retirement contribution');
+  });
+
+  it('describes all, some or none of a day as logged late', () => {
+    expect(payrollRecordsText(facts({ hoursNow: 8, lateHours: 8 }))).toContain(
+      'your timesheet now shows 8 h, logged after the pay period closed',
+    );
+    expect(payrollRecordsText(facts({ hoursNow: 8, lateHours: 4 }))).toContain(
+      'your timesheet now shows 8 h, 4 h of it logged after the pay period closed',
+    );
+    expect(payrollRecordsText(facts({ hoursNow: 8, lateHours: 0 }))).toContain(
+      'your timesheet now shows 8 h.',
+    );
+    expect(payrollFactsForModel(facts({ hoursNow: 8, lateHours: 4 }))).toContain(
+      'partly logged after the pay period closed',
+    );
+  });
+
+  it('suggests only the hours still missing, rounded', () => {
+    expect(payrollNextSteps(facts({ hoursNow: 7.3 }))).toContain('"Log 0.7 hours for <project>');
+    expect(payrollNextSteps(facts({ hoursNow: 0 }))).toContain('"Log 8 hours for <project>');
+    expect(payrollNextSteps(facts({ hoursNow: 8 }))).not.toContain('log the hours first');
+  });
+
+  it('history replay keeps the next steps but not the pay figures', () => {
+    const reply = payrollReply(facts(), 'Policy text [S1].');
+    const replayed = withoutPayrollRecords(reply);
+    expect(reply).toContain('$400.00');
+    expect(replayed).not.toContain('$400.00');
+    expect(replayed).not.toContain('4,333.33');
+    expect(replayed).toContain('Policy text [S1].');
+    expect(replayed).toContain('If you worked on Fri 11 Sept');
+    expect(withoutPayrollRecords('Any other reply')).toBe('Any other reply');
   });
 });

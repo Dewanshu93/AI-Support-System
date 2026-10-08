@@ -9,3 +9,4 @@ active:
   clarifying_question: 1 # P-4
   ticket_slot_fill: 1 # P-5
   timesheet_extract: 1 # P-10 (UC-05, ADR-015)
+  payroll_explain: 1 # P-11 (UC-06, ADR-015)

@@ -1484,3 +1484,60 @@ switch to v2, run `npm run eval -- --suite full`, re-record the chat E2E replies
 - The timesheet agent is reached only with P-1 v2 active (UC-04 follow-up: switch after the full
   eval when quota allows). Until then the flow is exercised by the tests above.
 - E2E for this flow needs recorded LLM replies, so it is added together with the P-1 v2 switch.
+
+## UC-06 Payroll investigation agent — 2026-10-08
+
+**Delivered:**
+
+- `payrollAgent` subgraph (P-1 v2 `payroll_explain`): `payrollRecords` (code) → `retrieve` →
+  `rerankAssess` → `payrollExplain` (**P-11** `payroll_explain` v1, fast tier) → `validateCitations`
+  → `payrollCompose` (code). Contractors get the agency reply after the records step.
+- The reply has three parts: **Your records** (code: latest payslip, each Loss of Pay day with
+  amount, pay date, attendance and the hours on the timesheet now), **What the policy says** (the
+  model's explanation, citations and numbers checked by code), **Next steps** (code: log the
+  missing hours, then ask for a payroll request — the request itself is UC-07).
+- Figures never come from, or go to, the model: P-11 receives a figure-free summary of the
+  situation (`payrollFactsForModel`); pay, amounts and dates stay in the code-written records.
+
+**Adversarial review (Ultracode workflow, 4 dimensions × 3 skeptics, 49 agents):** 15 findings,
+11 confirmed and fixed before commit:
+
+- **High:** the prompt allowed record figures but the number check withdraws numbers not in the
+  cited policy, so correct explanations were dropped (also seen live: "Fri **11** Sept" →
+  `NUMERIC_MISMATCH`). Fixed by the figure-free summary and prompt wording.
+- Multi-day LOP split now in cents (days add up to the payslip); "logged after the pay period
+  closed" based on the entries' `late` flag; next steps suggest the hours still missing.
+- The widened search query is a per-turn `retrievalQuery`, so the stored analysis is unchanged.
+- An empty explanation skips the citation check (no false `ANSWER_WITHDRAWN`); a withdrawn one is
+  flagged `PAYROLL_EXPLANATION_WITHDRAWN`.
+- Gross, net and other deductions no longer sent to the provider (privacy).
+- Tests added for each (registry lists P-11; record-figure withdrawal; empty retrieval; invalid
+  output; no markers; cent split; analysis query unchanged; prompt contains no figures).
+
+**Verification**
+
+| Check                                    | Result                                                                                                                                                                                             |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API `payrollAgent.test.ts` (fake model)  | Pass (13): three-part reply with exact figures and validated citations; invented figure withdrawn; late-logged day; contractor path (P-1 only); no-LOP employee; plus the 8 review-fix tests above |
+| Graph and edge tests                     | Pass: payroll path node sequence, contractor path, routing, Mermaid in ARCHITECTURE.md                                                                                                             |
+| **Live (Gemini fast, LAN data, P-1 v2)** | Priya: `PAYROLL_EXPLAINED`, 4 valid citations, 0 number violations (≈7 s, $0.0025 per turn). Olivia (UK, no LOP): deductions listed, cited explanation. Tom: agency reply, 1 LLM call              |
+
+**Verification round (second workflow, 34 agents):** 2 checkers per original finding plus 2
+regression hunters (3 skeptics each). Confirmed and fixed:
+
+- Pay figures still reached the provider **on later turns**: the stored reply is replayed as
+  history to P-1 / P-10. `formatHistory` / `formatConversation` now replace the "Your records"
+  block (`withoutPayrollRecords`); the next steps, with the day for "that day", are kept.
+- A withdrawn explanation was invisible in stored traces: the trace now keeps the citation
+  check's verdict (`withdrawn: true`) and the reason code `PAYROLL_EXPLANATION_WITHDRAWN`
+  (distinct from `PAYROLL_RECORDS_ONLY`: no policy found or model failure).
+- Next-steps hours rounded ("Log 0.7 hours", not 0.7000000000000002); `lateHours` replaces a
+  boolean so a partly-late day says "4 h of it logged after the pay period closed".
+- Stronger tests: the model summary has no digit at all; direct tests for
+  `routeAfterPayrollExplain`, `payrollCompose` reasons and flag, the helpers, and the next-turn
+  history.
+
+**Residual risk:** citation validation requires at least one valid citation, not one per
+sentence; a live answer contained one uncited general sentence ("income tax and national
+insurance are standard statutory deductions"). P-3 shares this; the groundedness judge (W4-06,
+deferred) is the planned check.

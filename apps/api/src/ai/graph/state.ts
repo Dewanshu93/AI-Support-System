@@ -16,6 +16,7 @@ import type {
   TicketDraft,
 } from '@sd/shared';
 import { z } from 'zod';
+import type { PayrollFacts } from '../../domain/workspaceReplies';
 import type { AnswerMode, RerankAssessment, TurnAnalysis } from '../schemas';
 
 /** Written by the API before invoke; validated at the graph boundary. */
@@ -281,6 +282,10 @@ export const GraphState = Annotation.Root({
   precheckResult: lastValue<Precheck | null>(null),
   analysis: lastValue<TurnAnalysis | null>(null),
   retrieval: lastValue<Retrieval | null>(null),
+  /** The employee's pay records read by the payroll agent (UC-06); per turn. */
+  payroll: lastValue<PayrollFacts | null>(null),
+  /** Search query set by an agent for this turn, used instead of the analysis query. */
+  retrievalQuery: lastValue<string | null>(null),
   decision: lastValue<DecisionResult | null>(null),
   output: lastValue<Output | null>(null),
   confirmation: lastValue<Confirmation | null>(null),
@@ -302,6 +307,8 @@ export function newTurn(input: TurnInput): StateUpdate {
     precheckResult: null,
     analysis: null,
     retrieval: null,
+    payroll: null,
+    retrievalQuery: null,
     decision: null,
     output: null,
     confirmation: null,

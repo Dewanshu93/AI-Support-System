@@ -160,3 +160,182 @@ export const TIMESHEET_EXTRACTION_FAILED_REPLY =
 /** Until the timesheet action is built (UC-05): point to the form, change nothing. */
 export const TIMESHEET_LOG_PENDING_REPLY =
   'I cannot log hours from the chat yet. Open Timesheets in the menu to add or change your hours; your entry is checked and saved there straight away.';
+
+// --- payroll explanation (UC-06) -------------------------------------------------------
+
+/** The employee's pay records relevant to "why was my pay reduced?", read by code. */
+export interface PayrollFacts {
+  paidByAgency: boolean;
+  currency: 'USD' | 'GBP' | null;
+  /** Most recent first. */
+  payslips: {
+    periodStart: string;
+    periodEnd: string;
+    payDate: string;
+    gross: number;
+    net: number;
+    deductions: { code: string; label: string; amount: number; dates: string[] }[];
+  }[];
+  /** One per Loss of Pay day on those payslips. */
+  lopDays: {
+    date: string;
+    amount: number;
+    payDate: string;
+    attendance: string | null;
+    attendanceNote: string | null;
+    /** Hours on the timesheet for that day now (logging late does not change the payslip). */
+    hoursNow: number;
+    /** Hours of hoursNow logged after the day's pay period closed (0 when all were on time). */
+    lateHours: number;
+    requiredHours: number;
+  }[];
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** ", logged after the pay period closed" for all of a day's hours, or how many of them. */
+const lateNote = (d: PayrollFacts['lopDays'][number]) =>
+  d.lateHours === 0
+    ? ''
+    : d.lateHours >= d.hoursNow
+      ? ', logged after the pay period closed'
+      : `, ${h(d.lateHours)} of it logged after the pay period closed`;
+
+const money = (n: number, currency: PayrollFacts['currency']) =>
+  new Intl.NumberFormat(currency === 'GBP' ? 'en-GB' : 'en-US', {
+    style: 'currency',
+    currency: currency ?? 'USD',
+  }).format(n);
+
+export const PAID_BY_AGENCY_REPLY =
+  'As a contractor you are paid by your agency, so the company payroll holds no payslips or deductions for you. Please ask your agency about your pay.';
+
+/** "Your records": every figure comes from the stored records. */
+export function payrollRecordsText(f: PayrollFacts): string {
+  const latest = f.payslips[0];
+  if (!latest) return 'I found no payslips for you yet.';
+  const lines = [
+    `Your latest payslip (${label(latest.periodStart)} – ${label(latest.periodEnd)}, paid ${label(latest.payDate)}): gross ${money(latest.gross, f.currency)}, net ${money(latest.net, f.currency)}.`,
+  ];
+  if (f.lopDays.length === 0) {
+    lines.push('There is no Loss of Pay deduction on your recent payslips.');
+    lines.push(
+      latest.deductions.length === 0
+        ? 'There are no deductions on it.'
+        : `Deductions: ${latest.deductions.map((d) => `${d.label} ${money(d.amount, f.currency)}`).join('; ')}.`,
+    );
+    return lines.join('\n');
+  }
+  for (const d of f.lopDays) {
+    const attendance = d.attendance
+      ? `attendance shows "${d.attendance}"${d.attendanceNote ? ` (${d.attendanceNote})` : ''}`
+      : 'there is no attendance record';
+    const timesheet =
+      d.hoursNow === 0
+        ? 'your timesheet has no hours for that day'
+        : `your timesheet now shows ${h(d.hoursNow)}${lateNote(d)}`;
+    lines.push(
+      `• Loss of Pay ${money(d.amount, f.currency)} for ${label(d.date)}, on the payslip paid ${label(d.payDate)}: ${attendance}, and ${timesheet}.`,
+    );
+  }
+  return lines.join('\n');
+}
+
+/** Code-built next steps after the explanation. */
+export function payrollNextSteps(f: PayrollFacts): string {
+  if (f.lopDays.length === 0) {
+    return 'If something on your payslip still looks wrong, I can raise a payroll request for you.';
+  }
+  const missing = f.lopDays.filter((d) => d.hoursNow < d.requiredHours);
+  const first = missing[0];
+  const steps = [
+    ...(first
+      ? [
+          `If you worked on ${missing.map((d) => label(d.date)).join(', ')}, log the hours first, for example: "Log ${round2(first.requiredHours - first.hoursNow)} hours for <project> on ${label(first.date)}".`,
+        ]
+      : []),
+    'Then ask me to raise a payroll request so payroll can review the Loss of Pay deduction.',
+  ];
+  return steps.join('\n');
+}
+
+/** Deduction codes in words, so the model never sees a figure from the payslip. */
+const DEDUCTION_WORDS: Record<string, string> = {
+  tax: 'income tax',
+  social_security: 'social security or national insurance',
+  retirement: 'retirement contribution',
+  health: 'health plan premium',
+  lop: 'Loss of Pay',
+  other: 'other deduction',
+};
+
+/**
+ * The records as the model sees them (P-11): the situation without any figure,
+ * date or amount; the employee sees those in the code-written records instead.
+ * This keeps pay figures out of the model call, and the explanation can then
+ * only contain numbers copied from the cited policy, which the number check verifies.
+ */
+export function payrollFactsForModel(f: PayrollFacts): string {
+  const noDigits = (t: string) => t.replace(/[0-9]/g, '').replace(/\s+/g, ' ').trim();
+  if (f.lopDays.length === 0) {
+    const codes = [...new Set(f.payslips[0]?.deductions.map((d) => d.code) ?? [])];
+    const words = codes.map((c) => DEDUCTION_WORDS[c] ?? 'other deduction');
+    return [
+      'No Loss of Pay deduction on the recent payslips.',
+      `Deductions on the latest payslip: ${words.join(', ') || 'none'}.`,
+    ].join('\n');
+  }
+  return f.lopDays
+    .map((d) => {
+      const attendance = d.attendance
+        ? `attendance recorded as ${d.attendance}${d.attendanceNote ? ` (${noDigits(d.attendanceNote)})` : ''}`
+        : 'no attendance record';
+      const timesheet =
+        d.hoursNow === 0
+          ? 'no timesheet hours for that day'
+          : d.hoursNow < d.requiredHours
+            ? 'part of the day is now on the timesheet'
+            : 'the full day is now on the timesheet';
+      const late =
+        d.lateHours === 0
+          ? ''
+          : d.lateHours >= d.hoursNow
+            ? ', logged after the pay period closed'
+            : ', partly logged after the pay period closed';
+      return `- A Loss of Pay day on a recent payslip: ${attendance}; ${timesheet}${late}.`;
+    })
+    .join('\n');
+}
+
+/** Heading lines of the payroll reply (payrollReply). */
+export const PAYROLL_REPLY_SECTIONS = {
+  records: 'Your records',
+  policy: 'What the policy says',
+} as const;
+
+/**
+ * Replaces the "Your records" block of a stored payroll reply when it is replayed
+ * to a model as history, so pay figures never leave the system on later turns.
+ * The next steps (with the day, for "that day") are kept.
+ */
+export function withoutPayrollRecords(text: string): string {
+  const start = text.indexOf(`${PAYROLL_REPLY_SECTIONS.records}\n`);
+  const end = text.indexOf(`\n${PAYROLL_REPLY_SECTIONS.policy}\n`);
+  if (start !== 0 || end < 0) return text;
+  return `${PAYROLL_REPLY_SECTIONS.records}\n(your pay records were shown here)\n${text.slice(end)}`;
+}
+
+/** The final reply: records (code), policy explanation (model, cited), next steps (code). */
+export function payrollReply(f: PayrollFacts, explanation: string | null): string {
+  return [
+    PAYROLL_REPLY_SECTIONS.records,
+    payrollRecordsText(f),
+    '',
+    PAYROLL_REPLY_SECTIONS.policy,
+    explanation ??
+      'I could not find a policy passage I can cite for this. Payroll can explain the deduction if you raise a request.',
+    '',
+    'Next steps',
+    payrollNextSteps(f),
+  ].join('\n');
+}

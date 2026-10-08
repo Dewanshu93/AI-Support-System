@@ -129,7 +129,8 @@ export function createPersist(deps: PersistDeps) {
         citationsValid: logged?.citationsValid.map((c) => c.chunkId) ?? [],
         citationsRejected: logged?.citationsRejected ?? [],
         numericViolations: logged?.numericViolations ?? [],
-        withdrawn: output.withdrawn,
+        // The citation check's own verdict: an agent may still reply without the withdrawn text.
+        withdrawn: logged?.withdrawn ?? output.withdrawn,
       },
       llmCalls: trace.llmCalls.map(llmCallDoc),
       stepLatencyMs: trace.stepLatencyMs,

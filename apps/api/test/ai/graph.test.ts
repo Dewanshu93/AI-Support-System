@@ -73,9 +73,7 @@ describe('supportTurnGraph topology', () => {
     );
   });
 
-  it('places every node in exactly one agent or the orchestrator', async () => {
-    const all = Object.values(AGENTS).flat();
-    expect(new Set(all).size).toBe(all.length);
+  it('draws every agent node; shared nodes belong to agents, never the orchestrator', async () => {
     const xray = Object.keys((await graph.getGraphAsync({ xray: true })).nodes);
     for (const [agent, inner] of Object.entries(AGENTS)) {
       for (const n of inner) {
@@ -268,9 +266,28 @@ describe('agent subgraphs (UC-04)', () => {
     expect(path).toEqual([...START_PATH, 'requestStatus', 'persist']);
   });
 
-  it('payroll_explain uses the knowledge agent until the payroll agent exists (UC-06)', async () => {
-    const { path } = await run(withIntent('payroll_explain'));
-    expect(path).toEqual([...RETRIEVAL_PATH, 'answer', 'validateCitations', 'persist']);
+  it('payroll_explain → payrollAgent: records, policy search, explanation, check, compose (UC-06)', async () => {
+    const { state, path } = await run(withIntent('payroll_explain'));
+    expect(path).toEqual([
+      ...START_PATH,
+      'payrollRecords',
+      'retrieve',
+      'rerankAssess',
+      'payrollExplain',
+      'validateCitations',
+      'payrollCompose',
+      'persist',
+    ]);
+    expect(state.output?.text).toContain('Your records');
+    expect(state.decision?.value).toBe('ANSWER');
+  });
+
+  it('a contractor’s payroll question ends after the records (paid by agency)', async () => {
+    const { path } = await run({
+      ...withIntent('payroll_explain'),
+      payroll: { paidByAgency: true, currency: null, payslips: [], lopDays: [] },
+    });
+    expect(path).toEqual([...START_PATH, 'payrollRecords', 'persist']);
   });
 
   it('a sensitive turn never reaches an agent, whatever the workspace intent', async () => {
@@ -296,6 +313,12 @@ describe('agent subgraphs (UC-04)', () => {
             projects: async () => [],
             previewTimesheet: async () => ({ problems: [], entries: [] }),
             saveTimesheet: async () => ({ saved: 0 }),
+            payroll: async () => ({
+              paidByAgency: false,
+              currency: null,
+              payslips: [],
+              lopDays: [],
+            }),
             requests: async (userId) => {
               calls.push(userId);
               return [

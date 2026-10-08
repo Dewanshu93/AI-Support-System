@@ -251,3 +251,49 @@ export function stubApplyAction(state: State): StateUpdate {
     },
   };
 }
+
+/** Keeps preset pay facts; otherwise one LOP day so the full agent path runs. */
+export function stubPayrollRecords(state: State): StateUpdate {
+  return {
+    payroll: state.payroll ?? {
+      paidByAgency: false,
+      currency: 'USD',
+      payslips: [
+        {
+          periodStart: '2026-09-16',
+          periodEnd: '2026-09-30',
+          payDate: '2026-09-30',
+          gross: 4333.33,
+          net: 2571.83,
+          deductions: [
+            { code: 'lop', label: 'Loss of Pay (1 day)', amount: 400, dates: ['2026-09-11'] },
+          ],
+        },
+      ],
+      lopDays: [
+        {
+          date: '2026-09-11',
+          amount: 400,
+          payDate: '2026-09-30',
+          attendance: 'absent',
+          attendanceNote: null,
+          hoursNow: 0,
+          lateHours: 0,
+          requiredHours: 8,
+        },
+      ],
+    },
+  };
+}
+
+export function stubPayrollExplain(state: State): StateUpdate {
+  return {
+    decision: { value: 'ANSWER', reasonCode: 'PAYROLL_EXPLAINED', rulesFired: ['payroll_agent'] },
+    output: {
+      ...STUB_OUTPUT,
+      text: 'Stub policy explanation [S1].',
+      mode: 'answer',
+      ...state.output,
+    },
+  };
+}
