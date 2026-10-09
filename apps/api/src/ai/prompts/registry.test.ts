@@ -160,13 +160,18 @@ describe('committed prompts', () => {
     timesheet_extract: ['history', 'message', 'projects', 'today'],
     payroll_explain: ['question', 'records', 'sources'],
   } as const;
+  /** Active versions other than v1 (P-1 v2: owner decision 2026-10-09, UC-10). */
+  const activeVersion: Partial<Record<keyof typeof expected, number>> = { turn_analysis: 2 };
 
-  it.each(Object.entries(expected))('%s v1 loads with its documented variables', (name, vars) => {
-    const p = registry.get(name as keyof typeof expected);
-    expect(p.version).toBe(1);
-    expect(p.variables).toEqual(vars);
-    expect(OUTPUT_SCHEMAS[p.outputSchema]).toBeDefined();
-  });
+  it.each(Object.entries(expected))(
+    '%s loads its active version with its documented variables',
+    (name, vars) => {
+      const p = registry.get(name as keyof typeof expected);
+      expect(p.version).toBe(activeVersion[name as keyof typeof expected] ?? 1);
+      expect(p.variables).toEqual(vars);
+      expect(OUTPUT_SCHEMAS[p.outputSchema]).toBeDefined();
+    },
+  );
 
   it('every committed prompt marks user data as untrusted and states it is data', () => {
     for (const name of Object.keys(expected)) {

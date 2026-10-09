@@ -110,7 +110,7 @@ describe('POST /api/conversations/:id/messages — answer turn', () => {
       department: expect.any(String),
     });
     expect(trace!.llmCalls.map((c) => [c.node, c.promptName, c.promptVersion])).toEqual([
-      ['analyzeTurn', 'turn_analysis', 1],
+      ['analyzeTurn', 'turn_analysis', 2],
       ['rerankAssess', 'rerank_assess', 1],
       ['answer', 'grounded_answer', 1],
     ]);

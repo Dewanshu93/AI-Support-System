@@ -32,7 +32,7 @@ describe('loadConfig', () => {
     expect(config.thresholds.decision.answerMinRelevance).toBe(2);
     expect(config.models.chat.provider).toBe('gemini');
     expect(config.routing.routes.hardware).toBe('it_hardware');
-    expect(config.prompts.active.turn_analysis).toBe(1);
+    expect(config.prompts.active.turn_analysis).toBe(2);
   });
 
   it('returns a deeply frozen config', () => {

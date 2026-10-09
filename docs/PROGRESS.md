@@ -47,8 +47,8 @@
 | UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | Done   | 5, 8           |
 | UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | Done   | 6              |
 | UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | Done   | 7              |
-| UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | To do  | all            |
-| UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | To do  | all            |
+| UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | Paused | all            |
+| UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | Done   | all            |
 
 ## Checkpoints
 
@@ -1625,3 +1625,37 @@ that pass in-band (`--runInBand`, 28/28).
 **Owner decision (2026-10-08):** W3-06 (agent summary and draft reply) and W3-07 (agent workspace UI)
 are brought back from the deferred list so flow 7 can be shown end to end; P-6 runs on the fast
 tier (Gemini quality quota). Recorded in ADR-018 with W3-06.
+
+## UC-10 LOP end-to-end scenario, README, demo script — 2026-10-09
+
+**Owner decisions (2026-10-09):** UC-09 (golden cases and eval for the new intents) is paused;
+its partial work is kept in a git stash ("UC-09 partial…"). **P-1 v2 (`turn_analysis/v2.md`) is
+switched on without the full eval run** that `prompts.yaml` normally requires, so the copilot
+reaches the timesheet, payroll and requests agents; the UC-09 eval is the follow-up that
+confirms it (the UC-04 live check routed 12/12 cases as expected and kept 5/5 sensitive
+handoffs).
+
+**Delivered:**
+
+- `config/prompts.yaml`: `turn_analysis: 2`.
+- `e2e/tests/lop.spec.ts`: the Loss of Pay scenario in 12 steps (flows 1, 5, 8, 3, 6, 7):
+  dashboard and notification; "Why was my salary reduced?" (records and cited policy in separate
+  parts, next steps); "that day" resolved to Fri 11 Sept and logged after confirmation (late
+  entry); "contact payroll" draft with an email from the records; send; tracker and ticket email;
+  the payroll agent (Hana) moves it to in progress through the agent API (the agent UI is W3-07);
+  Priya's tracker and bell follow.
+- E2E data setup: `e2e/global-setup.ts` reseeds the demo data for a fixed `E2E_TODAY`
+  (`e2e/today.ts`, default 2026-10-08) before every run, and the E2E API runs with
+  `DEMO_TODAY` set to the same date, so dates in prompts (and therefore recorded replies) are
+  stable and the scenario can be rerun. `E2E_SKIP_SEED=1` skips the reseed.
+- `README.md` rewritten for Use Case 1 (features, personas, `DEMO_TODAY`, E2E data notes);
+  `docs/DEMO.md`: the demo script (preparation, 12 steps with what to show, optional extras for
+  flow 9, recovery tips).
+
+**Verification:** lint and typecheck clean; Jest: shared 67, web 68, api green after updating
+four tests that pinned `turn_analysis` v1 (prompt registry, config, chat API path, and the
+server-startup test that breaks `prompts.yaml` by editing that line).
+
+**Not yet done:** the E2E recorded replies must be re-recorded (`E2E_LLM=record`), because P-1 v2
+changes the first LLM call of every chat turn; this is done once after the Ollama fallback step,
+which changes the recording code. Until then the chat specs and `lop.spec.ts` fail in replay.

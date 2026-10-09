@@ -51,7 +51,7 @@ describe('server startup', () => {
       const file = path.join(dir, 'prompts.yaml');
       fs.writeFileSync(
         file,
-        fs.readFileSync(file, 'utf8').replace('turn_analysis: 1', 'turn_analysis: 9'),
+        fs.readFileSync(file, 'utf8').replace(/turn_analysis: \d+/, 'turn_analysis: 9'),
       );
       const result = startServer({ ...VALID_ENV, CONFIG_DIR: dir });
       expect(result.status).toBe(1);

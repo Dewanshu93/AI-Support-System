@@ -1,9 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_TODAY } from './today';
 
 // End-to-end tests run their own API and web app on separate ports (4100 / 3100,
 // own Next build folder), so they never touch a developer's running servers.
-// They use the real MongoDB and Qdrant from .env; seed and ingest first:
-//   npm run seed && npm run ingest
+// They use the real MongoDB and Qdrant from .env; ingest first (npm run ingest).
+// Every run reseeds the demo data for E2E_TODAY (global-setup.ts), and the API
+// uses that date too; run `npm run seed` afterwards to return to today's data.
 //
 // E2E_LLM selects how the API talks to the LLM (W2-09):
 //   replay (default)  recorded replies from e2e/fixtures/llm-recordings.json; no provider calls
@@ -17,6 +19,7 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${webPort}`;
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts',
   fullyParallel: !live,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -43,7 +46,7 @@ export default defineConfig({
       url: `http://localhost:${apiPort}/api/health`,
       reuseExistingServer: false,
       timeout: 180_000,
-      env: { API_PORT: apiPort, LLM_MODE: llm },
+      env: { API_PORT: apiPort, LLM_MODE: llm, DEMO_TODAY: E2E_TODAY },
     },
     {
       // Production build in its own folder: timings reflect real use.
