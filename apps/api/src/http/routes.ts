@@ -72,6 +72,7 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
       createAgentService({
         tickets: deps.tickets,
         agentTickets: deps.agentTickets,
+        notifications: deps.workspace,
         taxonomy: deps.ticketConfig.taxonomy,
         routing: deps.ticketConfig.routing,
       }),

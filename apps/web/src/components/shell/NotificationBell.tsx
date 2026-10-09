@@ -9,6 +9,9 @@ import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
 import { NotificationIcon } from '@/components/workspace/NotificationIcon';
 
+/** How often the bell refreshes while the tab is visible. */
+export const REFRESH_MS = 60_000;
+
 /** Bell with unread count and a dropdown of recent notifications. */
 export function NotificationBell() {
   const router = useRouter();
@@ -28,6 +31,19 @@ export function NotificationBell() {
   }, []);
 
   useEffect(() => load(), [load]);
+  // Request updates by agents (UC-08) appear without a reload: refresh when the
+  // window regains focus and once a minute while the tab is visible. In-app only.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    const timer = window.setInterval(refresh, REFRESH_MS);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [load]);
   useEffect(() => {
     if (!open) return;
     load();

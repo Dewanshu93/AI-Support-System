@@ -910,6 +910,13 @@ inside the app:
 - **Privacy:** no model sees the email, the outbox or the payroll figures; traces hold counts
   and flags; `hr_case` can never have an address (config cross-check and outbox schema).
 
+## Request notifications (UC-08)
+
+- `AgentService.reply` and `setStatus` write a `request` notification for the requester after
+  the public event (`domain/requestNotifications.ts` builds the title and body; employee-facing
+  stage labels from `REQUEST_STAGE_LABEL`). Notes and classification corrections stay internal.
+- `NotificationBell` reloads on window focus and every 60 s while visible.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

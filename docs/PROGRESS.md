@@ -46,7 +46,7 @@
 | UC-05 | Timesheet action branch: extract → validate → confirm card → write → audit; timesheet status answers                         | Done   | 3, 4, 8        |
 | UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | Done   | 5, 8           |
 | UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | Done   | 6              |
-| UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | To do  | 7              |
+| UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | Done   | 7              |
 | UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | To do  | all            |
 | UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | To do  | all            |
 
@@ -1597,3 +1597,31 @@ Hana Kim gets it), a **fully editable** email body, and the new `modules/email` 
 **Follow-ups:** re-seed (`npm run seed`) so Hana has `hr_payroll`, and run `npm run db:indexes`
 for `email_outbox`; record the E2E spec; P-12 email prose prompt when quota allows; existing
 payroll tickets in a live database stay in `hr_general`.
+
+## UC-08 Request tracker notifications — 2026-10-08
+
+**Already in place before this step:** the tracker page (list and board by employee-facing stage,
+UC-03), active requests on the dashboard, the notification bell, and "show my requests"
+(`requestsAgent`, UC-04; reachable once P-1 v2 is active).
+
+**Delivered:**
+
+- When an agent changes a request's status or replies, the requester gets an in-app notification
+  (`kind: request`, link to the request): "HR-0001 needs your reply", "HR-0001 is under review",
+  "HR-0001 resolved", "The team replied on HR-0001" with a one-line excerpt. Wording is pure code
+  (`domain/requestNotifications.ts`); internal notes never notify; a refused transition (409)
+  writes nothing.
+- The bell refreshes on window focus and every 60 s while the tab is visible (in-app polling only;
+  no push, per CLAUDE.md).
+- No new collection, endpoint or LLM call: the existing `notifications` collection and
+  `GET /api/notifications`.
+
+**Verification:** `requestNotifications.test.ts` (wording per status, reply excerpt);
+`agent.test.ts` (reply and status change notify the requester, a note does not, a 409 notifies
+nobody, the requester's bell shows them). Lint and typecheck clean (on a clean
+worktree of HEAD + UC-08); full Jest green, with four first-test timeouts under parallel load
+that pass in-band (`--runInBand`, 28/28).
+
+**Owner decision (2026-10-08):** W3-06 (agent summary and draft reply) and W3-07 (agent workspace UI)
+are brought back from the deferred list so flow 7 can be shown end to end; P-6 runs on the fast
+tier (Gemini quality quota). Recorded in ADR-018 with W3-06.

@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { MessageDoc, TicketDoc } from '../../src/db/schemas';
 import { buildTestApp, loginCookie, type TestContext, userByEmail } from '../helpers/app';
 import type { MemoryTickets } from '../helpers/tickets';
+import type { MemoryWorkspace } from '../helpers/workspace';
 
 const SAM = 'sam.patel@example.com'; // IT queues
 const HANA = 'hana.kim@example.com'; // hr_general + hr_payroll + hr_case
@@ -355,6 +356,62 @@ describe('replies and notes', () => {
       .get(`/api/tickets/${id(t.itLowOld)}`)
       .set('Cookie', cookies.priya);
     expect(employeeView.body.events.map((e: { type: string }) => e.type)).toEqual(['reply']);
+  });
+
+  it('notifies the requester of a reply and a status change, never of a note (UC-08)', async () => {
+    const { ctx, t, cookies } = await setup();
+    const ticketUrl = `${BASE}/${id(t.hr)}`;
+    await request(ctx.app)
+      .post(`${ticketUrl}/replies`)
+      .set('Cookie', cookies.hana)
+      .send({ body: 'You have 12 days left.\nPlease confirm the dates you need.' });
+    await request(ctx.app)
+      .post(`${ticketUrl}/notes`)
+      .set('Cookie', cookies.hana)
+      .send({ body: 'Internal: checked the leave balance' });
+    const status = await request(ctx.app)
+      .patch(`${ticketUrl}/status`)
+      .set('Cookie', cookies.hana)
+      .send({ status: 'waiting_on_employee' });
+    expect(status.status).toBe(200);
+
+    const notes = (ctx.deps.workspace as MemoryWorkspace).data.notifications;
+    expect(notes.map((n) => [n.kind, n.title, n.body, n.link, n.readAt])).toEqual([
+      [
+        'request',
+        'The team replied on HR-0001',
+        'You have 12 days left. Please confirm the dates you need.',
+        `/tickets/${id(t.hr)}`,
+        null,
+      ],
+      [
+        'request',
+        'HR-0001 needs your reply',
+        `${t.hr.summary} · now Waiting for you`,
+        `/tickets/${id(t.hr)}`,
+        null,
+      ],
+    ]);
+    expect(notes.every((n) => n.userId.equals(t.hr.requesterId))).toBe(true);
+
+    // The requester's bell shows them, newest first.
+    const requester = ctx.users.find((u) => u._id.equals(t.hr.requesterId))!;
+    const bell = await request(ctx.app)
+      .get('/api/notifications')
+      .set('Cookie', await loginCookie(ctx.app, requester.email));
+    expect(bell.status).toBe(200);
+    expect(bell.body.unreadCount).toBe(2);
+    expect(bell.body.items[0].title).toBe('HR-0001 needs your reply');
+  });
+
+  it('a refused status change (409) notifies nobody', async () => {
+    const { ctx, t, cookies } = await setup();
+    const res = await request(ctx.app)
+      .patch(`${BASE}/${id(t.hr)}/status`)
+      .set('Cookie', cookies.hana)
+      .send({ status: 'closed' });
+    expect(res.status).toBe(409);
+    expect((ctx.deps.workspace as MemoryWorkspace).data.notifications).toEqual([]);
   });
 
   it('rejects empty bodies (400) and replies on closed tickets (409)', async () => {
