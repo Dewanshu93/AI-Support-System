@@ -11,7 +11,15 @@ import {
 } from './db';
 import { createMongoCheckpointer } from './ai/graph/checkpointer';
 import { buildTurnGraph, type TurnGraphDeps } from './ai/graph/runtime';
-import { createChatModel, createEmbeddings, embedQuery, resolveChatModel } from './ai/llm';
+import {
+  createChatModel,
+  createEmbeddings,
+  createFallbackChatModel,
+  embedQuery,
+  fallbackChain,
+  ProviderHealth,
+  resolveChatModel,
+} from './ai/llm';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
 import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
@@ -128,20 +136,44 @@ async function main() {
       dimension: config.models.embeddings.dimension,
     });
   };
+  // Provider fallback (ADR-018): out of quota, credit or reach → the next model in the chain.
+  // E2E recording uses the configured model only, so fixtures never hold a fallback's reply.
+  const health = new ProviderHealth();
   const liveChat: TurnGraphDeps['chatFor'] = (tier, options) =>
-    createChatModel(config.models, config.env, tier, undefined, options);
+    config.env.LLM_MODE === 'record'
+      ? createChatModel(config.models, config.env, tier, undefined, options)
+      : createFallbackChatModel(config.models, config.env, tier, health, {
+          ...options,
+          onFallback: ({ from, reason, cooldownMs, next }) =>
+            logger.warn(
+              { from, reason, cooldownS: Math.round(cooldownMs / 1000), next: next ?? null },
+              next ? 'LLM model set aside; using the next one' : 'LLM model set aside; none left',
+            ),
+        });
+  logger.info(
+    {
+      fast: fallbackChain(config.models, config.env, 'fast').map((r) => r.modelId),
+      quality: fallbackChain(config.models, config.env, 'quality').map((r) => r.modelId),
+    },
+    'LLM fallback chains',
+  );
 
-  // End-to-end tests: recorded LLM replies instead of (or captured from) the provider.
+  // End-to-end tests (record/replay) and development (cache): saved LLM replies.
   const mode = config.env.LLM_MODE;
   const recordings =
     mode === 'live'
       ? null
       : new LlmRecordings(
           config.env.LLM_RECORDINGS_FILE ??
-            path.join(REPO_ROOT, 'e2e', 'fixtures', 'llm-recordings.json'),
+            (mode === 'cache'
+              ? path.join(REPO_ROOT, '.llm-cache', 'replies.json')
+              : path.join(REPO_ROOT, 'e2e', 'fixtures', 'llm-recordings.json')),
         );
   if (recordings)
-    logger.warn({ mode, recordings: recordings.size }, 'LLM_MODE is not live (tests only)');
+    logger.warn(
+      { mode, recordings: recordings.size },
+      mode === 'cache' ? 'LLM_MODE=cache (development only)' : 'LLM_MODE is not live (tests only)',
+    );
 
   const graph = buildTurnGraph({
     config,

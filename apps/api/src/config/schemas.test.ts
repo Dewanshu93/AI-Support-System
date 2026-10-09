@@ -154,6 +154,25 @@ const invalidCases: Case[] = [
   ],
   ['models: zero dimension', 'models', (d) => (d.embeddings.dimension = 0), 'embeddings.dimension'],
   [
+    'models: main provider as a fallback',
+    'models',
+    (d) => (d.chat.fallbacks = ['gemini', 'ollama']),
+    'chat.fallbacks',
+  ],
+  [
+    'models: fallback listed twice',
+    'models',
+    (d) => (d.chat.fallbacks = ['ollama', 'ollama']),
+    'chat.fallbacks',
+  ],
+  ['models: unknown fallback', 'models', (d) => (d.chat.fallbacks = ['acme']), 'chat.fallbacks.0'],
+  [
+    'models: local model without a cost',
+    'models',
+    (d) => delete d.costs['qwen2.5:3b'],
+    'costs.qwen2.5:3b',
+  ],
+  [
     'templates: missing template',
     'templates',
     (d) => delete d.templates.generic_error,

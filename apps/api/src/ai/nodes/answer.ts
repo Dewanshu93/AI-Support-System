@@ -7,6 +7,7 @@
 import type { AIMessageChunk, MessageContent } from '@langchain/core/messages';
 import type { ContextSource, State, StateUpdate } from '../graph/state';
 import {
+  answeredBy,
   type CallPolicy,
   type ChatHandle,
   type CostTable,
@@ -137,6 +138,8 @@ export function createAnswer(deps: AnswerDeps) {
       inputTokens: full?.usage_metadata?.input_tokens ?? 0,
       outputTokens: full?.usage_metadata?.output_tokens ?? 0,
     };
+    // Through a fallback chain (ADR-018) the model that answered may not be the handle's.
+    const by = answeredBy(full) ?? chat;
     const { prose, trailer } = splitTrailer(text);
     const parsed = GroundedAnswerTrailerSchema.safeParse(trailer);
     return {
@@ -152,15 +155,15 @@ export function createAnswer(deps: AnswerDeps) {
           {
             node: NODE,
             promptRef: prompt.ref,
-            provider: chat.provider,
-            model: chat.modelId,
+            provider: by.provider,
+            model: by.modelId,
             latencyMs: Math.round(performance.now() - started),
             ttftMs,
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
             retries,
             mode: 'native',
-            costUsd: callCostUsd(deps.costs, chat.modelId, usage),
+            costUsd: callCostUsd(deps.costs, by.modelId, usage),
           },
         ],
         flags: parsed.success ? [] : [ANSWER_TRAILER_INVALID],

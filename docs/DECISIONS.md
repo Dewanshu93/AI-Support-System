@@ -495,3 +495,38 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   written email (figures and privacy risk, needs evaluation); a locked system-information block.
 - **Consequences:** payroll tickets route to Payroll (existing database tickets stay where they
   are; re-seed for Hana's queues). Confirm-path node sequences gain `sendEmail`.
+
+## ADR-018 — LLM provider fallback chain, local Ollama model and a development reply cache
+
+- **Status:** Accepted by the owner (2026-10-08)
+- **Context:** development kept stopping on provider limits: the Gemini free tier runs out daily
+  (the quality model first) and the OpenRouter key is out of credit. The project is a skills
+  showcase, not a production system, so a free local model is an acceptable last resort.
+- **Decision:**
+  - **Fallback chain (API server only).** Each chat call goes through `FallbackChatModel`
+    (`ai/llm/fallback.ts`), which tries, in order: the main provider's model for the tier, its
+    fast model (quality calls), then the same for each provider in `chat.fallbacks`
+    (`config/models.yaml`; default `[openrouter, ollama]`). Providers without their key or URL are
+    left out.
+  - It moves on only for **provider limits and outages** (`cooldownFor`, `ai/llm/providerHealth.ts`):
+    429 (a per-day quota sets the model aside for at least an hour; per-minute limits for the
+    provider's hint or a minute), 402 and 401/403 (the whole provider, an hour), 5xx and an
+    unreachable server (30 s). A 400, invalid output, a timeout or an abort never changes model,
+    so invokeStructured's JSON fallback and the node retry rules behave as before.
+  - Cooldowns live in one in-process `ProviderHealth`: set-aside models go to the back of the
+    order (never dropped). A stream falls back only before its first chunk.
+  - The reply is stamped with the model that answered (`answeredBy`); traces and cost use it.
+  - **Ollama** is a third chat provider through its OpenAI-compatible API (`ChatOpenAI`,
+    `OLLAMA_BASE_URL`), so **no new dependency**. Default model `qwen2.5:3b` (CPU-friendly), cost 0.
+  - **`LLM_MODE=cache`** (development): serves a saved reply for an identical prompt, otherwise
+    calls the chain and saves the reply to `.llm-cache/replies.json` (git-ignored). Failures are
+    not saved, except a schema rejection (HTTP 400), which would recur.
+  - **Not covered:** embeddings stay on Gemini (the Qdrant index is Gemini 768-dimension; another
+    model means a re-index). Evals, `llm:smoke` and E2E recording (`LLM_MODE=record`) use the
+    configured provider only, so their numbers and fixtures never mix in a fallback model.
+- **Alternatives:** LangChain `withFallbacks()` (no cooldown memory: every call pays the failed
+  attempt; loses the model identity for traces); a paid key only (blocked on approval); a local
+  model as the main provider (too slow and unreliable on this PC: 8 GB RAM, no GPU).
+- **Consequences:** a demo keeps answering when quotas run out, at lower quality when Ollama
+  answers; traces show which model answered. Cached replies hide prompt changes only when the
+  prompt text is identical (the key is the full rendered prompt). Delete `.llm-cache/` to clear it.

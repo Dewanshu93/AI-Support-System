@@ -186,6 +186,28 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - The api `dev`/`start` and `llm:smoke` run Node with `--use-system-ca`, for the corporate TLS
   proxy (ADR-005).
 
+### Provider fallback, Ollama and the reply cache (ADR-018)
+
+- **Chain** (`fallbackChain`, `createFallbackChatModel` in `chatModel.ts`): the main provider's
+  model for the tier, its fast model, then the same for each provider in `chat.fallbacks`
+  (`models.yaml`, default `[openrouter, ollama]`), skipping providers without a key or URL. With
+  Gemini as the main provider: Gemini quality → Gemini fast → OpenRouter quality → OpenRouter
+  fast → Ollama. The API logs both chains at startup.
+- `ai/llm/fallback.ts` `FallbackChatModel` runs a call (invoke, stream, structured output) on
+  each model in turn. `ai/llm/providerHealth.ts` decides when to move on (`cooldownFor`: 429
+  quota or rate limit, 402 credit, 401/403 key, 5xx/unreachable) and remembers cooldowns in
+  process (`ProviderHealth`: cooling models go last, never dropped). A 400, invalid output, a
+  timeout or an abort stays with the model. A stream falls back only before its first chunk.
+- The reply carries `answeredBy`; `invokeStructured` and the answer node use it for the trace's
+  provider/model and the cost.
+- **Ollama** (`provider: ollama`): `ChatOpenAI` at `${OLLAMA_BASE_URL}/v1`, model `qwen2.5:3b`,
+  cost 0. No new dependency.
+- **`LLM_MODE=cache`** (development): `RecordingChatModel` in cache mode serves an identical
+  prompt's saved reply from `.llm-cache/replies.json` (git-ignored) or calls the chain and saves
+  it; failures are not saved (except an HTTP 400 schema rejection).
+- The API server only: evals, `llm:smoke` and `LLM_MODE=record` use the configured model, so
+  reports and E2E fixtures never contain a fallback model's reply. Embeddings stay on Gemini.
+
 ## Ingestion (W1-10)
 
 - `npm run ingest` (`scripts/ingest.ts`) → `ai/ingestion/indexer.ts` `ingestSources`. For each

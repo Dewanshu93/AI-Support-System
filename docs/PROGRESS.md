@@ -1624,7 +1624,8 @@ that pass in-band (`--runInBand`, 28/28).
 
 **Owner decision (2026-10-08):** W3-06 (agent summary and draft reply) and W3-07 (agent workspace UI)
 are brought back from the deferred list so flow 7 can be shown end to end; P-6 runs on the fast
-tier (Gemini quality quota). Recorded in ADR-018 with W3-06.
+tier (Gemini quality quota). To be recorded in ADR-019 with W3-06 (ADR-018 went to the
+provider fallback chain).
 
 ## UC-10 LOP end-to-end scenario, README, demo script — 2026-10-09
 
@@ -1659,3 +1660,35 @@ server-startup test that breaks `prompts.yaml` by editing that line).
 **Not yet done:** the E2E recorded replies must be re-recorded (`E2E_LLM=record`), because P-1 v2
 changes the first LLM call of every chat turn; this is done once after the Ollama fallback step,
 which changes the recording code. Until then the chat specs and `lop.spec.ts` fail in replay.
+
+## LLM provider fallback, Ollama and the reply cache (ADR-018) — 2026-10-09
+
+**Why:** development and demos kept stopping on provider limits (Gemini free-tier daily quota,
+OpenRouter out of credit). Owner-approved; built by a parallel session and finished here.
+
+**Delivered:**
+
+- Fallback chain for the API server: Gemini quality → Gemini fast → OpenRouter quality →
+  OpenRouter fast → Ollama (`chat.fallbacks: [openrouter, ollama]` in `config/models.yaml`;
+  providers without a key or URL are skipped). A 429 (quota or rate limit), 402, 401/403, 5xx or
+  unreachable provider sets the model (or, for credit and key problems, the whole provider) aside
+  for a cooldown; request errors (400, invalid output, timeout) never change model. Traces and
+  costs record the model that actually answered (`answeredBy`).
+- Ollama as a third chat provider through its OpenAI-compatible API (`OLLAMA_BASE_URL`, model
+  `qwen2.5:3b`, cost 0): no new dependency.
+- `LLM_MODE=cache` for development: reuses saved replies for identical prompts from
+  `.llm-cache/replies.json` (git-ignored, separate from the E2E fixtures); failures are not saved.
+- Evals, `llm:smoke` and E2E recording keep using the configured model only.
+- README (setup for the local model, env table), ARCHITECTURE (provider layer), ADR-018.
+
+**Verification:** `providerHealth.test.ts` (cooldown per error kind, provider-wide cooldowns for
+credit and key errors, ordering, recovery), `fallback.test.ts` (falls back on quota and reports
+the model that answered, skips cooling models, shared cooldowns, a 400 stays on the model,
+streams fall back only before the first chunk, lazy model building), `chatModel.test.ts`
+(`fallbackChain` order and missing keys, the Ollama client), `recording.test.ts` (cache hits,
+misses, outages not saved, embeddings), `schemas.test.ts` (fallbacks validation). Lint and typecheck clean; Jest: shared 67, web 68,
+api 1090 passed with one server-startup child process killed by its timeout under parallel
+load (`status: null`), which passes in-band (3/3).
+
+**Not covered:** a live call to a real Ollama server (not installed on this PC); embeddings stay
+on Gemini (a different model would need a re-index).

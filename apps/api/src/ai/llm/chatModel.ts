@@ -8,9 +8,11 @@ import { z } from 'zod';
 import { type ChatProvider, KEY_FOR, type LlmKeys, type ModelsConfig } from './keys';
 import { callCostUsd, type CostTable, type TokenUsage } from './costTable';
 import { LlmError } from './errors';
+import { answeredBy, type FallbackListener, fallbackChatHandle } from './fallback';
+import type { ProviderHealth } from './providerHealth';
 import { type CallPolicy, errorStatus, isProviderError, withCallPolicy } from './retry';
 
-export { type ChatProvider, type LlmKeys, llmConfigured, type ModelsConfig } from './keys';
+export { type ChatProvider, KEY_FOR, type LlmKeys, llmConfigured, type ModelsConfig } from './keys';
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -57,18 +59,67 @@ export function createChatModel(
           maxRetries: 0,
           maxOutputTokens: maxTokens,
         })
-      : new ChatOpenAI({
-          model: modelId,
-          apiKey,
-          temperature,
-          maxRetries: 0,
-          maxTokens,
-          configuration: {
-            baseURL: OPENROUTER_BASE_URL,
-            defaultHeaders: { 'X-Title': 'AI Service Desk Front Door' },
-          },
-        });
+      : provider === 'ollama'
+        ? // Ollama serves the OpenAI API under /v1 and ignores the key.
+          new ChatOpenAI({
+            model: modelId,
+            apiKey: 'ollama',
+            temperature,
+            maxRetries: 0,
+            maxTokens,
+            configuration: { baseURL: `${apiKey.replace(/\/+$/, '')}/v1` },
+          })
+        : new ChatOpenAI({
+            model: modelId,
+            apiKey,
+            temperature,
+            maxRetries: 0,
+            maxTokens,
+            configuration: {
+              baseURL: OPENROUTER_BASE_URL,
+              defaultHeaders: { 'X-Title': 'AI Service Desk Front Door' },
+            },
+          });
   return { model, provider, modelId };
+}
+
+/**
+ * The models a tier's calls may use, in order (ADR-018): the provider's model
+ * for the tier, its fast model for quality calls, then the same for each
+ * fallback provider. Providers without their key or URL are left out (unless
+ * that leaves nothing, so the missing-key error still surfaces); a model is
+ * listed once.
+ */
+export function fallbackChain(
+  config: ModelsConfig,
+  keys: LlmKeys,
+  tier: ModelTier,
+): { provider: ChatProvider; modelId: string; tier: ModelTier }[] {
+  const providers = [config.chat.provider, ...(config.chat.fallbacks ?? [])];
+  const usable = providers.filter((provider) => keys[KEY_FOR[provider]]);
+  const chain = (usable.length > 0 ? usable : [config.chat.provider]).flatMap((provider) =>
+    [tier, 'fast' as const].map((t) => ({ ...resolveChatModel(config, t, provider), tier: t })),
+  );
+  return chain.filter(
+    (ref, i) =>
+      chain.findIndex((r) => r.provider === ref.provider && r.modelId === ref.modelId) === i,
+  );
+}
+
+/** A chat handle that falls back along fallbackChain(); each model is built on first use. */
+export function createFallbackChatModel(
+  config: ModelsConfig,
+  keys: LlmKeys,
+  tier: ModelTier,
+  health: ProviderHealth,
+  options: { temperature?: number; onFallback?: FallbackListener } = {},
+): ChatHandle {
+  const candidates = fallbackChain(config, keys, tier).map((ref) => ({
+    provider: ref.provider,
+    modelId: ref.modelId,
+    model: () => createChatModel(config, keys, ref.tier, ref.provider, options).model,
+  }));
+  return fallbackChatHandle(candidates, health, options.onFallback);
 }
 
 export interface StructuredCallResult<T> {
@@ -141,14 +192,16 @@ export async function invokeStructured<S extends z.ZodType>(
   const started = performance.now();
   let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
   let retries = 0;
+  // Through a fallback chain (ADR-018) the model that answered may not be the handle's.
+  let by: { provider: string; modelId: string } = handle;
   const finish = (data: z.output<S>, mode: StructuredCallResult<unknown>['mode']) => ({
     data,
     usage,
-    costUsd: callCostUsd(options.costs, handle.modelId, usage),
+    costUsd: callCostUsd(options.costs, by.modelId, usage),
     latencyMs: Math.round(performance.now() - started),
     retries,
-    provider: handle.provider,
-    modelId: handle.modelId,
+    provider: by.provider as ChatProvider,
+    modelId: by.modelId,
     mode,
   });
 
@@ -164,6 +217,7 @@ export async function invokeStructured<S extends z.ZodType>(
     retries += r;
     const result = value as { raw?: AIMessage; parsed?: unknown };
     usage = addUsage(usage, usageOf(result.raw));
+    by = answeredBy(result.raw) ?? by;
     const parsed = schema.safeParse(result.parsed);
     if (parsed.success) return finish(parsed.data, 'native');
   } catch (err) {
@@ -183,6 +237,7 @@ export async function invokeStructured<S extends z.ZodType>(
   );
   retries += r;
   usage = addUsage(usage, usageOf(raw));
+  by = answeredBy(raw) ?? by;
   let candidate: unknown;
   try {
     candidate = extractJson(messageText(raw));

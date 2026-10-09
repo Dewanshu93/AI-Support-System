@@ -7,7 +7,12 @@
 # new vector index (D-2).
 version: 1
 chat:
-  provider: gemini # gemini | openrouter
+  provider: gemini # gemini | openrouter | ollama
+  # ADR-018: when a model is out of quota or credit, rejects its key or is
+  # unreachable, the API server tries the provider's fast model (for quality
+  # calls), then these providers in order. A provider without its key or URL
+  # in .env is left out. Evals and llm:smoke ignore this list.
+  fallbacks: [openrouter, ollama]
   models:
     gemini:
       fast: gemini-3.1-flash-lite
@@ -15,6 +20,11 @@ chat:
     openrouter:
       fast: google/gemini-3.1-flash-lite
       quality: google/gemini-3.8-flash
+    # Local, CPU-friendly (about 2 GB); `ollama pull qwen2.5:3b`. Slow and less
+    # reliable than the hosted models: a last resort for development and demos.
+    ollama:
+      fast: qwen2.5:3b
+      quality: qwen2.5:3b
 embeddings:
   provider: gemini # D-2: Gemini embeddings, configured separately from chat
   model: gemini-embedding-001
@@ -37,3 +47,4 @@ costs:
   google/gemini-3.1-flash-lite: { input: 0.25, output: 1.50 }
   google/gemini-3.8-flash: { input: 0.75, output: 3.75 }
   gemini-embedding-001: { input: 0.15 }
+  qwen2.5:3b: { input: 0, output: 0 } # local

@@ -6,7 +6,9 @@ import { VALID_ENV } from '../../../test/helpers/config';
 import { loadConfig } from '../../config';
 import {
   createChatModel,
+  createFallbackChatModel,
   extractJson,
+  fallbackChain,
   invokeStructured,
   llmConfigured,
   OPENROUTER_BASE_URL,
@@ -14,6 +16,7 @@ import {
 } from './chatModel';
 import { LlmError } from './errors';
 import { fakeChatHandle } from './fakeModels';
+import { ProviderHealth } from './providerHealth';
 
 const models = loadConfig({ ...VALID_ENV }).models;
 const keys = { GEMINI_API_KEY: 'g-key', OPENROUTER_API_KEY: 'o-key' };
@@ -66,6 +69,24 @@ describe('factory selection', () => {
     expect(model.maxTokens).toBe(2048);
   });
 
+  it('builds an OpenAI-compatible model pointed at the Ollama server', () => {
+    const handle = createChatModel(
+      models,
+      { OLLAMA_BASE_URL: 'http://192.168.29.3:11434/' },
+      'fast',
+      'ollama',
+    );
+    expect(handle).toMatchObject({ provider: 'ollama', modelId: 'qwen2.5:3b' });
+    const model = handle.model as ChatOpenAI;
+    expect(model).toBeInstanceOf(ChatOpenAI);
+    expect((model as unknown as { clientConfig: { baseURL: string } }).clientConfig.baseURL).toBe(
+      'http://192.168.29.3:11434/v1',
+    );
+    expect(() => createChatModel(models, keys, 'fast', 'ollama')).toThrow(
+      /OLLAMA_BASE_URL is not set/,
+    );
+  });
+
   it('switches provider by config only', () => {
     const openrouterConfig = {
       ...models,
@@ -92,6 +113,43 @@ describe('factory selection', () => {
     };
     expect(llmConfigured(openrouterConfig, { OPENROUTER_API_KEY: 'o' })).toBe(false);
     expect(llmConfigured(openrouterConfig, keys)).toBe(true);
+  });
+});
+
+describe('fallbackChain', () => {
+  const ids = (k: Parameters<typeof fallbackChain>[1], tier: 'fast' | 'quality') =>
+    fallbackChain(models, k, tier).map((r) => `${r.provider}/${r.modelId}`);
+  const all = { ...keys, OLLAMA_BASE_URL: 'http://localhost:11434' };
+
+  it('quality: the quality model, then the fast one, per provider in order', () => {
+    expect(ids(all, 'quality')).toEqual([
+      'gemini/gemini-3.8-flash',
+      'gemini/gemini-3.1-flash-lite',
+      'openrouter/google/gemini-3.8-flash',
+      'openrouter/google/gemini-3.1-flash-lite',
+      'ollama/qwen2.5:3b',
+    ]);
+  });
+
+  it('fast: each fast model once', () => {
+    expect(ids(all, 'fast')).toEqual([
+      'gemini/gemini-3.1-flash-lite',
+      'openrouter/google/gemini-3.1-flash-lite',
+      'ollama/qwen2.5:3b',
+    ]);
+  });
+
+  it('leaves out providers without a key or URL, but never returns an empty chain', () => {
+    expect(ids({ GEMINI_API_KEY: 'g' }, 'fast')).toEqual(['gemini/gemini-3.1-flash-lite']);
+    expect(ids({ OLLAMA_BASE_URL: 'http://localhost:11434' }, 'fast')).toEqual([
+      'ollama/qwen2.5:3b',
+    ]);
+    expect(ids({}, 'fast')).toEqual(['gemini/gemini-3.1-flash-lite']);
+  });
+
+  it('createFallbackChatModel names the first model and builds nothing up front', () => {
+    const handle = createFallbackChatModel(models, {}, 'quality', new ProviderHealth());
+    expect(handle).toMatchObject({ provider: 'gemini', modelId: 'gemini-3.8-flash' });
   });
 });
 

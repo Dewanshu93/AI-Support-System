@@ -2,7 +2,10 @@
 // config"). LLM_MODE=record calls the real provider and saves every reply to a
 // JSON file keyed by a hash of the prompt messages; LLM_MODE=replay serves the
 // saved replies and never calls a provider. A missing recording is an error, so
-// replay can never silently fall back to a live call. Never used in production.
+// replay can never silently fall back to a live call. LLM_MODE=cache (ADR-018,
+// development only) serves a saved reply when there is one and otherwise calls
+// the provider and saves the reply; failures are never cached. Never used in
+// production.
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,7 +28,7 @@ interface RecordedError {
 const isRecordedError = (v: unknown): v is RecordedError =>
   typeof v === 'object' && v !== null && 'recordedError' in v;
 
-export const LLM_MODES = ['live', 'record', 'replay'] as const;
+export const LLM_MODES = ['live', 'record', 'replay', 'cache'] as const;
 export type LlmMode = (typeof LLM_MODES)[number];
 
 type Kind = 'text' | 'stream' | 'structured' | 'embedding';
@@ -43,6 +46,11 @@ export class LlmRecordings {
       .update(JSON.stringify([kind, input]))
       .digest('hex')
       .slice(0, 24);
+  }
+
+  /** The saved value, or undefined when there is none. */
+  find(kind: Kind, input: unknown): unknown {
+    return this.entries[LlmRecordings.key(kind, input)]?.value;
   }
 
   get(kind: Kind, input: unknown): unknown {
@@ -76,7 +84,7 @@ const textOf = (m: { content: unknown }) =>
 
 const zeroUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 
-/** Wraps a real chat model (record) or stands in for one (replay). */
+/** Wraps a real chat model (record, cache) or stands in for one (replay). */
 export class RecordingChatModel extends BaseChatModel {
   constructor(
     private readonly mode: Exclude<LlmMode, 'live'>,
@@ -84,17 +92,30 @@ export class RecordingChatModel extends BaseChatModel {
     private readonly inner: BaseChatModel | null,
   ) {
     super({});
-    if (mode === 'record' && !inner) throw new Error('record mode needs the real model');
+    if (mode !== 'replay' && !inner) throw new Error(`${mode} mode needs the real model`);
   }
 
   _llmType(): string {
     return `recording-${this.mode}`;
   }
 
+  /** The saved reply to serve: required in replay, optional in cache, never in record. */
+  private saved(kind: Kind, prompt: unknown): unknown {
+    if (this.mode === 'replay') return this.store.get(kind, prompt);
+    return this.mode === 'cache' ? this.store.find(kind, prompt) : undefined;
+  }
+
   async _generate(messages: BaseMessage[]): Promise<ChatResult> {
     const prompt = promptOf(messages);
+    const saved = this.saved('text', prompt);
+    if (saved === undefined && this.mode === 'cache') {
+      // A cache miss passes the live reply through (usage, answeredBy) after saving it.
+      const message = (await this.inner!.invoke(messages)) as AIMessage;
+      this.store.set('text', prompt, textOf(message));
+      return { generations: [{ text: textOf(message), message }] };
+    }
     let text: string;
-    if (this.mode === 'replay') text = this.store.get('text', prompt) as string;
+    if (saved !== undefined) text = saved as string;
     else {
       text = textOf(await this.inner!.invoke(messages));
       this.store.set('text', prompt, text);
@@ -110,21 +131,24 @@ export class RecordingChatModel extends BaseChatModel {
     runManager?: CallbackManagerForLLMRun,
   ): AsyncGenerator<ChatGenerationChunk> {
     const prompt = promptOf(messages);
-    if (this.mode === 'record') {
+    const saved = this.saved('stream', prompt);
+    if (saved === undefined) {
+      const cache = this.mode === 'cache';
       let text = '';
       for await (const chunk of await this.inner!.stream(messages, { signal: options.signal })) {
         const piece = textOf(chunk);
         text += piece;
         yield new ChatGenerationChunk({
           text: piece,
-          message: new AIMessageChunk({ content: piece }),
+          // The cache passes live chunks through (usage, answeredBy); record keeps them bare.
+          message: cache ? chunk : new AIMessageChunk({ content: piece }),
         });
         await runManager?.handleLLMNewToken(piece);
       }
       this.store.set('stream', prompt, text);
       return;
     }
-    const text = this.store.get('stream', prompt) as string;
+    const text = saved as string;
     const pieces = text.match(/[\s\S]{1,24}/g) ?? [''];
     for (const [i, piece] of pieces.entries()) {
       yield new ChatGenerationChunk({
@@ -146,9 +170,9 @@ export class RecordingChatModel extends BaseChatModel {
     /* eslint-enable @typescript-eslint/no-explicit-any */
     return RunnableLambda.from(async (input: BaseMessage[], runConfig) => {
       const prompt = promptOf(input);
-      let parsed: unknown;
-      if (this.mode === 'replay') {
-        parsed = this.store.get('structured', prompt);
+      let parsed = this.saved('structured', prompt);
+      let raw: AIMessage | undefined;
+      if (parsed !== undefined) {
         if (isRecordedError(parsed)) {
           const { status, message } = parsed.recordedError;
           throw Object.assign(new Error(message), status === null ? {} : { status });
@@ -158,25 +182,33 @@ export class RecordingChatModel extends BaseChatModel {
           const result = (await this.inner!.withStructuredOutput(schema, {
             includeRaw: true,
             name: config?.name,
-          }).invoke(input, runConfig)) as { parsed: unknown };
+          }).invoke(input, runConfig)) as { raw?: AIMessage; parsed: unknown };
           parsed = result.parsed;
+          if (this.mode === 'cache') raw = result.raw;
         } catch (err) {
-          const recordedError = {
-            status: errorStatus(err) ?? null,
-            message: err instanceof Error ? err.message : String(err),
-          };
-          this.store.set('structured', prompt, { recordedError } satisfies RecordedError);
+          // Record saves the failure so replay takes the same path. The cache keeps only
+          // a schema rejection (HTTP 400), which would recur; quota and outages would not.
+          if (this.mode === 'record' || errorStatus(err) === 400) {
+            const recordedError = {
+              status: errorStatus(err) ?? null,
+              message: err instanceof Error ? err.message : String(err),
+            };
+            this.store.set('structured', prompt, { recordedError } satisfies RecordedError);
+          }
           throw err;
         }
-        this.store.set('structured', prompt, parsed);
+        // An unparsed reply is not worth keeping: the next call should try again.
+        if (this.mode === 'record' || parsed !== undefined) {
+          this.store.set('structured', prompt, parsed);
+        }
       }
-      const raw = new AIMessage({ content: JSON.stringify(parsed), usage_metadata: zeroUsage });
+      raw ??= new AIMessage({ content: JSON.stringify(parsed), usage_metadata: zeroUsage });
       return config?.includeRaw ? { raw, parsed } : parsed;
     });
   }
 }
 
-/** The chat handle for a mode: live as is; record/replay wrapped. */
+/** The chat handle for a mode: live as is; record/replay/cache wrapped. */
 export function recordedChatHandle(
   mode: Exclude<LlmMode, 'live'>,
   store: LlmRecordings,
@@ -186,7 +218,7 @@ export function recordedChatHandle(
   if (mode === 'replay')
     return { ...identity, model: new RecordingChatModel('replay', store, null) };
   const real = live();
-  return { ...real, model: new RecordingChatModel('record', store, real.model) };
+  return { ...real, model: new RecordingChatModel(mode, store, real.model) };
 }
 
 /** Query embeddings for a mode (replay never calls the provider). */
@@ -197,6 +229,8 @@ export function recordedEmbedQuery(
 ): (text: string) => Promise<number[]> {
   return async (text) => {
     if (mode === 'replay') return store.get('embedding', text) as number[];
+    const cached = mode === 'cache' ? store.find('embedding', text) : undefined;
+    if (cached !== undefined) return cached as number[];
     const vector = await live(text);
     store.set('embedding', text, vector);
     return vector;

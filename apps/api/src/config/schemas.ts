@@ -253,7 +253,8 @@ export const PromptsSchema = z.strictObject({
 
 // --- models.yaml -----------------------------------------------------------
 
-export const CHAT_PROVIDERS = ['gemini', 'openrouter'] as const;
+/** `ollama`: a local model through Ollama's OpenAI-compatible API (ADR-018, development fallback). */
+export const CHAT_PROVIDERS = ['gemini', 'openrouter', 'ollama'] as const;
 const ModelId = z.string().trim().min(1);
 const ModelTiers = z.strictObject({ fast: ModelId, quality: ModelId });
 
@@ -269,8 +270,14 @@ export const ModelsSchema = z
     version: Version,
     chat: z.strictObject({
       provider: z.enum(CHAT_PROVIDERS),
-      // Both providers are always configured so switching is a one-line change.
-      models: z.strictObject({ gemini: ModelTiers, openrouter: ModelTiers }),
+      /**
+       * Tried in order when the provider is out of quota or credit, rejects its
+       * key or is unreachable (ADR-018). API server only; evals and the smoke
+       * test always use `provider`.
+       */
+      fallbacks: z.array(z.enum(CHAT_PROVIDERS)).optional(),
+      // Every provider is always configured so switching is a one-line change.
+      models: z.strictObject({ gemini: ModelTiers, openrouter: ModelTiers, ollama: ModelTiers }),
     }),
     embeddings: z.strictObject({
       // D-2: do not assume OpenRouter serves embeddings.
@@ -289,6 +296,14 @@ export const ModelsSchema = z
     costs: z.record(ModelId, ModelCost),
   })
   .superRefine((m, ctx) => {
+    const fallbacks = m.chat.fallbacks ?? [];
+    if (fallbacks.includes(m.chat.provider) || new Set(fallbacks).size !== fallbacks.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['chat', 'fallbacks'],
+        message: 'list each fallback provider once, and not the main provider',
+      });
+    }
     const chatModels = Object.values(m.chat.models).flatMap((tiers) => Object.values(tiers));
     for (const model of chatModels) {
       if (m.costs[model]?.output === undefined) {

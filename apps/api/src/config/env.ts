@@ -34,13 +34,20 @@ export const EnvSchema = z.object({
   // GET /api/health reports llmConfigured (W1-09).
   GEMINI_API_KEY: optionalString,
   OPENROUTER_API_KEY: optionalString,
+  /** Ollama server for the local fallback model (ADR-018), e.g. http://localhost:11434. */
+  OLLAMA_BASE_URL: z.preprocess(blankToUndefined, z.url().optional()),
   /** Overrides the config/ directory (tests, alternative deployments). */
   CONFIG_DIR: optionalString,
   /**
-   * End-to-end tests only (W2-09): `record` saves every LLM reply and query
+   * End-to-end tests (W2-09): `record` saves every LLM reply and query
    * embedding to LLM_RECORDINGS_FILE; `replay` serves them and never calls a provider.
+   * Development (ADR-018): `cache` serves a saved reply when there is one and
+   * saves new ones (default file .llm-cache/replies.json, git-ignored).
    */
-  LLM_MODE: z.preprocess(blankToUndefined, z.enum(['live', 'record', 'replay']).default('live')),
+  LLM_MODE: z.preprocess(
+    blankToUndefined,
+    z.enum(['live', 'record', 'replay', 'cache']).default('live'),
+  ),
   LLM_RECORDINGS_FILE: optionalString,
   /**
    * Escalation email delivery (UC-07, ADR-017). `mock` stores emails in

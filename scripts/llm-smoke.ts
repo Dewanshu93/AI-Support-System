@@ -15,6 +15,7 @@ import {
   embedDocuments,
   embedQuery,
   invokeStructured,
+  KEY_FOR as KEY,
   type LlmKeys,
 } from '../apps/api/src/ai/llm';
 
@@ -23,8 +24,6 @@ const SmokeSchema = z.object({
   sum: z.number().int(),
   capital: z.string(),
 });
-
-const KEY = { gemini: 'GEMINI_API_KEY', openrouter: 'OPENROUTER_API_KEY' } as const;
 
 async function main(): Promise<number> {
   loadDotEnv();

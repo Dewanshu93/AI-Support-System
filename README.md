@@ -62,22 +62,23 @@ missing or malformed. Nothing is silently defaulted except where noted below.
 `apps/api/src/config/env.ts`). The API loads `.env` from the repo root if present; variables
 already set in the environment win.
 
-| Variable                               | Required | Default                 | Notes                                      |
-| -------------------------------------- | -------- | ----------------------- | ------------------------------------------ |
-| `MONGODB_URI`                          | yes      | —                       | `mongodb://` or `mongodb+srv://`           |
-| `JWT_SECRET`                           | yes      | —                       | ≥ 32 characters                            |
-| `NODE_ENV`                             | no       | `development`           | `development` \| `test` \| `production`    |
-| `API_PORT`                             | no       | `4000`                  |                                            |
-| `WEB_ORIGIN`                           | no       | `http://localhost:3000` | CORS allowlist origin                      |
-| `LOG_LEVEL`                            | no       | `info`                  | pino level; `silent` under Jest            |
-| `DEMO_PASSWORD`                        | no       | —                       | Shared password for the demo login picker  |
-| `GEMINI_API_KEY`, `OPENROUTER_API_KEY` | no       | —                       | Needed for the configured provider         |
-| `QDRANT_URL`, `QDRANT_API_KEY`         | no       | `http://localhost:6333` | Vector store                               |
-| `DEMO_TODAY`                           | no       | system date             | Pins "today" (YYYY-MM-DD) for the demo     |
-| `EMAIL_DELIVERY`                       | no       | `mock`                  | `mock` records emails in the outbox only   |
-| `LLM_MODE`                             | no       | `live`                  | `record` \| `replay`: E2E recorded replies |
-| `CONFIG_DIR`                           | no       | `<repo>/config`         | Alternative config directory               |
-| `ENV_FILE`                             | no       | `<repo>/.env`           | Alternative env file path                  |
+| Variable                               | Required | Default                 | Notes                                                                |
+| -------------------------------------- | -------- | ----------------------- | -------------------------------------------------------------------- |
+| `MONGODB_URI`                          | yes      | —                       | `mongodb://` or `mongodb+srv://`                                     |
+| `JWT_SECRET`                           | yes      | —                       | ≥ 32 characters                                                      |
+| `NODE_ENV`                             | no       | `development`           | `development` \| `test` \| `production`                              |
+| `API_PORT`                             | no       | `4000`                  |                                                                      |
+| `WEB_ORIGIN`                           | no       | `http://localhost:3000` | CORS allowlist origin                                                |
+| `LOG_LEVEL`                            | no       | `info`                  | pino level; `silent` under Jest                                      |
+| `DEMO_PASSWORD`                        | no       | —                       | Shared password for the demo login picker                            |
+| `GEMINI_API_KEY`, `OPENROUTER_API_KEY` | no       | —                       | Needed for the configured provider                                   |
+| `QDRANT_URL`, `QDRANT_API_KEY`         | no       | `http://localhost:6333` | Vector store                                                         |
+| `DEMO_TODAY`                           | no       | system date             | Pins "today" (YYYY-MM-DD) for the demo                               |
+| `EMAIL_DELIVERY`                       | no       | `mock`                  | `mock` records emails in the outbox only                             |
+| `OLLAMA_BASE_URL`                      | no       | —                       | Local fallback model, e.g. `http://localhost:11434`                  |
+| `LLM_MODE`                             | no       | `live`                  | `record` \| `replay`: E2E recorded replies; `cache`: dev reply cache |
+| `CONFIG_DIR`                           | no       | `<repo>/config`         | Alternative config directory                                         |
+| `ENV_FILE`                             | no       | `<repo>/.env`           | Alternative env file path                                            |
 
 **Behaviour files** (`config/*.yaml`, tunable without code changes; one strict Zod schema each in
 `apps/api/src/config/schemas.ts`):
@@ -114,6 +115,13 @@ npm run db:indexes
 
 Set `GEMINI_API_KEY` in `.env` (chat and embeddings; `OPENROUTER_API_KEY` is optional for
 OpenRouter chat). Models, tiers, timeouts, retries and prices live in `config/models.yaml`.
+
+When a model is out of quota or credit, rejects its key or is unreachable, the API falls back:
+Gemini quality → Gemini fast → OpenRouter → a local Ollama model (ADR-018). For the local
+model, install [Ollama](https://ollama.com), run `ollama pull qwen2.5:3b`, and set
+`OLLAMA_BASE_URL=http://localhost:11434`; providers without a key or URL are skipped. For
+development, `LLM_MODE=cache` reuses saved replies for identical prompts (`.llm-cache/`).
+
 Check real connectivity with:
 
 ```bash
