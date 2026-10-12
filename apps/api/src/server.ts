@@ -20,6 +20,7 @@ import {
   ProviderHealth,
   resolveChatModel,
 } from './ai/llm';
+import { guardUnhandledRejections } from './ai/llm/orphanedStream';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
 import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
@@ -248,4 +249,6 @@ async function main() {
   process.once('SIGINT', () => shutdown('SIGINT'));
 }
 
+// One broken LLM stream must not stop the API for everyone (see orphanedStream.ts).
+guardUnhandledRejections(logger);
 void main();
