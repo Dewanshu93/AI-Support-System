@@ -14,6 +14,16 @@ export function routeAfterPrecheck(state: State): (typeof AFTER_PRECHECK)[number
   return state.precheckResult?.sensitiveHit ? 'sensitiveHandoff' : 'analyzeTurn';
 }
 
+/**
+ * Read-only records agents answer questions; they cannot act. When P-1 also says
+ * the employee wants something done or wants a person ("Contact payroll about my
+ * LOP" was read as request_status + request_action), the knowledge agent's
+ * decision rules escalate instead (action_required / user_requested).
+ */
+const ANSWER_ONLY_INTENTS = new Set(['request_status', 'payroll_explain']);
+const wantsAction = (state: State) =>
+  state.analysis?.intent === 'request_action' || state.analysis?.intent === 'talk_to_human';
+
 /** The intent router: P-1 proposes the intent, this code picks the agent. */
 export const AFTER_ANALYSIS = [
   'sensitiveHandoff',
@@ -28,7 +38,9 @@ export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number
   if (state.analysis?.sensitivity === 'sensitive') return 'sensitiveHandoff';
   // The employee is answering a ticket clarification, or pressed "talk to a person".
   if (state.ticketFlow.active || state.input.forceEscalate) return 'escalationAgent';
-  switch (workspaceIntentOf(state.analysis)) {
+  const workspace = workspaceIntentOf(state.analysis);
+  if (ANSWER_ONLY_INTENTS.has(workspace) && wantsAction(state)) return 'knowledgeAgent';
+  switch (workspace) {
     case 'timesheet_log':
     case 'timesheet_status':
       return 'timesheetAgent';

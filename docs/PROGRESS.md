@@ -1749,3 +1749,18 @@ Tests: `components/shell/shell.test.tsx` (closed profile menu, expanded sidebar 
 compact and expanded nav links); `e2e/tests/auth.spec.ts` opens the profile menu for the badge
 and Sign out checks, and a new test collapses the sidebar, navigates, reloads (choice kept) and
 expands it. Lint, typecheck and web Jest green.
+
+## Fix: "Contact payroll about my LOP" went to request status — 2026-10-12
+
+**Found by:** the LOP E2E (step 8). P-1 v2 read the contract's flow 6 example as
+`intent: request_action` with `workspaceIntent: request_status` ("payroll request" taken as "my
+requests"), and the router checked the workspace intent first, so the employee got a list of
+open requests instead of an escalation draft.
+
+**Fix (code, not prompt):** `routeAfterAnalysis` sends `request_status` and `payroll_explain`
+turns to the knowledge agent when P-1 also says the employee wants something done
+(`request_action`) or wants a person (`talk_to_human`); its decision rules then escalate
+(`action_required` / `user_requested`). Read-only records agents keep questions and follow-ups;
+`timesheet_log` with `request_action` is unchanged (the copilot performs that action itself).
+Tests: `edges.test.ts` (the failing analysis, the other combinations, unchanged routes). Graph and
+AI workflow suites: 173 green.

@@ -100,6 +100,35 @@ describe('intent router (UC-04)', () => {
     expect(routeAfterAnalysis(withIntent(intent))).toBe(agent);
   });
 
+  describe('a request to act or to reach a person is not a records question', () => {
+    const analysed = (workspaceIntent: string, intent: string) =>
+      at({ analysis: { ...stubAnalysis('x'), workspaceIntent, intent } as State['analysis'] });
+
+    it('"Contact payroll about my LOP" (P-1 v2: request_status + request_action) escalates via the knowledge agent', () => {
+      expect(routeAfterAnalysis(analysed('request_status', 'request_action'))).toBe(
+        'knowledgeAgent',
+      );
+    });
+
+    it.each([
+      ['request_status', 'talk_to_human'],
+      ['payroll_explain', 'request_action'],
+      ['payroll_explain', 'talk_to_human'],
+    ])('%s + %s → knowledgeAgent (its decision rules escalate)', (workspaceIntent, intent) => {
+      expect(routeAfterAnalysis(analysed(workspaceIntent, intent))).toBe('knowledgeAgent');
+    });
+
+    it.each([
+      ['request_status', 'question', 'requestsAgent'],
+      ['payroll_explain', 'question', 'payrollAgent'],
+      ['payroll_explain', 'follow_up', 'payrollAgent'],
+      // Logging hours is an action the copilot itself performs (after confirmation).
+      ['timesheet_log', 'request_action', 'timesheetAgent'],
+    ])('%s + %s → %s', (workspaceIntent, intent, agent) => {
+      expect(routeAfterAnalysis(analysed(workspaceIntent, intent))).toBe(agent);
+    });
+  });
+
   it('a P-1 v1 analysis (no workspaceIntent) goes to the knowledge agent', () => {
     expect(routeAfterAnalysis(base)).toBe('knowledgeAgent');
   });
