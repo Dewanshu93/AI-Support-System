@@ -200,8 +200,12 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
   timeout or an abort stays with the model. A stream falls back only before its first chunk.
 - The reply carries `answeredBy`; `invokeStructured` and the answer node use it for the trace's
   provider/model and the cost.
-- **Ollama** (`provider: ollama`): `ChatOpenAI` at `${OLLAMA_BASE_URL}/v1`, model `qwen2.5:3b`,
-  cost 0. No new dependency.
+- **Ollama** (`provider: ollama`): `ChatOpenAI` at `${OLLAMA_BASE_URL}/v1` (the LAN host, port
+  11434), model `dolphin3:latest`, cost 0. No new dependency.
+- **Time budgets:** each model in the chain has its own per-attempt deadline (`call.timeoutMs`,
+  or `call.providerTimeoutMs`, e.g. Ollama 120 s); the chain's handle carries the largest
+  (`ChatHandle.timeoutMs`), which `policyFor` applies in `invokeStructured` and the answer node.
+  A model that misses its own deadline fails as a timeout (retried by the call policy).
 - **`LLM_MODE=cache`** (development): `RecordingChatModel` in cache mode serves an identical
   prompt's saved reply from `.llm-cache/replies.json` (git-ignored) or calls the chain and saves
   it; failures are not saved (except an HTTP 400 schema rejection).

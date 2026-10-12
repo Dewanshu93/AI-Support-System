@@ -118,8 +118,10 @@ OpenRouter chat). Models, tiers, timeouts, retries and prices live in `config/mo
 
 When a model is out of quota or credit, rejects its key or is unreachable, the API falls back:
 Gemini quality → Gemini fast → OpenRouter → a local Ollama model (ADR-018). For the local
-model, install [Ollama](https://ollama.com), run `ollama pull qwen2.5:3b`, and set
-`OLLAMA_BASE_URL=http://localhost:11434`; providers without a key or URL are skipped. For
+model, run [Ollama](https://ollama.com) with `ollama pull dolphin3` and set `OLLAMA_BASE_URL`
+(here the LAN host, `http://192.168.29.3:11434`; Ollama must listen on `OLLAMA_HOST=0.0.0.0`).
+Providers without a key or URL are skipped. On CPU the local model is slow, so it gets its own
+time budget (`call.providerTimeoutMs` in `models.yaml`). For
 development, `LLM_MODE=cache` reuses saved replies for identical prompts (`.llm-cache/`).
 
 Check real connectivity with:

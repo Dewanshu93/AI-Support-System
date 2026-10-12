@@ -1675,7 +1675,8 @@ OpenRouter out of credit). Owner-approved; built by a parallel session and finis
   for a cooldown; request errors (400, invalid output, timeout) never change model. Traces and
   costs record the model that actually answered (`answeredBy`).
 - Ollama as a third chat provider through its OpenAI-compatible API (`OLLAMA_BASE_URL`, model
-  `qwen2.5:3b`, cost 0): no new dependency.
+  `qwen2.5:3b`, cost 0): no new dependency. (Changed 2026-10-12 to `dolphin3:latest` on the LAN
+  host with a 120 s budget; see the follow-up entry below.)
 - `LLM_MODE=cache` for development: reuses saved replies for identical prompts from
   `.llm-cache/replies.json` (git-ignored, separate from the E2E fixtures); failures are not saved.
 - Evals, `llm:smoke` and E2E recording keep using the configured model only.
@@ -1692,3 +1693,27 @@ load (`status: null`), which passes in-band (3/3).
 
 **Not covered:** a live call to a real Ollama server (not installed on this PC); embeddings stay
 on Gemini (a different model would need a re-index).
+
+### Follow-up 2026-10-12: Ollama on the LAN host, per-model time budgets
+
+- Ollama runs on the LAN host (`OLLAMA_BASE_URL=http://192.168.29.3:11434`, in `.env`). Its
+  installed models are `dolphin3:latest` (Llama 3.1 8B, 131K context) and `dolphin-phi` (2K
+  context, too small for our prompts); `models.yaml` now uses `dolphin3:latest` for both tiers
+  (owner decision; replaces the uninstalled `qwen2.5:3b` / `dolphin-mixtral:8x7b`).
+- Measured directly: valid JSON output, about 14 s warm for a short prompt, about 2 min on first
+  load. So each model in the chain now has its own per-attempt budget: `call.timeoutMs` (30 s)
+  for the hosted models and `call.providerTimeoutMs.ollama: 120000`; the chain's handle carries
+  the largest (`ChatHandle.timeoutMs`, applied by `policyFor`). A model that misses its own
+  deadline fails as a timeout (retried by the call policy), as before.
+- Tests: `fallback.test.ts` (handle budget is the largest; a slow last resort answers inside its
+  own budget beyond the hosted models' budget; a model past its own deadline fails as a timeout
+  without moving on), `schemas.test.ts` (`providerTimeoutMs` validation). Lint and typecheck
+  clean; `src/ai/llm`, `src/config`, answer node: 189 tests green.
+- `llm:smoke` (2026-10-12): Gemini fast/quality and embeddings pass; OpenRouter fast passes,
+  OpenRouter quality returns 402 (credit left for only 928 output tokens); **Ollama timed out**:
+  at that moment the LAN host answered no request (a direct warm-up got no bytes in 200 s, and
+  Qdrant on the same host was unreachable), after answering in 14 s earlier. To recheck once the
+  host is healthy: `npm run llm:smoke`.
+- E2E re-recording is still open: the first run had 23/28 pass (failures from provider errors,
+  since recording uses the configured model without fallback); the second stopped when Qdrant
+  on the LAN host became unreachable.

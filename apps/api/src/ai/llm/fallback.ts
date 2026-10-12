@@ -11,11 +11,28 @@ import { AIMessage, AIMessageChunk, type BaseMessage } from '@langchain/core/mes
 import { ChatGenerationChunk, type ChatResult } from '@langchain/core/outputs';
 import { RunnableLambda } from '@langchain/core/runnables';
 import type { ChatHandle } from './chatModel';
+import { LlmError } from './errors';
 import { cooldownFor, type ModelRef, type ProviderHealth } from './providerHealth';
 
 export interface FallbackCandidate extends ModelRef {
   /** Built on first use, so a missing key or URL only matters when that model is reached. */
   model: () => BaseChatModel;
+  /**
+   * This model's own budget per attempt (`call.timeoutMs`, or `call.providerTimeoutMs`
+   * for a slow provider). The chain's handle gets the largest, so a slow last
+   * resort is not cut off by the budget meant for the hosted models.
+   */
+  timeoutMs?: number;
+}
+
+/** The caller's signal, plus the candidate's own deadline when it has one. */
+function attemptSignal(candidate: FallbackCandidate, signal?: AbortSignal) {
+  if (!candidate.timeoutMs) return { signal, timedOut: () => false };
+  const own = AbortSignal.timeout(candidate.timeoutMs);
+  return {
+    signal: signal ? AbortSignal.any([signal, own]) : own,
+    timedOut: () => own.aborted && !signal?.aborted,
+  };
 }
 
 /** Told about every model that was set aside, for the server log. */
@@ -73,7 +90,7 @@ export class FallbackChatModel extends BaseChatModel {
 
   /** Runs `call` on each model in health order until one succeeds or fails for a non-fallback reason. */
   private async run<T>(
-    call: (model: BaseChatModel) => Promise<T>,
+    call: (model: BaseChatModel, signal?: AbortSignal) => Promise<T>,
     signal?: AbortSignal,
   ): Promise<{ value: T; ref: FallbackCandidate }> {
     const ordered = this.health.order(this.candidates);
@@ -82,11 +99,20 @@ export class FallbackChatModel extends BaseChatModel {
     for (const [i, candidate] of ordered.entries()) {
       // Set aside during this call (e.g. a 402 covers the provider's other models): skip it.
       if (healthyAtStart.has(candidate) && this.health.status(candidate).ms > 0) continue;
+      const attempt = attemptSignal(candidate, signal);
       try {
-        const value = await call(this.modelOf(candidate));
+        const value = await call(this.modelOf(candidate), attempt.signal);
         this.health.markUp(candidate);
         return { value, ref: candidate };
       } catch (err) {
+        // The model's own deadline: a timeout like any other (retried by the call policy).
+        if (attempt.timedOut()) {
+          throw new LlmError(
+            'timeout',
+            `${candidate.provider}/${candidate.modelId} timed out after ${candidate.timeoutMs} ms`,
+            { cause: err },
+          );
+        }
         const cooldown = cooldownFor(err);
         if (!cooldown || signal?.aborted) throw err;
         this.health.markDown(candidate, cooldown);
@@ -107,7 +133,7 @@ export class FallbackChatModel extends BaseChatModel {
     options: this['ParsedCallOptions'],
   ): Promise<ChatResult> {
     const { value, ref } = await this.run(
-      (model) => model.invoke(messages, { signal: options.signal }),
+      (model, signal) => model.invoke(messages, { signal }),
       options.signal,
     );
     const message = stamp(value as AIMessage, ref);
@@ -123,10 +149,8 @@ export class FallbackChatModel extends BaseChatModel {
     options: this['ParsedCallOptions'],
     runManager?: CallbackManagerForLLMRun,
   ): AsyncGenerator<ChatGenerationChunk> {
-    const { value, ref } = await this.run(async (model) => {
-      const iterator = (await model.stream(messages, { signal: options.signal }))[
-        Symbol.asyncIterator
-      ]();
+    const { value, ref } = await this.run(async (model, signal) => {
+      const iterator = (await model.stream(messages, { signal }))[Symbol.asyncIterator]();
       return { iterator, first: await iterator.next() };
     }, options.signal);
     const emit = async (chunk: AIMessageChunk, first: boolean) => {
@@ -154,10 +178,13 @@ export class FallbackChatModel extends BaseChatModel {
     /* eslint-enable @typescript-eslint/no-explicit-any */
     return RunnableLambda.from(async (input: BaseMessage[], runConfig) => {
       const { value, ref } = await this.run(
-        (model) =>
+        (model, signal) =>
           model
             .withStructuredOutput(schema, { includeRaw: true, name: config?.name })
-            .invoke(input, runConfig) as Promise<{ raw?: AIMessage; parsed: unknown }>,
+            .invoke(input, { ...runConfig, signal }) as Promise<{
+            raw?: AIMessage;
+            parsed: unknown;
+          }>,
         runConfig?.signal,
       );
       const raw = stamp(value.raw ?? new AIMessage({ content: '' }), ref);
@@ -178,9 +205,11 @@ export function fallbackChatHandle(
 ): ChatHandle {
   const [first] = candidates;
   if (!first) throw new Error('fallbackChatHandle needs at least one model');
+  const budgets = candidates.flatMap((c) => (c.timeoutMs ? [c.timeoutMs] : []));
   return {
     model: new FallbackChatModel(candidates, health, onFallback),
     provider: first.provider as ChatHandle['provider'],
     modelId: first.modelId,
+    ...(budgets.length > 0 && { timeoutMs: Math.max(...budgets) }),
   };
 }

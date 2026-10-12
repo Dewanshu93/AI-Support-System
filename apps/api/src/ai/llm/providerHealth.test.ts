@@ -61,7 +61,7 @@ describe('cooldownFor', () => {
 describe('ProviderHealth', () => {
   const gemini = { provider: 'gemini', modelId: 'gemini-3.8-flash' };
   const geminiFast = { provider: 'gemini', modelId: 'gemini-3.1-flash-lite' };
-  const ollama = { provider: 'ollama', modelId: 'qwen2.5:3b' };
+  const ollama = { provider: 'ollama', modelId: 'dolphin3:latest' };
 
   it('keeps the given order while everything is healthy', () => {
     expect(new ProviderHealth().order([gemini, geminiFast, ollama])).toEqual([

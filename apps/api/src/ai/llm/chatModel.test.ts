@@ -76,7 +76,7 @@ describe('factory selection', () => {
       'fast',
       'ollama',
     );
-    expect(handle).toMatchObject({ provider: 'ollama', modelId: 'qwen2.5:3b' });
+    expect(handle).toMatchObject({ provider: 'ollama', modelId: 'dolphin3:latest' });
     const model = handle.model as ChatOpenAI;
     expect(model).toBeInstanceOf(ChatOpenAI);
     expect((model as unknown as { clientConfig: { baseURL: string } }).clientConfig.baseURL).toBe(
@@ -127,7 +127,7 @@ describe('fallbackChain', () => {
       'gemini/gemini-3.1-flash-lite',
       'openrouter/google/gemini-3.8-flash',
       'openrouter/google/gemini-3.1-flash-lite',
-      'ollama/qwen2.5:3b',
+      'ollama/dolphin3:latest',
     ]);
   });
 
@@ -135,14 +135,14 @@ describe('fallbackChain', () => {
     expect(ids(all, 'fast')).toEqual([
       'gemini/gemini-3.1-flash-lite',
       'openrouter/google/gemini-3.1-flash-lite',
-      'ollama/qwen2.5:3b',
+      'ollama/dolphin3:latest',
     ]);
   });
 
   it('leaves out providers without a key or URL, but never returns an empty chain', () => {
     expect(ids({ GEMINI_API_KEY: 'g' }, 'fast')).toEqual(['gemini/gemini-3.1-flash-lite']);
     expect(ids({ OLLAMA_BASE_URL: 'http://localhost:11434' }, 'fast')).toEqual([
-      'ollama/qwen2.5:3b',
+      'ollama/dolphin3:latest',
     ]);
     expect(ids({}, 'fast')).toEqual(['gemini/gemini-3.1-flash-lite']);
   });

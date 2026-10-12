@@ -20,11 +20,13 @@ chat:
     openrouter:
       fast: google/gemini-3.1-flash-lite
       quality: google/gemini-3.8-flash
-    # Local, CPU-friendly (about 2 GB); `ollama pull qwen2.5:3b`. Slow and less
-    # reliable than the hosted models: a last resort for development and demos.
+    # Ollama on the LAN host (OLLAMA_BASE_URL): Dolphin 3 (Llama 3.1 8B, Q4, 131K
+    # context), `ollama pull dolphin3`. Verified 2026-10-12: valid JSON output,
+    # about 14 s warm for a short prompt, about 2 min when the model first loads.
+    # A last resort when Gemini and OpenRouter are out of quota or credit.
     ollama:
-      fast: qwen2.5:3b
-      quality: qwen2.5:3b
+      fast: dolphin3:latest
+      quality: dolphin3:latest
 embeddings:
   provider: gemini # D-2: Gemini embeddings, configured separately from chat
   model: gemini-embedding-001
@@ -35,6 +37,8 @@ embeddings:
 # maxOutputTokens caps every chat response.
 call:
   timeoutMs: 30000
+  # The local model on CPU needs longer per attempt (API server's fallback chain only).
+  providerTimeoutMs: { ollama: 120000 }
   maxRetries: 2
   maxOutputTokens: 2048
 
@@ -47,4 +51,4 @@ costs:
   google/gemini-3.1-flash-lite: { input: 0.25, output: 1.50 }
   google/gemini-3.8-flash: { input: 0.75, output: 3.75 }
   gemini-embedding-001: { input: 0.15 }
-  qwen2.5:3b: { input: 0, output: 0 } # local
+  dolphin3:latest: { input: 0, output: 0 } # local

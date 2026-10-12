@@ -1,9 +1,11 @@
-import { HumanMessage } from '@langchain/core/messages';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { AIMessage, type BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { z } from 'zod';
-import { invokeStructured } from './chatModel';
+import { invokeStructured, policyFor } from './chatModel';
 import { FakeChatModel, type FakeReply } from './fakeModels';
 import { answeredBy, type FallbackCandidate, fallbackChatHandle } from './fallback';
 import { ProviderHealth } from './providerHealth';
+import { withCallPolicy } from './retry';
 
 const httpError = (status: number, message = `HTTP ${status}`) =>
   Object.assign(new Error(message), { status });
@@ -14,7 +16,7 @@ const Answer = z.object({ answer: z.string() });
 const costs = {
   'gemini-3.8-flash': { input: 0.75, output: 3.75 },
   'gemini-3.1-flash-lite': { input: 0.25, output: 1.5 },
-  'qwen2.5:3b': { input: 0, output: 0 },
+  'dolphin3:latest': { input: 0, output: 0 },
 };
 const policy = { timeoutMs: 1000, maxRetries: 0 };
 
@@ -27,7 +29,7 @@ function chain(replies: Record<string, FakeReply[]>, options = { nativeStructure
   const candidates: FallbackCandidate[] = [
     { provider: 'gemini', modelId: 'gemini-3.8-flash', model: () => models.quality },
     { provider: 'gemini', modelId: 'gemini-3.1-flash-lite', model: () => models.fast },
-    { provider: 'ollama', modelId: 'qwen2.5:3b', model: () => models.local },
+    { provider: 'ollama', modelId: 'dolphin3:latest', model: () => models.local },
   ];
   return { models, candidates };
 }
@@ -97,7 +99,7 @@ describe('fallback chat model', () => {
         costs,
       },
     );
-    expect(result).toMatchObject({ provider: 'ollama', modelId: 'qwen2.5:3b' });
+    expect(result).toMatchObject({ provider: 'ollama', modelId: 'dolphin3:latest' });
     expect(first.models.fast.calls).toHaveLength(0);
 
     const later = chain({ local: ['{"answer":"again"}'] });
@@ -184,12 +186,110 @@ describe('fallback chat model', () => {
     const handle = fallbackChatHandle(
       [
         { provider: 'gemini', modelId: 'gemini-3.8-flash', model: build },
-        { provider: 'ollama', modelId: 'qwen2.5:3b', model: never },
+        { provider: 'ollama', modelId: 'dolphin3:latest', model: never },
       ],
       new ProviderHealth(),
     );
     await invokeStructured(handle, Answer, ask, { policy, costs });
     expect(build).toHaveBeenCalledTimes(1);
     expect(never).not.toHaveBeenCalled();
+  });
+});
+
+/** Replies after `ms` (or never, with `ms` Infinity); aborts like a real client. */
+class SlowModel extends BaseChatModel {
+  constructor(
+    private readonly ms: number,
+    private readonly text: string,
+  ) {
+    super({});
+  }
+  _llmType(): string {
+    return 'slow';
+  }
+  async _generate(_messages: BaseMessage[], options: this['ParsedCallOptions']) {
+    await new Promise<void>((resolve, reject) => {
+      const timer = Number.isFinite(this.ms) ? setTimeout(resolve, this.ms) : undefined;
+      options.signal?.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      });
+    });
+    const message = new AIMessage(this.text);
+    return { generations: [{ text: this.text, message }] };
+  }
+}
+
+describe('fallback time budgets (call.providerTimeoutMs)', () => {
+  it('the handle carries the largest budget of its models', () => {
+    const handle = fallbackChatHandle(
+      [
+        {
+          provider: 'gemini',
+          modelId: 'gemini-3.8-flash',
+          timeoutMs: 30_000,
+          model: () => new SlowModel(0, ''),
+        },
+        {
+          provider: 'ollama',
+          modelId: 'dolphin3:latest',
+          timeoutMs: 120_000,
+          model: () => new SlowModel(0, ''),
+        },
+      ],
+      new ProviderHealth(),
+    );
+    expect(handle.timeoutMs).toBe(120_000);
+    expect(policyFor(handle, { timeoutMs: 30_000, maxRetries: 2 })).toEqual({
+      timeoutMs: 120_000,
+      maxRetries: 2,
+    });
+    expect(policyFor({}, { timeoutMs: 30_000, maxRetries: 2 }).timeoutMs).toBe(30_000);
+  });
+
+  it('a slow last resort answers within its own budget, beyond the hosted models’ budget', async () => {
+    const quality = new FakeChatModel([dailyQuota()]);
+    const handle = fallbackChatHandle(
+      [
+        { provider: 'gemini', modelId: 'gemini-3.8-flash', timeoutMs: 50, model: () => quality },
+        {
+          provider: 'ollama',
+          modelId: 'dolphin3:latest',
+          timeoutMs: 2_000,
+          model: () => new SlowModel(150, '{"answer":"from the local model"}'),
+        },
+      ],
+      new ProviderHealth(),
+    );
+    // The call policy alone (100 ms) would cut the local model off.
+    const { value } = await withCallPolicy(
+      (signal) => handle.model.invoke(ask, { signal }),
+      policyFor(handle, { timeoutMs: 100, maxRetries: 0 }),
+    );
+    expect(value.content).toBe('{"answer":"from the local model"}');
+    expect(answeredBy(value)).toEqual({ provider: 'ollama', modelId: 'dolphin3:latest' });
+  });
+
+  it('a model that misses its own deadline fails as a timeout, without moving on', async () => {
+    const local = new FakeChatModel(['{"answer":"never reached"}']);
+    const handle = fallbackChatHandle(
+      [
+        {
+          provider: 'gemini',
+          modelId: 'gemini-3.8-flash',
+          timeoutMs: 50,
+          model: () => new SlowModel(Infinity, ''),
+        },
+        { provider: 'ollama', modelId: 'dolphin3:latest', timeoutMs: 2_000, model: () => local },
+      ],
+      new ProviderHealth(),
+    );
+    await expect(
+      withCallPolicy(
+        (signal) => handle.model.invoke(ask, { signal }),
+        policyFor(handle, { timeoutMs: 100, maxRetries: 0 }),
+      ),
+    ).rejects.toThrow('gemini/gemini-3.8-flash timed out after 50 ms');
+    expect(local.calls).toHaveLength(0);
   });
 });

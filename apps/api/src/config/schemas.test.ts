@@ -167,10 +167,16 @@ const invalidCases: Case[] = [
   ],
   ['models: unknown fallback', 'models', (d) => (d.chat.fallbacks = ['acme']), 'chat.fallbacks.0'],
   [
+    'models: provider budget below a second',
+    'models',
+    (d) => (d.call.providerTimeoutMs = { ollama: 10 }),
+    'call.providerTimeoutMs.ollama',
+  ],
+  [
     'models: local model without a cost',
     'models',
-    (d) => delete d.costs['qwen2.5:3b'],
-    'costs.qwen2.5:3b',
+    (d) => delete d.costs['dolphin3:latest'],
+    'costs.dolphin3:latest',
   ],
   [
     'templates: missing template',

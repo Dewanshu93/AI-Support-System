@@ -23,6 +23,19 @@ export interface ChatHandle {
   model: BaseChatModel;
   provider: ChatProvider;
   modelId: string;
+  /**
+   * Time budget per call attempt when it exceeds `call.timeoutMs`: a fallback
+   * chain that may reach a slow model (ADR-018). Each model in the chain still
+   * keeps its own budget.
+   */
+  timeoutMs?: number;
+}
+
+/** The call policy for a handle: its own longer budget, when it has one. */
+export function policyFor(handle: Pick<ChatHandle, 'timeoutMs'>, policy: CallPolicy): CallPolicy {
+  return handle.timeoutMs && handle.timeoutMs > policy.timeoutMs
+    ? { ...policy, timeoutMs: handle.timeoutMs }
+    : policy;
 }
 
 /** Which model ID a tier maps to for the configured (or given) provider. */
@@ -117,6 +130,7 @@ export function createFallbackChatModel(
   const candidates = fallbackChain(config, keys, tier).map((ref) => ({
     provider: ref.provider,
     modelId: ref.modelId,
+    timeoutMs: config.call.providerTimeoutMs?.[ref.provider] ?? config.call.timeoutMs,
     model: () => createChatModel(config, keys, ref.tier, ref.provider, options).model,
   }));
   return fallbackChatHandle(candidates, health, options.onFallback);
@@ -194,6 +208,7 @@ export async function invokeStructured<S extends z.ZodType>(
   let retries = 0;
   // Through a fallback chain (ADR-018) the model that answered may not be the handle's.
   let by: { provider: string; modelId: string } = handle;
+  const policy = policyFor(handle, options.policy);
   const finish = (data: z.output<S>, mode: StructuredCallResult<unknown>['mode']) => ({
     data,
     usage,
@@ -212,7 +227,7 @@ export async function invokeStructured<S extends z.ZodType>(
     });
     const { value, retries: r } = await withCallPolicy(
       (signal) => structured.invoke(messages, { signal }),
-      options.policy,
+      policy,
     );
     retries += r;
     const result = value as { raw?: AIMessage; parsed?: unknown };
@@ -233,7 +248,7 @@ export async function invokeStructured<S extends z.ZodType>(
   );
   const { value: raw, retries: r } = await withCallPolicy(
     (signal) => handle.model.invoke([...messages, instruction], { signal }),
-    options.policy,
+    policy,
   );
   retries += r;
   usage = addUsage(usage, usageOf(raw));

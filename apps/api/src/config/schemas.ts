@@ -288,6 +288,13 @@ export const ModelsSchema = z
     /** Per-call policy applied to every LLM and embedding call. */
     call: z.strictObject({
       timeoutMs: z.number().int().min(1000).max(300_000),
+      /**
+       * A longer per-attempt budget for a slow provider in the fallback chain
+       * (ADR-018: a local Ollama model on CPU). API server only.
+       */
+      providerTimeoutMs: z
+        .partialRecord(z.enum(CHAT_PROVIDERS), z.number().int().min(1000).max(300_000))
+        .optional(),
       maxRetries: z.number().int().min(0).max(5),
       /** Output cap per chat call; also stops OpenRouter reserving credit for the model maximum. */
       maxOutputTokens: z.number().int().min(64).max(65_536),

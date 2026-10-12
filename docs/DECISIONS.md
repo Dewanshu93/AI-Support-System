@@ -518,6 +518,10 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   - The reply is stamped with the model that answered (`answeredBy`); traces and cost use it.
   - **Ollama** is a third chat provider through its OpenAI-compatible API (`ChatOpenAI`,
     `OLLAMA_BASE_URL`), so **no new dependency**. Default model `qwen2.5:3b` (CPU-friendly), cost 0.
+    _Amended 2026-10-12 (owner):_ the model is `dolphin3:latest` (Llama 3.1 8B) on the LAN host
+    (`192.168.29.3:11434`), the one installed there; measured about 14 s warm for a short prompt
+    and about 2 min on first load, so Ollama gets its own per-attempt budget
+    (`call.providerTimeoutMs.ollama: 120000`) while the hosted models keep 30 s.
   - **`LLM_MODE=cache`** (development): serves a saved reply for an identical prompt, otherwise
     calls the chain and saves the reply to `.llm-cache/replies.json` (git-ignored). Failures are
     not saved, except a schema rejection (HTTP 400), which would recur.

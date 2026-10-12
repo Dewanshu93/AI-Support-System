@@ -13,6 +13,7 @@ import {
   type CostTable,
   callCostUsd,
   LlmError,
+  policyFor,
   withCallPolicy,
   type ModelTier,
 } from '../llm';
@@ -104,14 +105,15 @@ export function createAnswer(deps: AnswerDeps) {
     // failure there (e.g. 503 "high demand") is retried, because nothing has
     // reached the employee yet. A failure after the first chunk is not retried.
     let opened;
+    const policy = policyFor(chat, deps.policy);
     try {
       opened = await withCallPolicy(async (signal) => {
-        const whole = AbortSignal.any([signal, AbortSignal.timeout(deps.policy.timeoutMs)]);
+        const whole = AbortSignal.any([signal, AbortSignal.timeout(policy.timeoutMs)]);
         const iterator = (await chat.model.stream(messages, { signal: whole }))[
           Symbol.asyncIterator
         ]();
         return { iterator, first: await iterator.next() };
-      }, deps.policy);
+      }, policy);
     } catch (err) {
       throw err instanceof LlmError
         ? new LlmError(err.kind, `answer stream failed: ${err.message}`, { cause: err })
