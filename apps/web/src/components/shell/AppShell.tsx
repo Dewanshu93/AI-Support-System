@@ -11,9 +11,7 @@ export function AppShell({ user, children }: { user: AuthUser; children: ReactNo
       <Sidebar user={user} items={NAV_BY_ROLE[user.role]} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar user={user} items={NAV_BY_ROLE[user.role]} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-2 pb-12 sm:px-6 lg:px-10">
-          {children}
-        </main>
+        <main className="w-full flex-1 px-4 pt-2 pb-12 sm:px-6 lg:px-10">{children}</main>
       </div>
     </div>
   );

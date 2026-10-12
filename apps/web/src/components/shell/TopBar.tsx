@@ -9,9 +9,10 @@ import { homeFor, type NavItem } from '@/lib/roles';
 import { CopilotPalette } from './CopilotPalette';
 import { NavLinks } from './NavLinks';
 import { NotificationBell } from './NotificationBell';
-import { BrandMark, UserCard } from './Sidebar';
+import { ProfileMenu } from './ProfileMenu';
+import { BrandMark } from './Sidebar';
 
-/** Sticky top bar: mobile menu, copilot launcher (Ctrl/⌘ K) and notifications. */
+/** Sticky top bar: mobile menu, copilot launcher (Ctrl/⌘ K), notifications and the profile menu. */
 export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -34,7 +35,7 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-transparent bg-canvas/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-10">
+        <div className="flex h-16 w-full items-center gap-3 px-4 sm:px-6 lg:px-10">
           <button
             type="button"
             aria-label="Open menu"
@@ -64,7 +65,10 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
             </button>
           )}
 
-          <div className="ml-auto flex items-center gap-2">{employee && <NotificationBell />}</div>
+          <div className="ml-auto flex items-center gap-2">
+            {employee && <NotificationBell />}
+            <ProfileMenu user={user} />
+          </div>
         </div>
       </header>
 
@@ -94,9 +98,6 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
               </button>
             </div>
             <NavLinks items={items} onNavigate={() => setMenuOpen(false)} />
-            <div className="mt-auto">
-              <UserCard user={user} />
-            </div>
           </div>
         </div>
       )}

@@ -74,6 +74,8 @@ test.describe('login and role navigation', () => {
       const nav = page.getByRole('navigation', { name: 'Main' });
       await expect(nav.getByRole('link')).toHaveText([...persona.nav]);
 
+      // Profile details open from the avatar next to the bell (top right).
+      await page.getByTestId('profile-menu').click();
       const badge = page.getByTestId('user-badge');
       await expect(badge).toContainText(persona.name);
       for (const text of persona.badges) await expect(badge).toContainText(text);
@@ -92,12 +94,32 @@ test('logout returns to login, and protected pages then redirect to login', asyn
   await signInAs(page, 'Priya Shah');
   await expect(page).toHaveURL(/\/dashboard$/);
 
+  await page.getByTestId('profile-menu').click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByTestId('prototype-banner')).toBeVisible();
 
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test('the sidebar collapses to icons, keeps its links, and remembers the choice', async ({
+  page,
+}) => {
+  await signInAs(page, 'Priya Shah');
+  const sidebar = page.getByTestId('sidebar');
+  await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+  await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+  // Labels stay as accessible names, so navigation still works by name.
+  await sidebar.getByRole('link', { name: 'Payroll' }).click();
+  await expect(page).toHaveURL(/\/payroll$/);
+
+  await page.reload();
+  await expect(page.getByTestId('sidebar')).toHaveAttribute('data-collapsed', 'true');
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
+  await expect(page.getByTestId('sidebar')).toHaveAttribute('data-collapsed', 'false');
 });
 
 test('users opening another role’s area are sent to their own home', async ({ page }) => {

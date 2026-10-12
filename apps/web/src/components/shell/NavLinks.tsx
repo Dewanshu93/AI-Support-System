@@ -14,7 +14,16 @@ function isActive(pathname: string, href: string, all: NavItem[]): boolean {
   return !deeper && pathname.startsWith(`${href}/`);
 }
 
-export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
+/** `compact`: the collapsed sidebar's icon rail (labels stay for screen readers and tooltips). */
+export function NavLinks({
+  items,
+  onNavigate,
+  compact = false,
+}: {
+  items: NavItem[];
+  onNavigate?: () => void;
+  compact?: boolean;
+}) {
   const pathname = usePathname();
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5">
@@ -25,8 +34,11 @@ export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?:
             key={item.href}
             href={item.href}
             onClick={onNavigate}
+            title={compact ? item.label : undefined}
             aria-current={active ? 'page' : undefined}
             className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              compact ? 'justify-center' : ''
+            } ${
               active
                 ? 'bg-brand-50 text-brand-700'
                 : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
@@ -35,14 +47,14 @@ export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?:
             {active && (
               <span
                 aria-hidden="true"
-                className="absolute top-2 bottom-2 -left-4 w-1 rounded-r-full bg-brand-600"
+                className={`absolute top-2 bottom-2 w-1 rounded-r-full bg-brand-600 ${compact ? '-left-3' : '-left-4'}`}
               />
             )}
             <Icon
               name={item.icon}
               className={`h-4.5 w-4.5 ${active ? 'text-brand-600' : 'text-slate-500 group-hover:text-slate-600'}`}
             />
-            {item.label}
+            <span className={compact ? 'sr-only' : undefined}>{item.label}</span>
           </Link>
         );
       })}

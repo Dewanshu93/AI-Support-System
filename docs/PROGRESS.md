@@ -1717,3 +1717,35 @@ on Gemini (a different model would need a re-index).
 - E2E re-recording is still open: the first run had 23/28 pass (failures from provider errors,
   since recording uses the configured model without fallback); the second stopped when Qdrant
   on the LAN host became unreachable.
+
+## Fix: API crash on a broken Gemini stream — 2026-10-12
+
+**Found by:** both E2E recording runs; the E2E API process exited mid-run and every later test
+failed at sign-in. Its log: an unhandled `GoogleGenerativeAIError: Error reading from the
+stream`. The Google SDK keeps an internal promise for a streamed response; when the stream
+breaks, that promise rejects with no listener, while the turn has already received the failure
+through the stream iterator (error event, retryable). Node treats an unhandled rejection as
+fatal, so one broken stream stopped the API for every user (NFR-3).
+
+**Fix:** `ai/llm/orphanedStream.ts` `guardUnhandledRejections(logger)`, installed in
+`server.ts`: that one SDK error is logged as a warning and the server carries on; any other
+unhandled rejection is logged as fatal and still exits 1 (Node's behaviour). Tests:
+`orphanedStream.test.ts` (match only that error; warn and keep running; other errors exit).
+
+## UI: full-width layout, profile menu, collapsible sidebar — 2026-10-12
+
+Owner requests:
+
+- **Full width everywhere:** the app shell, top bar, login and loading pages no longer cap the
+  width (`max-w-*` removed; side padding kept).
+- **Profile at top right:** `ProfileMenu` (avatar and name next to the notification bell, every
+  role) opens the profile details (name, job title, email, role, country, employment type) and
+  Sign out. The profile card left the sidebar and the mobile drawer.
+- **Collapsible sidebar:** a Collapse/Expand button shrinks the desktop sidebar to an icon rail
+  (labels stay as screen-reader text and tooltips); the choice is kept in `localStorage`
+  (`sidebar-collapsed`, per browser).
+
+Tests: `components/shell/shell.test.tsx` (closed profile menu, expanded sidebar by default,
+compact and expanded nav links); `e2e/tests/auth.spec.ts` opens the profile menu for the badge
+and Sign out checks, and a new test collapses the sidebar, navigates, reloads (choice kept) and
+expands it. Lint, typecheck and web Jest green.

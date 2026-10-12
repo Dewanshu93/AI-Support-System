@@ -51,7 +51,7 @@ export default async function LoginPage() {
         </p>
       </aside>
 
-      <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-8 lg:py-14">
+      <main className="w-full px-4 py-10 sm:px-8 lg:px-10 lg:py-14">
         <div className="mb-8 lg:hidden">
           <BrandMark />
         </div>
