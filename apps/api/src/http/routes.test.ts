@@ -36,6 +36,7 @@ describe('route policy table', () => {
       ['POST', '/api/auth/logout', 'any'],
       ['GET', '/api/auth/me', 'any'],
       ['GET', '/api/profiles/me', 'any'],
+      ['PATCH', '/api/profiles/me/preferences', 'any'],
       ['POST', '/api/conversations', ['employee']],
       ['GET', '/api/conversations', ['employee']],
       ['GET', '/api/conversations/:id', ['employee']],

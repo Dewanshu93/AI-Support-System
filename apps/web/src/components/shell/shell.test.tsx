@@ -21,6 +21,7 @@ const PRIYA: AuthUser = {
   jobTitle: 'Software Engineer',
   accessLevel: 'standard',
   queues: [],
+  proModels: false,
 } as AuthUser;
 
 describe('ProfileMenu', () => {

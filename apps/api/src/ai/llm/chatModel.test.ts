@@ -7,6 +7,7 @@ import { loadConfig } from '../../config';
 import {
   createChatModel,
   createFallbackChatModel,
+  createLocalChatModel,
   extractJson,
   fallbackChain,
   invokeStructured,
@@ -85,6 +86,21 @@ describe('factory selection', () => {
     expect(() => createChatModel(models, keys, 'fast', 'ollama')).toThrow(
       /OLLAMA_BASE_URL is not set/,
     );
+  });
+
+  it('Pro off (ADR-020): only the local model, with its own time budget', () => {
+    const handle = createLocalChatModel(
+      models,
+      { ...keys, OLLAMA_BASE_URL: 'http://192.168.29.3:11434' },
+      'quality',
+    );
+    expect(handle).toMatchObject({
+      provider: 'ollama',
+      modelId: 'dolphin3:latest',
+      timeoutMs: models.call.providerTimeoutMs?.ollama,
+    });
+    // Never a paid provider, even when their keys are set.
+    expect(() => createLocalChatModel(models, keys, 'fast')).toThrow(/OLLAMA_BASE_URL is not set/);
   });
 
   it('switches provider by config only', () => {

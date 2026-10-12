@@ -48,8 +48,14 @@ export const AuthUserSchema = z.object({
   jobTitle: z.string(),
   accessLevel: AccessLevelSchema,
   queues: z.array(z.string()),
+  /** "Pro" (ADR-020): paid models (Gemini, OpenRouter) answer; off → the local model. */
+  proModels: z.boolean(),
 });
 export type AuthUser = z.infer<typeof AuthUserSchema>;
+
+/** PATCH /api/profiles/me/preferences: the signed-in user's own settings. */
+export const PreferencesRequestSchema = z.strictObject({ proModels: z.boolean() });
+export type PreferencesRequest = z.infer<typeof PreferencesRequestSchema>;
 export const AuthUserResponseSchema = z.object({ user: AuthUserSchema });
 export type AuthUserResponse = z.infer<typeof AuthUserResponseSchema>;
 

@@ -59,6 +59,8 @@ export const UserSchema = z
     /** Agents only; values are queue IDs from config/routing.yaml. */
     queues: z.array(NonEmpty),
     isDemo: z.boolean(),
+    /** The user's own "Pro" setting (ADR-020); absent = off (local model). Never seeded. */
+    proModels: z.boolean().optional(),
     createdAt: z.date(),
   })
   .refine((u) => (u.role === 'agent') === u.queues.length > 0, {

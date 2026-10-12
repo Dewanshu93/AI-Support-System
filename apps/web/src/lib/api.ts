@@ -11,6 +11,7 @@ import {
   type FeedbackRequest,
   FeedbackResponseSchema,
   type LoginRequest,
+  type PreferencesRequest,
   SourceChunkResponseSchema,
   TicketConfirmResponseSchema,
   type TicketDraftConfirmRequest,
@@ -98,6 +99,13 @@ export const api = {
   login: async (body: LoginRequest) =>
     (await apiRequest('/auth/login', AuthUserResponseSchema, { method: 'POST', body }))!.user,
   logout: () => apiRequest('/auth/logout', null, { method: 'POST' }),
+  me: async () => (await apiRequest('/auth/me', AuthUserResponseSchema))!.user,
+  /** The signed-in user's own settings (ADR-020: Pro models). */
+  setPreferences: async (body: PreferencesRequest) =>
+    (await apiRequest('/profiles/me/preferences', AuthUserResponseSchema, {
+      method: 'PATCH',
+      body,
+    }))!.user,
   conversations: async (limit = 30) =>
     (await apiRequest(`/conversations?limit=${limit}`, ConversationListResponseSchema))!,
   createConversation: async () =>

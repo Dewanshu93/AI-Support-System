@@ -15,6 +15,8 @@ import {
   createChatModel,
   createEmbeddings,
   createFallbackChatModel,
+  createLocalChatModel,
+  currentModelMode,
   embedQuery,
   fallbackChain,
   ProviderHealth,
@@ -138,20 +140,23 @@ async function main() {
       dimension: config.models.embeddings.dimension,
     });
   };
-  // Provider fallback (ADR-018): out of quota, credit or reach → the next model in the chain.
-  // E2E recording uses the configured model only, so fixtures never hold a fallback's reply.
+  // Per-user model mode (ADR-020): Pro off → the local Ollama model only; Pro on →
+  // the paid chain with provider fallback (ADR-018). E2E recording uses one model per
+  // mode, so fixtures never hold a fallback's reply.
   const health = new ProviderHealth();
   const liveChat: TurnGraphDeps['chatFor'] = (tier, options) =>
-    config.env.LLM_MODE === 'record'
-      ? createChatModel(config.models, config.env, tier, undefined, options)
-      : createFallbackChatModel(config.models, config.env, tier, health, {
-          ...options,
-          onFallback: ({ from, reason, cooldownMs, next }) =>
-            logger.warn(
-              { from, reason, cooldownS: Math.round(cooldownMs / 1000), next: next ?? null },
-              next ? 'LLM model set aside; using the next one' : 'LLM model set aside; none left',
-            ),
-        });
+    currentModelMode() === 'local'
+      ? createLocalChatModel(config.models, config.env, tier, options)
+      : config.env.LLM_MODE === 'record'
+        ? createChatModel(config.models, config.env, tier, undefined, options)
+        : createFallbackChatModel(config.models, config.env, tier, health, {
+            ...options,
+            onFallback: ({ from, reason, cooldownMs, next }) =>
+              logger.warn(
+                { from, reason, cooldownS: Math.round(cooldownMs / 1000), next: next ?? null },
+                next ? 'LLM model set aside; using the next one' : 'LLM model set aside; none left',
+              ),
+          });
   logger.info(
     {
       fast: fallbackChain(config.models, config.env, 'fast').map((r) => r.modelId),

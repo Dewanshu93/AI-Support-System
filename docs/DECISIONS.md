@@ -567,3 +567,31 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** agents get a brief and first checks on every new non-confidential ticket, and
   a cited draft to edit. The employee's confirmed text is never rewritten. A confirm takes one
   more fast-tier call (a few seconds), bounded by the call policy.
+
+## ADR-020 — Per-user "Pro" models switch: paid models on, local model off
+
+- **Status:** Accepted by the owner (2026-10-12)
+- **Context:** paid quotas ran out repeatedly during development and testing. The owner wants
+  paid models (Gemini, OpenRouter) used only when a user turns "Pro" on, and the local Ollama
+  model otherwise, with tests making no paid calls.
+- **Decision:**
+  - **Per user, saved on the account:** `users.proModels` (absent = off; never seeded, so a reseed
+    keeps it). `PATCH /api/profiles/me/preferences` `{ proModels }` (any signed-in role, own
+    record only, audited as `user.preferences`); `AuthUser.proModels` exposes it.
+  - **Per request, not per node:** after authentication, `withModelMode` runs the request in an
+    `AsyncLocalStorage` context (`ai/llm/modelMode.ts`). The server's model factory reads
+    `currentModelMode()`: `local` → `createLocalChatModel` (Ollama only, its own time budget);
+    `pro` → the ADR-018 chain (Gemini → OpenRouter → Ollama as last resort). So every LLM call made
+    for that user follows the switch — copilot turns, the P-6 brief after their confirm, P-7
+    drafts — and no graph node changed. Outside a request (scripts) the mode is `local`.
+  - **Recording (E2E, `LLM_MODE=record`):** one model per mode (no fallback), so fixtures name the
+    model that produced them; E2E users have Pro off, so recording uses Ollama. Replay makes no
+    LLM calls. Evals and `llm:smoke` keep using the configured models.
+  - **UI:** a labelled "Pro" switch (`role="switch"`) in the Copilot page header with a tooltip
+    and screen-reader text naming the models; it loads the setting from `GET /api/auth/me` and
+    saves it immediately (optimistic, reverted on failure).
+- **Not covered:** query embeddings for policy search stay on Gemini in both modes (the Qdrant
+  index is Gemini 768-dimension; a local embedding model means a re-index, ADR-018). Agents have
+  no Copilot page yet, so their P-7 drafts use their own saved setting (off unless set via the API).
+- **Consequences:** Pro off is free but slower (the local 8B model on CPU: seconds per call, about
+  2 min on first load) and less precise; Pro on is fast but uses paid quota.

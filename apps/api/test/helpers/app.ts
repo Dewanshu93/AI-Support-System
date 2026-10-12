@@ -33,6 +33,11 @@ export function memoryUsersRepository(users: UserDoc[]): UsersRepository {
     findById: async (id) => users.find((u) => u._id.toHexString() === id) ?? null,
     findByEmail: async (email) => users.find((u) => u.email === email.toLowerCase()) ?? null,
     listDemo: async () => users.filter((u) => u.isDemo),
+    setPreferences: async (id, { proModels }) => {
+      const user = users.find((u) => u._id.toHexString() === id);
+      if (user) user.proModels = proModels;
+      return user ?? null;
+    },
   };
 }
 

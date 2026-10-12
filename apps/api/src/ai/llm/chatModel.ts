@@ -119,6 +119,21 @@ export function fallbackChain(
   );
 }
 
+/**
+ * Pro off (ADR-020): the local Ollama model only, with its own time budget
+ * (`call.providerTimeoutMs.ollama`). No paid provider is called.
+ */
+export function createLocalChatModel(
+  config: ModelsConfig,
+  keys: LlmKeys,
+  tier: ModelTier,
+  options: { temperature?: number } = {},
+): ChatHandle {
+  const handle = createChatModel(config, keys, tier, 'ollama', options);
+  const timeoutMs = config.call.providerTimeoutMs?.ollama;
+  return timeoutMs ? { ...handle, timeoutMs } : handle;
+}
+
 /** A chat handle that falls back along fallbackChain(); each model is built on first use. */
 export function createFallbackChatModel(
   config: ModelsConfig,

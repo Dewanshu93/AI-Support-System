@@ -4,6 +4,7 @@
 import type { Role } from '@sd/shared';
 import type { Express, RequestHandler } from 'express';
 import type { AppDeps } from '../deps';
+import { runWithModelMode } from '../ai/llm/modelMode';
 import { AppError } from '../lib/errors';
 import { createDraftReplyService } from '../modules/agent/draftReply';
 import { agentRoutes } from '../modules/agent/routes';
@@ -58,7 +59,7 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
   return [
     ...healthRoutes(deps),
     ...authRoutes(deps),
-    ...profileRoutes(),
+    ...profileRoutes(deps),
     ...conversationRoutes(deps, conversations),
     ...chatRoutes(conversations, runner),
     ...sourceRoutes(deps),
@@ -113,6 +114,13 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
   ];
 }
 
+/**
+ * Runs the rest of the request in the signed-in user's model mode (ADR-020): any
+ * LLM call made for them uses paid models only with Pro on, otherwise the local model.
+ */
+export const withModelMode: RequestHandler = (req, _res, next) =>
+  runWithModelMode(req.user?.proModels ? 'pro' : 'local', next);
+
 export function mountRoutes(app: Express, routes: RouteDef[], deps: AppDeps): void {
   const authenticate = requireAuth({ users: deps.users, jwtSecret: deps.auth.jwtSecret });
   for (const route of routes) {
@@ -120,8 +128,8 @@ export function mountRoutes(app: Express, routes: RouteDef[], deps: AppDeps): vo
       route.access === 'public'
         ? []
         : route.access === 'any'
-          ? [authenticate]
-          : [authenticate, requireRole(...route.access)];
+          ? [authenticate, withModelMode]
+          : [authenticate, requireRole(...route.access), withModelMode];
     app[route.method](route.path, ...guards, ...route.handlers);
   }
 }

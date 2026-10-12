@@ -212,6 +212,17 @@ event)` (actor, role, ip, requestId). It currently logs `auth.login` and `auth.l
 - The API server only: evals, `llm:smoke` and `LLM_MODE=record` use the configured model, so
   reports and E2E fixtures never contain a fallback model's reply. Embeddings stay on Gemini.
 
+### Per-user Pro models switch (ADR-020)
+
+- `users.proModels` (absent = off) is set by the user through
+  `PATCH /api/profiles/me/preferences` and exposed as `AuthUser.proModels`.
+- `http/routes.ts` `withModelMode` (after `requireAuth`/`requireRole`) runs each authenticated
+  request in `runWithModelMode(proModels ? 'pro' : 'local')` (`ai/llm/modelMode.ts`,
+  AsyncLocalStorage). The server's `liveChat` reads `currentModelMode()`: `local` →
+  `createLocalChatModel` (Ollama only); `pro` → the fallback chain (or, when recording, the
+  configured model). Outside a request the mode is `local`.
+- UI: `components/chat/ProModelsSwitch.tsx` in the Copilot header.
+
 ## Ingestion (W1-10)
 
 - `npm run ingest` (`scripts/ingest.ts`) → `ai/ingestion/indexer.ts` `ingestSources`. For each

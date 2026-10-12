@@ -1794,3 +1794,29 @@ confirm → ticket → P-6; P-6 failure still creates the ticket), route policy 
 typecheck clean.
 
 **Not done here:** the agent UI that shows the brief and the draft (W3-07); a live P-6/P-7 run.
+
+## Pro models switch (ADR-020) — 2026-10-12
+
+Owner request: paid models only when the user turns "Pro" on; the local model otherwise; no paid
+calls in tests.
+
+**Delivered:**
+
+- Per-user setting `users.proModels` (default off), `PATCH /api/profiles/me/preferences`
+  (`{ proModels }`, any signed-in role, audited `user.preferences`), `AuthUser.proModels`.
+- `withModelMode` after authentication runs each request in the user's mode
+  (`ai/llm/modelMode.ts`, AsyncLocalStorage); the server's model factory uses Ollama only
+  (`createLocalChatModel`, 120 s budget) with Pro off and the paid chain with Pro on. Covers
+  copilot turns, the P-6 brief after confirm and P-7 drafts; no node changed.
+- UI: a "Pro" switch in the Copilot header (`ProModelsSwitch`; `role="switch"`, tooltip and
+  screen-reader text naming the models; saved at once, reverted if saving fails).
+- Tests make no paid calls: unit and API tests use fakes; E2E replay uses recordings; E2E users
+  have Pro off, so new recordings come from Ollama.
+
+**Verification:** `test/api/preferences.test.ts` (default off; saved, audited, returned; per
+user; 401/400; the model mode follows each user through async handlers and concurrent requests;
+`local` outside a request), `chatModel.test.ts` (`createLocalChatModel`: Ollama only, own
+budget), `ProModelsSwitch.test.tsx` (switch states), route policy table.
+
+**Not covered:** policy-search query embeddings stay on Gemini in both modes (index built with
+Gemini embeddings; ADR-020).

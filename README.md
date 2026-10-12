@@ -116,7 +116,11 @@ npm run db:indexes
 Set `GEMINI_API_KEY` in `.env` (chat and embeddings; `OPENROUTER_API_KEY` is optional for
 OpenRouter chat). Models, tiers, timeouts, retries and prices live in `config/models.yaml`.
 
-When a model is out of quota or credit, rejects its key or is unreachable, the API falls back:
+**Pro switch (ADR-020):** each user chooses in the Copilot header. **Pro off** (the default):
+answers come from the local Ollama model only, free but slower. **Pro on:** paid models (Gemini,
+then OpenRouter). Policy search always uses Gemini embeddings (a tiny call per question).
+
+With Pro on, when a model is out of quota or credit, rejects its key or is unreachable, the API falls back:
 Gemini quality → Gemini fast → OpenRouter → a local Ollama model (ADR-018). For the local
 model, run [Ollama](https://ollama.com) with `ollama pull dolphin3` and set `OLLAMA_BASE_URL`
 (here the LAN host, `http://192.168.29.3:11434`; Ollama must listen on `OLLAMA_HOST=0.0.0.0`).
