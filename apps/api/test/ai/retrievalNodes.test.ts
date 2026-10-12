@@ -20,6 +20,7 @@ import {
   createRerankAssess,
   formatPassages,
   RERANK_FALLBACK,
+  RERANK_LOCAL,
 } from '../../src/ai/nodes/rerankAssess';
 import {
   createRetrieve,
@@ -119,7 +120,11 @@ function retrieveNode(res = result()) {
   return { node, calls };
 }
 
-function rerankNode(replies: FakeReply[], options = { nativeStructured: true }) {
+function rerankNode(
+  replies: FakeReply[],
+  options = { nativeStructured: true },
+  skipModel?: () => boolean,
+) {
   const chat = fakeChatHandle(replies, options);
   const node = createRerankAssess({
     prompts,
@@ -127,6 +132,7 @@ function rerankNode(replies: FakeReply[], options = { nativeStructured: true }) 
     policy,
     costs: config.models.costs,
     retrieval: config.thresholds.retrieval,
+    skipModel,
   });
   return { node, chat };
 }
@@ -256,6 +262,26 @@ describe('rerankAssess node', () => {
     const update = await node(await retrievedState());
     expect(chat.model.calls).toHaveLength(1);
     expect(ret(update).coverage).toBe('unknown');
+  });
+
+  it('local mode (Pro off, ADR-020) → search order, coverage "partial", no LLM call', async () => {
+    const { node, chat } = rerankNode(['unused'], undefined, () => true);
+    const update = await node(await retrievedState());
+    expect(chat.model.calls).toHaveLength(0);
+    expect(ret(update)).toMatchObject({ coverage: 'partial', topRelevance: 3 });
+    expect(ret(update).reranked.map((r) => r.chunkId)).toEqual([id(0), id(1), id(2)]);
+    expect(ret(update).context[0]!.chunkId).toBe(id(0));
+    expect((update.trace as unknown as { flags: string[] }).flags).toEqual([RERANK_LOCAL]);
+  });
+
+  it('a request that is not local still asks the model', async () => {
+    const { node, chat } = rerankNode(
+      [JSON.stringify({ ranked: [], coverage: 'none', missingAspects: [] })],
+      undefined,
+      () => false,
+    );
+    await node(await retrievedState());
+    expect(chat.model.calls).toHaveLength(1);
   });
 
   it('no candidates → no LLM call, coverage "none", empty context', async () => {

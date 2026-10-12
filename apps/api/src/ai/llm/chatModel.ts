@@ -29,13 +29,24 @@ export interface ChatHandle {
    * keeps its own budget.
    */
   timeoutMs?: number;
+  /**
+   * Retries for this handle when lower than `call.maxRetries`: the local model
+   * (ADR-020) is not retried, since a slow model times out again at the same cost.
+   */
+  maxRetries?: number;
 }
 
-/** The call policy for a handle: its own longer budget, when it has one. */
-export function policyFor(handle: Pick<ChatHandle, 'timeoutMs'>, policy: CallPolicy): CallPolicy {
-  return handle.timeoutMs && handle.timeoutMs > policy.timeoutMs
-    ? { ...policy, timeoutMs: handle.timeoutMs }
-    : policy;
+/** The call policy for a handle: its own longer budget and fewer retries, when it has them. */
+export function policyFor(
+  handle: Pick<ChatHandle, 'timeoutMs' | 'maxRetries'>,
+  policy: CallPolicy,
+): CallPolicy {
+  return {
+    ...policy,
+    ...(handle.timeoutMs && handle.timeoutMs > policy.timeoutMs && { timeoutMs: handle.timeoutMs }),
+    ...(handle.maxRetries !== undefined &&
+      handle.maxRetries < policy.maxRetries && { maxRetries: handle.maxRetries }),
+  };
 }
 
 /** Which model ID a tier maps to for the configured (or given) provider. */
@@ -131,7 +142,7 @@ export function createLocalChatModel(
 ): ChatHandle {
   const handle = createChatModel(config, keys, tier, 'ollama', options);
   const timeoutMs = config.call.providerTimeoutMs?.ollama;
-  return timeoutMs ? { ...handle, timeoutMs } : handle;
+  return { ...handle, ...(timeoutMs && { timeoutMs }), maxRetries: 0 };
 }
 
 /** A chat handle that falls back along fallbackChain(); each model is built on first use. */

@@ -9,6 +9,7 @@ import {
   createFallbackChatModel,
   createLocalChatModel,
   extractJson,
+  policyFor,
   fallbackChain,
   invokeStructured,
   llmConfigured,
@@ -98,6 +99,12 @@ describe('factory selection', () => {
       provider: 'ollama',
       modelId: 'dolphin3:latest',
       timeoutMs: models.call.providerTimeoutMs?.ollama,
+      maxRetries: 0,
+    });
+    // A slow local call that timed out is not retried (it would only time out again).
+    expect(policyFor(handle, models.call)).toMatchObject({
+      timeoutMs: models.call.providerTimeoutMs?.ollama,
+      maxRetries: 0,
     });
     // Never a paid provider, even when their keys are set.
     expect(() => createLocalChatModel(models, keys, 'fast')).toThrow(/OLLAMA_BASE_URL is not set/);

@@ -62,6 +62,8 @@ export interface TurnGraphDeps {
   email?: SendEmailDeps['email'];
   /** Eval runs: persisted records are marked isEval. */
   isEval?: boolean;
+  /** True while serving a Pro-off request (ADR-020): lighter steps for the local model. */
+  localMode?: () => boolean;
 }
 
 export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
@@ -84,7 +86,11 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
       precheck: createPrecheck(compilePrecheckRules(config.sensitive, config.priorityRules)),
       analyzeTurn: createAnalyzeTurn({ ...llm, taxonomy: config.taxonomy }),
       retrieve: createRetrieve({ retrieve: deps.retrieve }),
-      rerankAssess: createRerankAssess({ ...llm, retrieval: config.thresholds.retrieval }),
+      rerankAssess: createRerankAssess({
+        ...llm,
+        retrieval: config.thresholds.retrieval,
+        skipModel: deps.localMode,
+      }),
       decide: createDecide(config.thresholds.decision),
       answer: createAnswer(llm),
       validateCitations: createValidateCitations({ templates }),

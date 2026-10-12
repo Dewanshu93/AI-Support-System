@@ -197,6 +197,7 @@ async function main() {
     config,
     prompts,
     chatFor,
+    localMode: () => currentModelMode() === 'local',
     users,
     conversations,
     tickets,

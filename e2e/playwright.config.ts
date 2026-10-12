@@ -23,12 +23,15 @@ export default defineConfig({
   fullyParallel: !live,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // Live turns take 20–45 s and providers rate-limit: one at a time, long timeouts.
+  // Live turns are slow (minutes on the local model) and providers rate-limit: one at a time.
   // Replayed turns skip the LLM but still query the LAN MongoDB and Qdrant, which
   // slows down under parallel load: two workers, generous timeouts.
+  // Live and record runs use the local model (E2E users have Pro off, ADR-020): on CPU a
+  // turn takes minutes, so they get 5 min per expectation and 10 min per test (×3 with
+  // test.slow). Replay stays fast.
   workers: live ? 1 : 2,
-  timeout: live ? 240_000 : 180_000,
-  expect: { timeout: live ? 120_000 : 60_000 },
+  timeout: live ? 600_000 : 180_000,
+  expect: { timeout: live ? 300_000 : 60_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: { baseURL, trace: 'retain-on-failure' },
   // E2E_BROWSER_CHANNEL=chrome|msedge uses an installed browser when the bundled

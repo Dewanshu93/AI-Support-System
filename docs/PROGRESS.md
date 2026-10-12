@@ -1820,3 +1820,27 @@ budget), `ProModelsSwitch.test.tsx` (switch states), route policy table.
 
 **Not covered:** policy-search query embeddings stay on Gemini in both modes (index built with
 Gemini embeddings; ADR-020).
+
+### Follow-up 2026-10-12: Pro-off (local model) made usable
+
+Measured on the LAN Ollama host (`dolphin3`, CPU): "How many days of annual leave do I get?" took
+441 s and escalated with NO_EVIDENCE: P-2 (ranking 20 passages) timed out 3 × 120 s. "How Many LOP
+this month?" went to policy Q&A because the local model left `workspaceIntent` out, and the
+answer was withdrawn (invalid citations).
+
+- **Light local mode:** for Pro-off requests `rerankAssess` skips P-2 and keeps the search order
+  (relevance from fused scores, coverage `partial`, flag `RERANK_LOCAL`); evals and tests outside
+  a request still use P-2. The local handle has `maxRetries: 0` (a slow call that timed out is not
+  retried). Same question: **116 s, correct cited answer**.
+- **Workspace-intent backstop** (`domain/workspaceIntentRules.ts`): when P-1 gives no workspace
+  intent at all, code infers it from the message (own pay/LOP/salary/payslip → payroll; logging
+  hours → timesheet log; own timesheet → status; "my requests" → requests); an explicit value
+  from the model, `none` included, stands. Flag `WORKSPACE_INTENT_INFERRED`.
+- E2E live/record limits raised (5 min per expectation, 10 min per test).
+- Known limits (owner keeps `dolphin3` as a best-effort free fallback): one request at a time on
+  CPU, about 1–3 min per turn; it marked "Why was my salary reduced?" as sensitive (handoff). Use
+  Pro on for demos.
+
+Tests: `workspaceIntentRules.test.ts`, `turnUnderstanding.test.ts` (inferred, explicit kept,
+fallback analysis), `retrievalNodes.test.ts` (local ranking, non-local still calls P-2),
+`chatModel.test.ts` (no retries locally). Lint, typecheck, web 76 and api 1155 green.

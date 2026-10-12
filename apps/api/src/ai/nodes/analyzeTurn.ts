@@ -3,6 +3,7 @@
 // with the validation error appended → documented fallback (ANALYSIS_FALLBACK).
 // Provider failures (already retried by the call policy) go straight to the fallback.
 import type { ConfigFiles } from '../../config/schemas';
+import { inferWorkspaceIntent } from '../../domain/workspaceIntentRules';
 import type { State, StateUpdate } from '../graph/state';
 import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
 import type { PromptRegistry } from '../prompts/registry';
@@ -13,6 +14,8 @@ import { structuredCallWithRetry } from './structuredCall';
 export { formatHistory, formatProfile } from './promptFormat';
 
 export const ANALYSIS_FALLBACK = 'ANALYSIS_FALLBACK';
+/** P-1 gave no workspace intent; code inferred one from the message. */
+export const WORKSPACE_INTENT_INFERRED = 'WORKSPACE_INTENT_INFERRED';
 const NODE = 'analyzeTurn';
 
 export interface AnalyzeTurnDeps {
@@ -67,12 +70,45 @@ export function createAnalyzeTurn(deps: AnalyzeTurnDeps) {
       costs: deps.costs,
     });
     if (data) {
-      return { analysis: data, trace: { llmCalls, errors, outputs: { analysis: data } } };
+      const { analysis, inferred } = withWorkspaceIntent(data, state.input.text);
+      return {
+        analysis,
+        trace: {
+          llmCalls,
+          errors,
+          outputs: { analysis },
+          ...(inferred && { flags: [WORKSPACE_INTENT_INFERRED] }),
+        },
+      };
     }
-    const analysis = fallbackAnalysis(state.input.text);
+    const { analysis, inferred } = withWorkspaceIntent(
+      fallbackAnalysis(state.input.text),
+      state.input.text,
+    );
     return {
       analysis,
-      trace: { llmCalls, errors, outputs: { analysis }, flags: [ANALYSIS_FALLBACK] },
+      trace: {
+        llmCalls,
+        errors,
+        outputs: { analysis },
+        flags: inferred ? [ANALYSIS_FALLBACK, WORKSPACE_INTENT_INFERRED] : [ANALYSIS_FALLBACK],
+      },
     };
   };
+}
+
+/**
+ * When the model gave no workspace intent at all, code infers it from the message
+ * (domain/workspaceIntentRules). An explicit value from the model, "none" included,
+ * is kept: P-1 proposes, this only fills a gap.
+ */
+export function withWorkspaceIntent(
+  analysis: TurnAnalysis,
+  message: string,
+): { analysis: TurnAnalysis; inferred: boolean } {
+  if (analysis.workspaceIntent !== undefined) return { analysis, inferred: false };
+  const inferred = inferWorkspaceIntent(message);
+  return inferred
+    ? { analysis: { ...analysis, workspaceIntent: inferred }, inferred: true }
+    : { analysis, inferred: false };
 }

@@ -1,7 +1,8 @@
 // rerankAssess (AI, P-2 rerank_assess; playbook section 7 steps 7–8). The model
 // orders the fused candidates and judges coverage; code drops unknown IDs,
 // builds the final [S1]…[S5] context, and falls back to fused order on failure
-// (coverage "unknown", so decision rules 7–8 cannot fire).
+// (coverage "unknown", so decision rules 7–8 cannot fire). In the local (Pro off)
+// mode it uses the fused order without a model call (coverage "partial"; ADR-020).
 import type { ConfigFiles } from '../../config/schemas';
 import type {
   ContextSource,
@@ -21,6 +22,8 @@ import { formatProfile } from './promptFormat';
 import { structuredCallWithRetry, type TraceError } from './structuredCall';
 
 export const RERANK_FALLBACK = 'RERANK_FALLBACK';
+/** Pro off (ADR-020): code ranked the passages; no model call. */
+export const RERANK_LOCAL = 'RERANK_LOCAL';
 const NODE = 'rerankAssess';
 
 export interface RerankDeps {
@@ -29,6 +32,11 @@ export interface RerankDeps {
   policy: CallPolicy;
   costs: CostTable;
   retrieval: Pick<ConfigFiles['thresholds']['retrieval'], 'contextTopK' | 'contextMinRelevance'>;
+  /**
+   * True for a request in the local (Pro off) mode: P-2 is skipped, because ranking
+   * twenty passages takes minutes for a local model on CPU (ADR-020). Absent → always P-2.
+   */
+  skipModel?: () => boolean;
 }
 
 /** Passages for P-2: chunk ID, title, section path and effective date, then the text. */
@@ -49,6 +57,8 @@ export interface Assessment {
   context: ContextSource[];
   droppedIds: string[];
   fallback: boolean;
+  /** Ranked by code without a model call (local mode). */
+  local?: boolean;
   llmCalls: LlmCallTrace[];
   errors: TraceError[];
 }
@@ -72,6 +82,24 @@ export async function assessCandidates(
       context: [],
       droppedIds: [],
       fallback: false,
+      llmCalls: [],
+      errors: [],
+    };
+  }
+  if (deps.skipModel?.()) {
+    // Local mode: the search order, with relevance scaled from the fused scores. Code
+    // cannot judge coverage, so it is "partial": a cited answer that says it may be
+    // incomplete, never a confident full answer (rule E.1 checks still apply).
+    const reranked = fallbackRanking(input.candidates);
+    return {
+      reranked,
+      coverage: 'partial',
+      missingAspects: [],
+      topRelevance: topRelevance(reranked),
+      context: buildContext(reranked, input.candidates, contextOptions),
+      droppedIds: [],
+      fallback: false,
+      local: true,
       llmCalls: [],
       errors: [],
     };
@@ -139,7 +167,7 @@ export function createRerankAssess(deps: RerankDeps) {
       trace: {
         llmCalls: result.llmCalls,
         errors: result.errors,
-        flags: result.fallback ? [RERANK_FALLBACK] : [],
+        flags: result.fallback ? [RERANK_FALLBACK] : result.local ? [RERANK_LOCAL] : [],
         outputs: {
           rerank: {
             reranked: result.reranked,

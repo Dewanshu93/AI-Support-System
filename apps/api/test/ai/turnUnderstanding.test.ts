@@ -11,6 +11,7 @@ import { LlmError } from '../../src/ai/llm';
 import { fakeChatHandle, type FakeReply } from '../../src/ai/llm/fakeModels';
 import {
   ANALYSIS_FALLBACK,
+  WORKSPACE_INTENT_INFERRED,
   createAnalyzeTurn,
   fallbackAnalysis,
   formatTaxonomy,
@@ -119,6 +120,40 @@ describe('analyzeTurn', () => {
     ]);
     expect(trace.flags).toBeUndefined();
     expect(trace.outputs).toEqual({ analysis: VALID });
+  });
+
+  it('no workspace intent from the model → code infers it from the message (flagged)', async () => {
+    // What the local model returned for "How Many LOP this month?" (no workspaceIntent).
+    const local = {
+      ...VALID,
+      intent: 'question',
+      domain: 'HR',
+      category: 'payroll',
+      subcategory: undefined,
+    };
+    const { node } = analyzeWith([JSON.stringify(local)], { nativeStructured: true });
+    const update = await node(stateFor('How Many LOP this month?'));
+    expect((update.analysis as TurnAnalysis).workspaceIntent).toBe('payroll_explain');
+    expect((update.trace as { flags?: string[] }).flags).toEqual([WORKSPACE_INTENT_INFERRED]);
+  });
+
+  it('an explicit workspace intent from the model is kept, "none" included', async () => {
+    const { node } = analyzeWith([JSON.stringify({ ...VALID, workspaceIntent: 'none' })], {
+      nativeStructured: true,
+    });
+    const update = await node(stateFor('How Many LOP this month?'));
+    expect((update.analysis as TurnAnalysis).workspaceIntent).toBe('none');
+    expect((update.trace as { flags?: string[] }).flags).toBeUndefined();
+  });
+
+  it('the fallback analysis also gets the inferred workspace intent', async () => {
+    const { node } = analyzeWith([new LlmError('provider', 'down')]);
+    const update = await node(stateFor('Why was my salary reduced?'));
+    expect((update.analysis as TurnAnalysis).workspaceIntent).toBe('payroll_explain');
+    expect((update.trace as { flags?: string[] }).flags).toEqual([
+      ANALYSIS_FALLBACK,
+      WORKSPACE_INTENT_INFERRED,
+    ]);
   });
 
   it('invalid then valid → retries once with the validation error appended', async () => {
@@ -350,8 +385,11 @@ describe('P-1 v2: workspace intent (UC-04)', () => {
     } as unknown as State;
     const withIntent = await analyze({ ...VALID, workspaceIntent: 'timesheet_status' })(state);
     expect((withIntent.analysis as TurnAnalysis).workspaceIntent).toBe('timesheet_status');
+    // Without the field the output still validates (no fallback); code then fills the
+    // intent from the message (WORKSPACE_INTENT_INFERRED).
     const without = await analyze(VALID)(state);
-    expect((without.analysis as TurnAnalysis).workspaceIntent).toBeUndefined();
+    expect((without.analysis as TurnAnalysis).workspaceIntent).toBe('timesheet_status');
+    expect((without.trace as { flags?: string[] }).flags).toEqual([WORKSPACE_INTENT_INFERRED]);
   });
 
   it('an unknown workspace intent is invalid output', async () => {
