@@ -1,5 +1,6 @@
 // AI workflow tests for W3-02: slotFill (P-5), clarifyForTicket (P-4 ticket
 // mode) and buildDraft across turns on the real runtime graph with fake models.
+import { Command } from '@langchain/langgraph';
 import { TicketDraftSchema } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { createMemoryCheckpointer, threadConfig } from '../../src/ai/graph/checkpointer';
@@ -57,6 +58,7 @@ function setup(replies: FakeReply[], retrieval = BATTERY) {
   const users = seededUsers();
   const conversations = memoryConversationsRepository();
   const chat = fakeChatHandle(replies, { nativeStructured: true });
+  const tickets = memoryTicketsRepository();
   const graph = buildTurnGraph({
     config: {
       ...config,
@@ -69,7 +71,7 @@ function setup(replies: FakeReply[], retrieval = BATTERY) {
     chatFor: () => chat,
     users: { findById: async (id) => users.find((u) => u._id.toHexString() === id) ?? null },
     conversations,
-    tickets: memoryTicketsRepository(),
+    tickets,
     retrieve: async () => retrievalOf(retrieval),
     checkpointer: createMemoryCheckpointer(),
   });
@@ -107,7 +109,15 @@ function setup(replies: FakeReply[], retrieval = BATTERY) {
     const pending = (await graph.getState(threadConfig(conversationId.toHexString()))).next;
     return { state, pending, path: state.trace.steps.map((s) => s.node) };
   }
-  return { turn, chat, conversations };
+  /** The employee confirms the waiting draft (the confirm endpoint's resume). */
+  async function confirm() {
+    const state = (await graph.invoke(
+      new Command({ resume: { action: 'confirm' } }),
+      threadConfig(conversationId.toHexString()),
+    )) as State;
+    return { state, path: state.trace.steps.map((s) => s.node) };
+  }
+  return { turn, confirm, chat, conversations, tickets };
 }
 
 describe('ticket flow across turns', () => {
@@ -148,6 +158,60 @@ describe('ticket flow across turns', () => {
       restricted: false,
     });
     expect(t.state.output!.text).toContain('IT Hardware team');
+  });
+
+  it('W3-06: confirm creates the ticket, then P-6 writes the agent brief (never before confirm)', async () => {
+    const { turn, confirm, chat, tickets } = setup([
+      analysisReply({ intent: 'talk_to_human', domain: 'IT', category: 'hardware' }),
+      slots({
+        fields: { device_model: 'ThinkPad T14', symptoms: 'battery is swollen' },
+        requiredMissing: [],
+      }),
+      JSON.stringify({
+        summary: 'Swollen ThinkPad T14 battery; employee stopped using it',
+        agentBrief: 'The employee reports a swollen ThinkPad T14 battery and has stopped using it.',
+        suggestedFirstChecks: ['Arrange a battery replacement', 'Offer a loan laptop'],
+      }),
+    ]);
+    await turn('Please get me a person, my ThinkPad T14 battery is swollen', true);
+    expect(chat.model.calls).toHaveLength(2); // P-1, P-5: nothing for agents before confirm
+    const { state, path } = await confirm();
+    // The resumed turn keeps its trace: the steps before confirmation, then these.
+    expect(path.slice(-4)).toEqual([
+      'awaitConfirmation',
+      'createTicket',
+      'sendEmail',
+      'agentSummary',
+    ]);
+    expect(chat.model.calls).toHaveLength(3); // + P-6
+    const ticket = (await tickets.findById(state.output!.ticketId!))!;
+    expect(ticket.summary).toBe('Swollen laptop battery'); // the employee-confirmed summary
+    expect(ticket.agentBrief).toContain('ThinkPad T14');
+    expect(ticket.agentAssist).toMatchObject({
+      status: 'generated',
+      headline: 'Swollen ThinkPad T14 battery; employee stopped using it',
+      firstChecks: ['Arrange a battery replacement', 'Offer a loan laptop'],
+    });
+    expect(state.trace.llmCalls.map((c) => c.node).at(-1)).toBe('agentSummary');
+  });
+
+  it('W3-06: a P-6 failure still creates the ticket, with the description as the brief', async () => {
+    const { turn, confirm, tickets } = setup([
+      analysisReply({ intent: 'talk_to_human', domain: 'IT', category: 'hardware' }),
+      slots({
+        fields: { device_model: 'ThinkPad T14', symptoms: 'battery is swollen' },
+        requiredMissing: [],
+      }),
+      new Error('503 overloaded'),
+    ]);
+    await turn('Please get me a person, my ThinkPad T14 battery is swollen', true);
+    const { state } = await confirm();
+    const ticket = (await tickets.findById(state.output!.ticketId!))!;
+    expect(ticket.agentBrief).toBe(
+      'The employee reports a swollen laptop battery and has stopped using it.',
+    );
+    expect(ticket.agentAssist?.status).toBe('fallback');
+    expect(state.trace.flags).toContain('AGENT_SUMMARY_FALLBACK');
   });
 
   it('one round: asks for the missing field, then drafts with the answer merged in', async () => {

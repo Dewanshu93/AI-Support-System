@@ -39,6 +39,7 @@ function fixture(ctx: TestContext, over: Partial<TicketDoc> & { humanId: string 
     status: 'new',
     summary: `Ticket ${over.humanId}`,
     agentBrief: 'Brief for the agent',
+    agentAssist: null,
     fields: { device_model: 'Dell Latitude 7440' },
     aiFilledFields: ['device_model'],
     articlesShown: [],
@@ -306,6 +307,7 @@ describe('ticket detail', () => {
     expect(res.body.ticket).toMatchObject({
       humanId: 'IT-0001',
       agentBrief: 'Brief for the agent',
+      agentAssist: null,
       queueLabel: 'IT Hardware',
       requester: { name: 'Priya Shah', email: PRIYA },
     });

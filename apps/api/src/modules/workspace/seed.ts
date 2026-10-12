@@ -657,6 +657,7 @@ export function buildMockRequests({
       status: s.status,
       summary: s.summary,
       agentBrief: '',
+      agentAssist: null,
       fields: s.fields,
       aiFilledFields: Object.keys(s.fields),
       articlesShown: [],

@@ -1764,3 +1764,33 @@ turns to the knowledge agent when P-1 also says the employee wants something don
 `timesheet_log` with `request_action` is unchanged (the copilot performs that action itself).
 Tests: `edges.test.ts` (the failing analysis, the other combinations, unchanged routes). Graph and
 AI workflow suites: 173 green.
+
+## W3-06 Agent summary and draft reply — 2026-10-12
+
+Brought back from the deferred list by the owner (2026-10-08); recorded in **ADR-019**.
+
+**Delivered:**
+
+- **P-6 `agent_ticket_summary` v1** (fast tier) in the `agentSummary` node, after
+  `createTicket → sendEmail`: an agent-facing headline (≤ 15 words), brief (≤ 100 words) and up
+  to 3 first checks, written to `ticket.agentBrief` and the new `ticket.agentAssist`
+  (`status`, `headline`, `firstChecks`, `promptRef`). The ticket summary stays the one the
+  employee confirmed. Redacted transcript. Model failure → `fallback` (brief = description, flag
+  `AGENT_SUMMARY_FALLBACK`), confidential case → `skipped` (no call), a "same issue" link →
+  untouched.
+- **P-7 `agent_draft_reply` v1** (fast tier): `POST /api/agent/tickets/:id/draft-reply`
+  (`{ tone?: standard | brief }` → `{ draft: { body, citedDocuments[] }, promptVersion }`). Only
+  given document IDs are kept as citations; each draft is an internal `ai_draft_generated` event
+  with its LLM call, plus a `ticket.ai_draft` audit entry. Never sent. 404 outside the agent's
+  queues, 409 confidential case, 503 model failure.
+- Agent ticket DTO: `agentAssist`. `prompts.yaml`: `agent_ticket_summary: 1`, `agent_draft_reply: 1`.
+
+**Verification:** `agentSummary.test.ts` (generated; redaction; fallback; over-long brief retried
+then fallback; confidential skipped; linked ticket untouched), `draftReply.test.ts` (citations
+filtered; failure; tone and sources in the prompt), `test/api/agentDraftReply.test.ts` (draft,
+internal event and audit, nothing public or notified; admin; 403/404/400; 409; 503 twice; detail
+shows `agentAssist`), `test/ai/ticketFlow.test.ts` (on the runtime graph: no P-6 before confirm;
+confirm → ticket → P-6; P-6 failure still creates the ticket), route policy table. Lint and
+typecheck clean.
+
+**Not done here:** the agent UI that shows the brief and the draft (W3-07); a live P-6/P-7 run.

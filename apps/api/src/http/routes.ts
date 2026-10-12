@@ -4,6 +4,8 @@
 import type { Role } from '@sd/shared';
 import type { Express, RequestHandler } from 'express';
 import type { AppDeps } from '../deps';
+import { AppError } from '../lib/errors';
+import { createDraftReplyService } from '../modules/agent/draftReply';
 import { agentRoutes } from '../modules/agent/routes';
 import { createAgentService } from '../modules/agent/service';
 import { authRoutes } from '../modules/auth/routes';
@@ -46,6 +48,13 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
     conversations: deps.conversations,
     genericErrorText: deps.templates.generic_error,
   });
+  const agentService = createAgentService({
+    tickets: deps.tickets,
+    agentTickets: deps.agentTickets,
+    notifications: deps.workspace,
+    taxonomy: deps.ticketConfig.taxonomy,
+    routing: deps.ticketConfig.routing,
+  });
   return [
     ...healthRoutes(deps),
     ...authRoutes(deps),
@@ -69,12 +78,17 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
     ),
     ...agentRoutes(
       deps,
-      createAgentService({
+      agentService,
+      createDraftReplyService({
+        agent: agentService,
         tickets: deps.tickets,
-        agentTickets: deps.agentTickets,
-        notifications: deps.workspace,
-        taxonomy: deps.ticketConfig.taxonomy,
-        routing: deps.ticketConfig.routing,
+        conversations: deps.conversations,
+        sources: deps.sources,
+        draft:
+          deps.agentDraft ??
+          (() => {
+            throw new AppError('LLM_UNAVAILABLE', 'AI drafts are not configured');
+          }),
       }),
     ),
     ...workspaceRoutes(

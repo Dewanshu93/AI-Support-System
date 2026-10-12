@@ -5,6 +5,8 @@ import type { TicketStatus } from '@sd/shared';
 import { validateForWrite } from '../../db/collections';
 import { nextSequence } from '../../db/counters';
 import {
+  type AgentAssist,
+  AgentAssistSchema,
   type CounterDoc,
   type TicketDoc,
   type TicketEventDoc,
@@ -31,6 +33,11 @@ export interface TicketsRepository {
     options: { limit: number; cursor?: string; status?: TicketStatus },
   ): Promise<TicketPage>;
   insertEvent(event: TicketEventDoc): Promise<void>;
+  /** Writes the P-6 agent assistance (W3-06) after creation. */
+  setAgentAssist(
+    id: ObjectId,
+    update: { agentBrief: string; agentAssist: AgentAssist },
+  ): Promise<void>;
   listEvents(
     ticketId: ObjectId,
     visibility?: TicketEventDoc['visibility'],
@@ -79,6 +86,17 @@ export function mongoTicketsRepository(collections: {
     },
     async insertEvent(event) {
       await ticketEvents.insertOne(validateForWrite('ticket_events', TicketEventSchema, event));
+    },
+    async setAgentAssist(id, { agentBrief, agentAssist }) {
+      await tickets.updateOne(
+        { _id: id },
+        {
+          $set: {
+            agentBrief,
+            agentAssist: validateForWrite('tickets', AgentAssistSchema, agentAssist),
+          },
+        },
+      );
     },
     listEvents: (ticketId, visibility) =>
       ticketEvents

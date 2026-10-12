@@ -37,6 +37,7 @@ const ticket = (over: Partial<TicketDoc> = {}): TicketDoc => ({
   status: 'new',
   summary: 'Question about leave',
   agentBrief: 'brief',
+  agentAssist: null,
   fields: { leave_type: 'annual' },
   aiFilledFields: ['leave_type'],
   articlesShown: [],

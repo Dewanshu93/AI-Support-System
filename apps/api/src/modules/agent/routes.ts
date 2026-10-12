@@ -1,9 +1,12 @@
 // Agent ticket endpoints (playbook section 4: Agent; contract flow 8). Agents
 // and admins only; per-ticket access is checked in the service (404 outside the
-// agent's queues). POST …/draft-reply (P-7) arrives with W3-06.
+// agent's queues). POST …/draft-reply (P-7, W3-06) returns a draft; it never sends.
 import {
   type AgentClassificationRequest,
   AgentClassificationRequestSchema,
+  type AgentDraftReplyRequest,
+  AgentDraftReplyRequestSchema,
+  type AgentDraftReplyResponse,
   type AgentEventResponse,
   type AgentNoteRequest,
   AgentNoteRequestSchema,
@@ -31,6 +34,7 @@ import { AppError } from '../../lib/errors';
 import { createAuditService } from '../audit/service';
 import { toMessageDto } from '../conversations/mappers';
 import { toTicketEmail } from '../email/mappers';
+import type { DraftReplyService } from './draftReply';
 import type { AgentService } from './service';
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
@@ -49,7 +53,11 @@ export function toAgentEvent(e: TicketEventDoc): AgentTicketEvent {
   };
 }
 
-export function agentRoutes(deps: AppDeps, service: AgentService): RouteDef[] {
+export function agentRoutes(
+  deps: AppDeps,
+  service: AgentService,
+  drafts: DraftReplyService,
+): RouteDef[] {
   const audit = createAuditService(deps.audit);
   const base = `${API_BASE_PATH}/agent/tickets`;
   const access = ['agent', 'admin'] as const;
@@ -74,6 +82,11 @@ export function agentRoutes(deps: AppDeps, service: AgentService): RouteDef[] {
     status: t.status,
     summary: t.summary,
     agentBrief: t.agentBrief,
+    agentAssist: t.agentAssist && {
+      status: t.agentAssist.status,
+      headline: t.agentAssist.headline,
+      firstChecks: t.agentAssist.firstChecks,
+    },
     fields: t.fields,
     restricted: t.restricted,
     duplicateOf: t.duplicateOf?.toHexString() ?? null,
@@ -187,6 +200,35 @@ export function agentRoutes(deps: AppDeps, service: AgentService): RouteDef[] {
           });
           const response: AgentEventResponse = { event: toAgentEvent(event) };
           res.status(201).json(response);
+        },
+      ],
+    },
+    {
+      // A draft for the agent to edit and send as their own reply; never sent here.
+      method: 'post',
+      path: `${base}/:id/draft-reply`,
+      access,
+      handlers: [
+        validate({ params: AgentTicketParamsSchema, body: AgentDraftReplyRequestSchema }),
+        async (req, res) => {
+          const { tone } = req.body as AgentDraftReplyRequest;
+          const result = await drafts.generate(idOf(req), req.user!, tone);
+          await audit.record(req, {
+            action: 'ticket.ai_draft',
+            targetType: 'ticket',
+            targetId: result.ticket._id.toHexString(),
+            metadata: {
+              humanId: result.ticket.humanId,
+              tone,
+              promptVersion: result.promptVersion,
+              citedDocuments: result.draft.citedDocuments.length,
+            },
+          });
+          const body: AgentDraftReplyResponse = {
+            draft: result.draft,
+            promptVersion: result.promptVersion,
+          };
+          res.json(body);
         },
       ],
     },

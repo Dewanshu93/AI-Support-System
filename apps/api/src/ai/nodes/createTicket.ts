@@ -136,8 +136,10 @@ export function createCreateTicket(deps: CreateTicketDeps) {
       priorityFloorApplied: floorApplied,
       status: 'new',
       summary: draft.summary,
-      // The agent brief is written by agentSummary (P-6, W3-06); until then, the description.
+      // agentSummary (P-6, W3-06) replaces the brief and fills agentAssist next;
+      // until then (and if the model fails), the brief is the description.
       agentBrief: draft.description,
+      agentAssist: null,
       fields,
       aiFilledFields: draft.aiFilledFields.filter((k) => !edited.has(k) && fields[k] !== UNKNOWN),
       articlesShown: draft.articlesShown.map((a) => ({

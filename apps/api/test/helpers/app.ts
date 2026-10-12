@@ -67,6 +67,8 @@ export interface TestAppOptions extends CreateAppOptions {
   clock?: AppDeps['clock'];
   /** Defaults to an empty in-memory outbox (UC-07). */
   email?: AppDeps['email'];
+  /** P-7 draft reply (W3-06); absent → the endpoint answers 503. */
+  agentDraft?: AppDeps['agentDraft'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -91,6 +93,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     tickets,
     email: options.email ?? memoryEmailService(),
     agentTickets: options.agentTickets ?? memoryAgentTicketsRepository(tickets as MemoryTickets),
+    agentDraft: options.agentDraft,
     ticketConfig: {
       routing: config.routing,
       taxonomy: config.taxonomy,

@@ -73,6 +73,10 @@ export function memoryTicketsRepository(): MemoryTickets {
     async insertEvent(event) {
       events.push(validateForWrite('ticket_events', TicketEventSchema, event));
     },
+    async setAgentAssist(id, { agentBrief, agentAssist }) {
+      const ticket = tickets.find((t) => t._id.equals(id));
+      if (ticket) Object.assign(ticket, { agentBrief, agentAssist });
+    },
     listEvents: async (ticketId, visibility) =>
       events.filter(
         (e) => e.ticketId.equals(ticketId) && (!visibility || e.visibility === visibility),

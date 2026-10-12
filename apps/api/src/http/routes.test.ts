@@ -51,6 +51,7 @@ describe('route policy table', () => {
       ['GET', '/api/agent/tickets', ['agent', 'admin']],
       ['GET', '/api/agent/tickets/:id', ['agent', 'admin']],
       ['POST', '/api/agent/tickets/:id/replies', ['agent', 'admin']],
+      ['POST', '/api/agent/tickets/:id/draft-reply', ['agent', 'admin']],
       ['POST', '/api/agent/tickets/:id/notes', ['agent', 'admin']],
       ['PATCH', '/api/agent/tickets/:id/status', ['agent', 'admin']],
       ['PATCH', '/api/agent/tickets/:id/classification', ['agent', 'admin']],

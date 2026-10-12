@@ -252,6 +252,17 @@ export type TurnTraceDoc = z.infer<typeof TurnTraceSchema>;
 
 // --- tickets ---------------------------------------------------------------
 
+/** P-6 agent assistance on a ticket (W3-06). */
+export const AgentAssistSchema = z.object({
+  status: z.enum(['generated', 'fallback', 'skipped']),
+  /** The agent-facing one-line summary; the ticket summary stays the employee's. */
+  headline: nullable(z.string()),
+  firstChecks: z.array(z.string()),
+  /** e.g. agent_ticket_summary@v1#hash; null when no model ran. */
+  promptRef: nullable(z.string()),
+});
+export type AgentAssist = z.infer<typeof AgentAssistSchema>;
+
 export const TicketSchema = z
   .object({
     _id: zObjectId,
@@ -279,6 +290,12 @@ export const TicketSchema = z
     status: TicketStatusSchema,
     summary: NonEmpty,
     agentBrief: z.string(),
+    /**
+     * P-6 agent assistance (W3-06): written after creation by agentSummary.
+     * Null until then; `fallback` keeps the description as the brief; `skipped`
+     * for confidential cases (no AI on sensitive topics).
+     */
+    agentAssist: nullable(AgentAssistSchema).default(null),
     fields: z.record(z.string(), z.string()),
     aiFilledFields: z.array(z.string()),
     articlesShown: z.array(z.object({ documentId: zObjectId, docTitle: NonEmpty })),
@@ -307,6 +324,8 @@ export const TicketEventSchema = z.object({
   field: nullable(z.enum(['category', 'subcategory', 'priority'])),
   oldValue: nullable(z.string()),
   newValue: nullable(z.string()),
+  /** ai_draft_generated (W3-06): the P-7 call that produced the draft. */
+  llmCall: LlmCallSchema.optional(),
   createdAt: z.date(),
 });
 export type TicketEventDoc = z.infer<typeof TicketEventSchema>;

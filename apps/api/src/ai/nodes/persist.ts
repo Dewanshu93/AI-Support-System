@@ -33,7 +33,8 @@ const oid = (id: string) => new ObjectId(id);
 const ranked = (hits: { chunkId: string; score: number }[]) =>
   hits.map((h, i) => ({ chunkId: oid(h.chunkId), score: h.score, rank: i + 1 }));
 
-function llmCallDoc(c: LlmCallTrace): TurnTraceDoc['llmCalls'][number] {
+/** A traced LLM call as stored (turn traces; ai_draft_generated events, W3-06). */
+export function llmCallDoc(c: LlmCallTrace): TurnTraceDoc['llmCalls'][number] {
   const prompt = parsePromptRef(c.promptRef);
   return {
     node: c.node,

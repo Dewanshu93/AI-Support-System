@@ -1,4 +1,5 @@
 import type { SupportGraph } from './ai/graph/graph';
+import type { DraftReplyFn } from './ai/nodes/draftReply';
 import type { ConfigFiles } from './config/schemas';
 import type { AgentTicketsRepository } from './modules/agent/repository';
 import type { AuditRepository } from './modules/audit/repository';
@@ -40,6 +41,8 @@ export interface AppDeps {
   email: Pick<EmailService, 'findByConversation' | 'listForTicket'>;
   /** Agent queue queries, guarded updates and the override rate (W3-05). */
   agentTickets: AgentTicketsRepository;
+  /** P-7 draft reply for agents (W3-06); without it the endpoint answers 503. */
+  agentDraft?: DraftReplyFn;
   /** Config the ticket endpoints need (routing, taxonomy, field schemas, duplicate window). */
   ticketConfig: {
     routing: ConfigFiles['routing'];

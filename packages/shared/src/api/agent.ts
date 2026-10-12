@@ -1,6 +1,7 @@
 // Agent ticket endpoints (playbook section 4: Agent; contract flow 8). Agents
 // see only tickets in their queues; restricted cases only with hr_case; admins
-// see every queue. The draft-reply endpoint (P-7) arrives with W3-06.
+// see every queue. AI assistance (W3-06): the P-6 brief on the ticket and the
+// P-7 draft reply on demand (never sent by the system).
 import { z } from 'zod';
 import {
   CountrySchema,
@@ -64,6 +65,17 @@ export const AgentTicketSchema = z.object({
   status: TicketStatusSchema,
   summary: z.string(),
   agentBrief: z.string(),
+  /**
+   * P-6 (W3-06). Null until it ran; `fallback`: the brief is the employee's
+   * description; `skipped`: confidential case (no AI on sensitive topics).
+   */
+  agentAssist: z
+    .object({
+      status: z.enum(['generated', 'fallback', 'skipped']),
+      headline: z.string().nullable(),
+      firstChecks: z.array(z.string()),
+    })
+    .nullable(),
   fields: z.record(z.string(), z.string()),
   restricted: z.boolean(),
   duplicateOf: z.string().nullable(),
@@ -141,3 +153,19 @@ export const AgentClassificationRequestSchema = z
 export type AgentClassificationRequest = z.infer<typeof AgentClassificationRequestSchema>;
 
 export const AgentTicketParamsSchema = z.object({ id: ObjectIdStringSchema });
+
+/** POST /api/agent/tickets/:id/draft-reply (P-7, W3-06). */
+export const AgentDraftReplyRequestSchema = z.strictObject({
+  tone: z.enum(['standard', 'brief']).default('standard'),
+});
+export type AgentDraftReplyRequest = z.infer<typeof AgentDraftReplyRequestSchema>;
+
+/** A draft for the agent to edit; the system never sends it. */
+export const AgentDraftReplyResponseSchema = z.object({
+  draft: z.object({
+    body: z.string(),
+    citedDocuments: z.array(z.object({ documentId: z.string(), docTitle: z.string() })),
+  }),
+  promptVersion: z.number().int().positive(),
+});
+export type AgentDraftReplyResponse = z.infer<typeof AgentDraftReplyResponseSchema>;

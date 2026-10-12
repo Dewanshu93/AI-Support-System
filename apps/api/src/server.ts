@@ -21,6 +21,7 @@ import {
   resolveChatModel,
 } from './ai/llm';
 import { guardUnhandledRejections } from './ai/llm/orphanedStream';
+import { createDraftReply } from './ai/nodes/draftReply';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
 import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
@@ -176,19 +177,21 @@ async function main() {
       mode === 'cache' ? 'LLM_MODE=cache (development only)' : 'LLM_MODE is not live (tests only)',
     );
 
+  // One model factory for the turn graph and the agent draft reply (P-7).
+  const chatFor: TurnGraphDeps['chatFor'] =
+    mode === 'live'
+      ? liveChat
+      : (tier, options) =>
+          recordedChatHandle(
+            mode,
+            recordings!,
+            () => liveChat(tier, options),
+            resolveChatModel(config.models, tier),
+          );
   const graph = buildTurnGraph({
     config,
     prompts,
-    chatFor:
-      mode === 'live'
-        ? liveChat
-        : (tier, options) =>
-            recordedChatHandle(
-              mode,
-              recordings!,
-              () => liveChat(tier, options),
-              resolveChatModel(config.models, tier),
-            ),
+    chatFor,
     users,
     conversations,
     tickets,
@@ -216,6 +219,12 @@ async function main() {
     tickets,
     email,
     agentTickets: mongoAgentTicketsRepository(collections),
+    agentDraft: createDraftReply({
+      prompts,
+      chatFor,
+      policy: config.models.call,
+      costs: config.models.costs,
+    }),
     ticketConfig: {
       routing: config.routing,
       taxonomy: config.taxonomy,

@@ -534,3 +534,36 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** a demo keeps answering when quotas run out, at lower quality when Ollama
   answers; traces show which model answered. Cached replies hide prompt changes only when the
   prompt text is identical (the key is the full rendered prompt). Delete `.llm-cache/` to clear it.
+
+## ADR-019 — Agent AI assistance: P-6 brief after creation, P-7 draft on demand (W3-06)
+
+- **Status:** Accepted by the owner (2026-10-08: W3-06/W3-07 brought back from the deferred list;
+  P-6 on the fast tier)
+- **Context:** agents read a ticket cold. The playbook gives P-6 (`agent_ticket_summary`, after
+  ticket creation) and P-7 (`agent_draft_reply`, on demand). Build Contract v2.0 adds rules that
+  shape them: nothing is created or sent without the employee confirming the exact content
+  shown (E.4), and sensitive topics bypass the AI (E.6).
+- **Decision:**
+  - **P-6** runs in the graph after `createTicket → sendEmail` (`agentSummary` node, fast tier).
+    It writes `agentBrief` and a new `ticket.agentAssist` (`status` generated / fallback / skipped,
+    `headline`, `firstChecks` ≤ 3, `promptRef`). **The ticket's `summary` stays the one the
+    employee confirmed**; P-6's one-line summary is the agent-facing `headline`. The transcript
+    is redacted (`redactPII`) before the call. A model failure never fails the confirm: the brief
+    stays the employee's description and `agentAssist.status` is `fallback` (trace flag
+    `AGENT_SUMMARY_FALLBACK`). Confidential cases (`restricted`) get no model call (`skipped`). Only
+    the ticket this conversation created is summarised (a "same issue" link is left as it was).
+  - **P-7** is `POST /api/agent/tickets/:id/draft-reply` (`{ tone?: standard | brief }`), outside
+    the turn graph. The model sees the ticket (requester first name, never contact details), the
+    agent brief and the policy passages cited in the conversation (≤ 5). Code keeps only cited
+    document IDs that were given. Each draft is an internal `ai_draft_generated` event with the
+    LLM call (`llmCall`) and an audit entry (`ticket.ai_draft`). It is **never sent**: the agent
+    sends their own reply (`usedAiDraft` on that audit entry). 503 `LLM_UNAVAILABLE` when the model
+    fails or none is configured; **409 for confidential cases** (no AI on sensitive topics; the
+    playbook lists only 404/503).
+  - Folder boundaries: the model call is `ai/nodes/draftReply.ts` (`createDraftReply`), injected
+    into `modules/agent/draftReply.ts` as `AppDeps.agentDraft`, so modules never import `ai/llm`
+    (the playbook names `modules/agent/draftReply.ts` for the whole feature).
+  - P-7 also runs on the fast tier (quality quota), temperature 0.2.
+- **Consequences:** agents get a brief and first checks on every new non-confidential ticket, and
+  a cited draft to edit. The employee's confirmed text is never rewritten. A confirm takes one
+  more fast-tier call (a few seconds), bounded by the call policy.

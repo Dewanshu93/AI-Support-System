@@ -1,6 +1,5 @@
-// The runtime turn graph: supportTurnGraph with every real node built so far
-// wired to its dependencies. Nodes not built yet (agentSummary: W3-06) keep their defaults.
-// server.ts builds it with real providers; tests build it with fake models.
+// The runtime turn graph: supportTurnGraph with every real node wired to its
+// dependencies. server.ts builds it with real providers; tests build it with fake models.
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { ConfigFiles } from '../../config/schemas';
 import type { ConversationsRepository } from '../../modules/conversations/repository';
@@ -8,6 +7,7 @@ import type { TicketsRepository } from '../../modules/tickets/repository';
 import type { UsersRepository } from '../../modules/users/repository';
 import { compilePrecheckRules } from '../guards/precheckRules';
 import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
+import { createAgentSummary } from '../nodes/agentSummary';
 import { createAnalyzeTurn } from '../nodes/analyzeTurn';
 import { createAnswer } from '../nodes/answer';
 import { createBuildDraft } from '../nodes/buildDraft';
@@ -136,6 +136,7 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
           isEval: deps.isEval,
         }),
       }),
+      agentSummary: createAgentSummary({ ...llm, tickets: deps.tickets }),
       timesheetStatus: createTimesheetStatus({ records: deps.records }),
       timesheetLog: createTimesheetLog({ ...llm, records: deps.records }),
       applyAction: createApplyAction({

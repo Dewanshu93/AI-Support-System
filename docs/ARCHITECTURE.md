@@ -867,6 +867,25 @@ The ticket nodes (W3-02) and the API (W3-04) use these.
   created in the range with at least one `classification_correction` ÷ tickets created (eval
   tickets excluded).
 
+## Agent AI assistance (W3-06, ADR-019)
+
+- **P-6 `agent_ticket_summary`** (`ai/nodes/agentSummary.ts`, fast tier): the graph's last step
+  after a confirmed ticket (`createTicket → sendEmail → agentSummary`). Input: the ticket's
+  classification and fields (no requester identity), the redacted conversation, the titles of
+  articles already shown. Output (`AgentSummaryResultSchema`): headline ≤ 15 words, brief ≤ 100
+  words, ≤ 3 first checks. Writes `ticket.agentBrief` and `ticket.agentAssist` (`status`,
+  `headline`, `firstChecks`, `promptRef`) through `TicketsRepository.setAgentAssist`. The ticket
+  `summary` stays the employee's. Failure → `fallback` (brief = description); confidential case →
+  `skipped` (no call); a "same issue" link → untouched.
+- **P-7 `agent_draft_reply`** (`POST /api/agent/tickets/:id/draft-reply`, `{ tone }`): the model
+  call is `ai/nodes/draftReply.ts` (`createDraftReply`, injected as `AppDeps.agentDraft`);
+  `modules/agent/draftReply.ts` gathers the ticket, the brief and the conversation's cited
+  passages (≤ 5, via `SourcesReader.findChunk`), keeps only given document IDs, and records an
+  internal `ai_draft_generated` event (body and `llmCall`) plus the `ticket.ai_draft` audit entry.
+  Nothing is sent. 404 outside the agent's queues, 409 confidential case, 503 model failure or no
+  model configured.
+- The agent ticket DTO carries `agentAssist` (`status`, `headline`, `firstChecks`).
+
 ## Employee workspace: mock HR systems (UC-01, UC-02)
 
 Build Contract v2.0 (ADR-015). The task tracker, timesheets and HR/payroll systems are mocked

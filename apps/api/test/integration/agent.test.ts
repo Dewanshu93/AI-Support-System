@@ -41,6 +41,7 @@ const ticket = (n: number, over: Partial<TicketDoc> = {}): TicketDoc => ({
   status: 'new',
   summary: `Ticket ${n}`,
   agentBrief: '',
+  agentAssist: null,
   fields: {},
   aiFilledFields: [],
   articlesShown: [],

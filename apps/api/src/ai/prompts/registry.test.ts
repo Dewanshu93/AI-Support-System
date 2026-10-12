@@ -159,6 +159,8 @@ describe('committed prompts', () => {
     ticket_slot_fill: ['analysis', 'conversation', 'fieldSchemas', 'profile', 'taxonomy'],
     timesheet_extract: ['history', 'message', 'projects', 'today'],
     payroll_explain: ['question', 'records', 'sources'],
+    agent_ticket_summary: ['articles', 'conversation', 'ticket'],
+    agent_draft_reply: ['brief', 'sources', 'ticket', 'tone'],
   } as const;
   /** Active versions other than v1 (P-1 v2: owner decision 2026-10-09, UC-10). */
   const activeVersion: Partial<Record<keyof typeof expected, number>> = { turn_analysis: 2 };
