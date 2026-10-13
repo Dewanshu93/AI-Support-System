@@ -10,6 +10,7 @@ import type { GapsRepository } from './modules/gaps/repository';
 import type { GapsService } from './modules/gaps/service';
 import type { MetricsRepository } from './modules/metrics/repository';
 import type { TicketsRepository } from './modules/tickets/repository';
+import type { TracesRepository } from './modules/traces/repository';
 import type { UsersRepository } from './modules/users/repository';
 import type { WorkspaceRepository } from './modules/workspace/repository';
 
@@ -59,6 +60,8 @@ export interface AppDeps {
   metrics: MetricsRepository;
   /** Knowledge-gap snapshot and background refresh (W4-02). */
   gaps: { repository: GapsRepository; service: GapsService };
+  /** Admin reads for the trace viewer (W4-03). */
+  traces: TracesRepository;
   /** config/workday.yaml: timesheet rules and holiday calendar. */
   workday: ConfigFiles['workday'];
   /** Current time; injected so tests and demos control "today". Defaults to the system clock. */

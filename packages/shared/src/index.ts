@@ -11,6 +11,7 @@ export * from './api/gaps';
 export * from './api/health';
 export * from './api/metrics';
 export * from './api/tickets';
+export * from './api/traces';
 export * from './api/workspace';
 export * from './enums';
 export * from './errors';

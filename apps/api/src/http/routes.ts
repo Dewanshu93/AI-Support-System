@@ -9,6 +9,7 @@ import { AppError } from '../lib/errors';
 import { createDraftReplyService } from '../modules/agent/draftReply';
 import { agentRoutes } from '../modules/agent/routes';
 import { gapsRoutes } from '../modules/gaps/routes';
+import { tracesRoutes } from '../modules/traces/routes';
 import { metricsRoutes } from '../modules/metrics/routes';
 import { createAgentService } from '../modules/agent/service';
 import { authRoutes } from '../modules/auth/routes';
@@ -96,6 +97,7 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
     ),
     ...metricsRoutes(deps),
     ...gapsRoutes(deps),
+    ...tracesRoutes(deps),
     ...workspaceRoutes(
       deps,
       createWorkspaceService({

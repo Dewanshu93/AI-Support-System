@@ -40,3 +40,27 @@ test('knowledge gaps: the page loads with its refresh action and a snapshot or t
     page.getByText('No gaps detected yet').or(page.getByTestId('gap-cluster-list')),
   ).toBeVisible();
 });
+
+test('trace viewer: conversations list, and a conversation opens its turn timeline and trace tabs', async ({
+  page,
+}) => {
+  await signIn(page, 'Alex Morgan', /\/admin$/);
+  await page.goto('/admin/traces');
+  await expect(page.getByRole('heading', { level: 1, name: 'Traces' })).toBeVisible();
+  const rows = page.getByTestId('conversation-row');
+  await expect(rows.first().or(page.getByText('No conversations'))).toBeVisible();
+  // Earlier specs in the run create conversations; on an empty database only the list is checked.
+  if (await rows.first().isVisible()) {
+    await rows.first().getByRole('link').click();
+    await expect(
+      page.getByTestId('turn-timeline').or(page.getByText('no traced turns')),
+    ).toBeVisible();
+    if (await page.getByTestId('turn-timeline').isVisible()) {
+      await expect(page.getByTestId('trace-tab-analysis')).toBeVisible();
+      for (const tab of ['Retrieval', 'Decision', 'Output', 'LLM calls']) {
+        await page.getByRole('tab', { name: tab }).click();
+        await expect(page.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
+      }
+    }
+  }
+});

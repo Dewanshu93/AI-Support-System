@@ -1009,6 +1009,19 @@ inside the app:
   detail with redacted examples linking to `/admin/traces/[conversationId]`, refresh with
   polling, "No gaps detected yet".
 
+## Trace viewer (W4-03)
+
+- `modules/traces/repository.ts` (read-only): admin conversation list (eval excluded; filters
+  decision = any turn with it, status, created range, user; cursor over updatedAt desc), traces
+  of a conversation, assistant messages, trace by id, chunks by ids.
+- `GET /api/admin/conversations`, `GET /api/admin/conversations/:id/traces` (timeline; ticket
+  with priority, AI urgency and `priorityFloorApplied`), `GET /api/admin/traces/:traceId` (every
+  trace field, retrieval candidates resolved to doc title, section and text). Both detail reads
+  are audited `admin.trace_view`. User text is always the trace's `redactedInput`.
+- `/admin/traces` (`ConversationTable`, filters in the URL; the overview's decision legend links
+  here) and `/admin/traces/[conversationId]` (`TraceViewer`: turn timeline, trace panel with
+  Analysis, Retrieval, Decision, Output and LLM calls tabs).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

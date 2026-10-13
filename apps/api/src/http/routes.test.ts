@@ -61,6 +61,10 @@ describe('route policy table', () => {
       // Knowledge gaps (W4-02).
       ['GET', '/api/admin/knowledge-gaps', ['admin']],
       ['POST', '/api/admin/knowledge-gaps/refresh', ['admin']],
+      // Trace viewer (W4-03).
+      ['GET', '/api/admin/conversations', ['admin']],
+      ['GET', '/api/admin/conversations/:id/traces', ['admin']],
+      ['GET', '/api/admin/traces/:traceId', ['admin']],
       // Employee workspace (UC-02).
       ['GET', '/api/dashboard', ['employee']],
       ['GET', '/api/projects/mine', ['employee']],

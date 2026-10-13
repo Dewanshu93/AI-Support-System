@@ -1,11 +1,12 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { TraceViewer } from '@/components/admin/traces/TraceViewer';
 
-export default function ConversationtracePage() {
-  return (
-    <PlaceholderPage
-      title="Conversation trace"
-      description="Analysis, retrieval, decision, output and LLM calls for each turn."
-      task="W4-03"
-    />
-  );
+export const metadata = { title: 'Conversation trace' };
+
+export default async function ConversationTracePage({
+  params,
+}: {
+  params: Promise<{ conversationId: string }>;
+}) {
+  const { conversationId } = await params;
+  return <TraceViewer conversationId={conversationId} />;
 }

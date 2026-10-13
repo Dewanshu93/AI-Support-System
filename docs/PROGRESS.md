@@ -2016,3 +2016,24 @@ out-of-range turns never embedded or returned; fallback label; empty range clear
 table, P-8 schema and registry tests, `e2e/tests/admin.spec.ts` (page smoke). Not yet checked: a
 refresh on real data (the 0.8 similarity threshold is tuned on synthetic vectors only; needs live
 Gemini embeddings).
+
+## W4-03 Trace viewer — 2026-10-13
+
+- API (admin only): conversation list with filters and cursor, conversation timeline with the
+  ticket's priority floor, full trace with chunk texts resolved; detail reads audited
+  `admin.trace_view`; user text only as the redacted input; evaluation conversations not listed.
+- Web: `/admin/traces` table with URL filters and "Load more"; `/admin/traces/[conversationId]`
+  turn timeline (safety / sensitive / withdrawn / error chips) and trace panel with the five tabs
+  of playbook section 10. Every field of the section 3 trace is shown (ids, profile snapshot,
+  precheck, analysis, retrieval lists with scores and expandable chunk text, decision, output,
+  LLM calls, step latency, totals, errors, flags).
+
+**Acceptance:** Priya's battery turn shows the safety precheck hit (`safety_battery`), the rules
+fired and, when the conversation raised a ticket, the priority floor applied (API test fixture;
+checked on the dev database for the precheck and rules — that demo conversation has no ticket).
+
+**Verification:** `test/api/traces.test.ts` (list order, filters, cursor, 400; timeline with
+redacted input and no raw email, ticket floor, audit; full trace with resolved chunks and every
+stored field present, audit; 404; 403 agent/employee, 401), route policy table,
+`e2e/tests/admin.spec.ts` (list → timeline → all tabs). Screenshots of list, timeline and tabs on
+the dev site.

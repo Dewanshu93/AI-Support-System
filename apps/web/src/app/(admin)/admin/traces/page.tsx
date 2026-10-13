@@ -1,11 +1,13 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { Suspense } from 'react';
+import { ConversationTable } from '@/components/admin/traces/ConversationTable';
+
+export const metadata = { title: 'Traces' };
 
 export default function TracesPage() {
+  // useSearchParams (filters) needs a Suspense boundary.
   return (
-    <PlaceholderPage
-      title="Traces"
-      description="Conversations with a per-turn explanation of every AI decision."
-      task="W4-03"
-    />
+    <Suspense>
+      <ConversationTable />
+    </Suspense>
   );
 }

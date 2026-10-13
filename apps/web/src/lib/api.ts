@@ -2,6 +2,10 @@
 // Next.js rewrites to the Express API, so the session cookie is first-party.
 // Every response is validated with the shared Zod schemas.
 import {
+  type AdminConversationListQuery,
+  AdminConversationListResponseSchema,
+  ConversationTracesResponseSchema,
+  TraceDetailResponseSchema,
   type AgentClassificationRequest,
   AgentDraftReplyResponseSchema,
   AgentEventResponseSchema,
@@ -131,6 +135,25 @@ export const api = {
       method: 'POST',
       body,
     }))!.refresh,
+
+  // Trace viewer (W4-03).
+  adminConversations: async (q: Partial<AdminConversationListQuery> = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(q)) if (value) params.set(key, String(value));
+    const query = params.toString();
+    return (await apiRequest(
+      `/admin/conversations${query ? `?${query}` : ''}`,
+      AdminConversationListResponseSchema,
+    ))!;
+  },
+  conversationTraces: async (id: string) =>
+    (await apiRequest(
+      `/admin/conversations/${encodeURIComponent(id)}/traces`,
+      ConversationTracesResponseSchema,
+    ))!,
+  trace: async (traceId: string) =>
+    (await apiRequest(`/admin/traces/${encodeURIComponent(traceId)}`, TraceDetailResponseSchema))!
+      .trace,
 
   // Agent workspace (W3-07).
   agentQueue: async (q: Partial<AgentTicketListQuery> = {}) => {

@@ -15,6 +15,7 @@ import { loadConfig } from '../../src/config';
 import { VALID_ENV } from './config';
 import { memoryConversationsRepository, memorySourcesReader } from './conversations';
 import { testGaps } from './gaps';
+import { memoryTracesRepository } from './traces';
 import {
   memoryAgentTicketsRepository,
   memoryEmailService,
@@ -79,6 +80,8 @@ export interface TestAppOptions extends CreateAppOptions {
   agentDraft?: AppDeps['agentDraft'];
   /** Knowledge gaps (W4-02); default: empty, and a refresh answers 503. */
   gaps?: AppDeps['gaps'];
+  /** Trace-viewer reads (W4-03); default: empty. */
+  traces?: AppDeps['traces'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -113,6 +116,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     workspace: options.workspace ?? memoryWorkspaceRepository(),
     metrics: options.metrics ?? emptyMetrics(),
     gaps: options.gaps ?? testGaps(),
+    traces: options.traces ?? memoryTracesRepository(),
     workday: config.workday,
     clock: options.clock,
   };

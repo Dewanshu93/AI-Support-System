@@ -39,6 +39,7 @@ import { mongoGapsRepository } from './modules/gaps/repository';
 import { createGapsService } from './modules/gaps/service';
 import { mongoMetricsRepository } from './modules/metrics/repository';
 import { mongoTicketsRepository } from './modules/tickets/repository';
+import { mongoTracesRepository } from './modules/traces/repository';
 import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
@@ -275,6 +276,7 @@ async function main() {
     workspace,
     metrics: mongoMetricsRepository(collections),
     gaps,
+    traces: mongoTracesRepository(collections),
     workday: config.workday,
     clock,
     auth: {
