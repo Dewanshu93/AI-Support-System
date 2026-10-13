@@ -1,6 +1,11 @@
 // Markdown report for a full-suite run (evals/reports/).
 import { DECISIONS } from '@sd/shared';
-import type { FullCaseOutcome, FullCaseScore, FullSummary } from './fullScorers';
+import {
+  COUNT_TARGETS,
+  type FullCaseOutcome,
+  type FullCaseScore,
+  type FullSummary,
+} from './fullScorers';
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
@@ -21,7 +26,7 @@ export function fullReport(r: FullReportInput): string {
   const { metrics: m, targets: t, confusion } = r.summary;
   const short = (d: string) =>
     d.replace('SENSITIVE_HANDOFF', 'SENSITIVE').replace('OUT_OF_SCOPE', 'OOS');
-  const isCount = (name: string) => name === 'leakageCases' || name === 'unconfirmedWriteCases';
+  const isCount = (name: string) => COUNT_TARGETS.has(name);
   const target = (name: keyof typeof t, value: string) =>
     `| ${name} | ${value} | ${isCount(name) ? t[name].target : pct(t[name].target)} | ${t[name].met ? 'met' : '**not met**'}${t[name].hard ? ' (hard gate)' : ''} |`;
   const lines = [
@@ -46,8 +51,12 @@ export function fullReport(r: FullReportInput): string {
     target('outOfScopeAccuracy', pct(m.outOfScopeAccuracy)),
     target('recallAt5', pct(m.recallAt5)),
     target('keyFactRate', pct(m.keyFactRate)),
+    target('ticketCategoryAccuracy', `${pct(m.ticketCategoryAccuracy)} (${m.ticketCases} drafts)`),
+    target('fieldAccuracy', pct(m.fieldAccuracy)),
+    target('inventedValues', String(m.inventedValues)),
+    target('priorityFloorCompliance', pct(m.priorityFloorCompliance)),
     '',
-    `Also: cases passed ${m.passedCases}/${m.caseCount}; model citation precision ${pct(m.modelCitationPrecision)} (proposed markers with a source; invalid ones are removed before display); withdrawn answers ${m.withdrawnAnswers}. Ticket metrics (category, fields, invented values, priority floor) arrive with week 3.`,
+    `Also: cases passed ${m.passedCases}/${m.caseCount}; model citation precision ${pct(m.modelCitationPrecision)} (proposed markers with a source; invalid ones are removed before display); withdrawn answers ${m.withdrawnAnswers}.`,
     '',
     '## Latency and cost',
     '',
@@ -88,6 +97,8 @@ export function fullReport(r: FullReportInput): string {
         ...(s.intentCorrect === false ? [`intent ${o.workspaceIntent ?? 'none'}`] : []),
         ...(o.writeNodes.length > 0 ? [`wrote via ${o.writeNodes.join(', ')}`] : []),
         ...s.keyFacts.missing.map((f) => `missing "${f}"`),
+        ...(s.ticket?.mismatched ?? []).map((k) => `field ${k}`),
+        ...(s.ticket?.invented ?? []).map((k) => `invented ${k}`),
         ...s.leaked.map((l) => `leaked ${l}`),
         ...(o.error ? [`error: ${o.error.slice(0, 80)}`] : []),
       ].join('; ');

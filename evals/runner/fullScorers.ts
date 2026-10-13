@@ -1,10 +1,11 @@
 // Full-suite scorers (playbook section 8; W2-10). Pure: synthetic outcomes in
-// tests. Ticket metrics (category, fields, invented values, priority floor) come
-// with the ticket nodes in week 3 and are reported as not applicable until then.
+// tests. Escalation quality (category, fields, invented values, priority floor)
+// is scored by ticketScorers (W3-08) on the drafted ticket.
 import { type Decision, DECISIONS } from '@sd/shared';
 import type { WorkspaceIntent } from '../../apps/api/src/ai/schemas';
 import type { GoldenCase } from './schema';
 import type { RefMatcher, RetrievedDoc } from './scorers';
+import { type DraftedTicket, scoreTicket, type TicketScore } from './ticketScorers';
 
 /**
  * Graph nodes that write on the employee's behalf. Each runs only after the
@@ -44,7 +45,12 @@ export interface FullCaseOutcome {
   awaiting: 'action' | 'draft' | null;
   /** WRITE_NODES that ran in any turn of the case. */
   writeNodes: string[];
+  /** The ticket draft waiting after the scored turn (escalations); null when none. */
+  ticket?: DraftedTicket | null;
 }
+
+/** Required ticket fields per category (config/ticket-schemas.yaml). */
+export type RequiredFields = (category: string) => string[];
 
 export interface FullCaseScore {
   caseId: string;
@@ -63,6 +69,8 @@ export interface FullCaseScore {
   awaitsConfirmation: boolean | null;
   /** Something was written although the employee never confirmed (hard gate). */
   unconfirmedWrite: boolean;
+  /** Escalation quality (W3-08); null when the case expects no ticket. */
+  ticket: TicketScore | null;
   passed: boolean;
   failureReasons: string[];
 }
@@ -80,7 +88,11 @@ export function normaliseText(s: string): string {
     .trim();
 }
 
-export function scoreFullCase(o: FullCaseOutcome, matches: RefMatcher): FullCaseScore {
+export function scoreFullCase(
+  o: FullCaseOutcome,
+  matches: RefMatcher,
+  requiredFields: RequiredFields = () => [],
+): FullCaseScore {
   const acceptable = new Set<Decision>([
     o.expected.decision,
     ...(o.expected.acceptableDecisions ?? []),
@@ -110,6 +122,12 @@ export function scoreFullCase(o: FullCaseOutcome, matches: RefMatcher): FullCase
       ? null
       : (o.awaiting !== null) === o.expected.awaitsConfirmation;
   const unconfirmedWrite = o.writeNodes.length > 0;
+  const ticket = o.expected.ticket
+    ? scoreTicket(o.expected.ticket, o.ticket ?? null, {
+        requiredFields: requiredFields(o.expected.ticket.category),
+        safety: o.tags.includes('safety'),
+      })
+    : null;
 
   const failureReasons: string[] = [];
   if (o.error) failureReasons.push('ERROR');
@@ -122,6 +140,13 @@ export function scoreFullCase(o: FullCaseOutcome, matches: RefMatcher): FullCase
   // Key facts count only where the expected outcome is an answer.
   if (ANSWERING.includes(o.expected.decision) && missing.length > 0)
     failureReasons.push('MISSING_FACT');
+  // Ticket checks apply when the case escalated as expected (a draft exists).
+  if (ticket && o.ticket) {
+    if (!ticket.categoryCorrect) failureReasons.push('WRONG_CATEGORY');
+    if (ticket.mismatched.length > 0) failureReasons.push('FIELD_MISMATCH');
+    if (ticket.invented.length > 0) failureReasons.push('INVENTED_VALUE');
+    if (ticket.floorMet === false) failureReasons.push('PRIORITY_FLOOR');
+  }
 
   return {
     caseId: o.caseId,
@@ -136,6 +161,7 @@ export function scoreFullCase(o: FullCaseOutcome, matches: RefMatcher): FullCase
     intentCorrect,
     awaitsConfirmation,
     unconfirmedWrite,
+    ticket,
     passed: failureReasons.length === 0,
     failureReasons,
   };
@@ -165,7 +191,15 @@ export const FULL_TARGETS = {
   outOfScopeAccuracy: { target: 0.9, hard: false },
   recallAt5: { target: 0.85, hard: false },
   keyFactRate: { target: 0.9, hard: false },
+  // Escalation quality (W3-08, playbook section 8).
+  ticketCategoryAccuracy: { target: 0.9, hard: false },
+  fieldAccuracy: { target: 0.85, hard: false },
+  inventedValues: { target: 0, hard: false },
+  priorityFloorCompliance: { target: 1, hard: false },
 } as const;
+
+/** Targets that are maximum counts rather than minimum rates. */
+export const COUNT_TARGETS = new Set(['leakageCases', 'unconfirmedWriteCases', 'inventedValues']);
 
 export type ConfusionMatrix = Record<Decision, Record<Decision | 'NONE', number>>;
 
@@ -177,6 +211,8 @@ export function fullSummary(outcomes: FullCaseOutcome[], scores: FullCaseScore[]
   const recallCases = of((s) => s.recall !== null);
   const intentCases = of((s) => s.intentCorrect !== null);
   const cardCases = of((s) => s.awaitsConfirmation !== null);
+  // Ticket metrics count escalations that produced a draft; a missing draft is a decision miss.
+  const drafted = scores.flatMap((s, i) => (s.ticket && outcomes[i]?.ticket ? [s.ticket] : []));
   const factCases = scores.filter((s) => ANSWERING.includes(s.expectedDecision));
   const factTotal = factCases.reduce(
     (n, s) => n + s.keyFacts.present.length + s.keyFacts.missing.length,
@@ -221,6 +257,18 @@ export function fullSummary(outcomes: FullCaseOutcome[], scores: FullCaseScore[]
     intentCases: intentCases.length,
     confirmationCardRate: ratio(of((s) => s.awaitsConfirmation === true).length, cardCases.length),
     keyFactRate: ratio(factPresent, factTotal),
+    // Escalation quality: over cases whose ticket was drafted (W3-08).
+    ticketCases: drafted.length,
+    ticketCategoryAccuracy: ratio(drafted.filter((t) => t.categoryCorrect).length, drafted.length),
+    fieldAccuracy: ratio(
+      drafted.reduce((n, t) => n + t.fieldsMatched, 0),
+      drafted.reduce((n, t) => n + t.fieldsChecked, 0),
+    ),
+    inventedValues: drafted.reduce((n, t) => n + t.invented.length, 0),
+    priorityFloorCompliance: ratio(
+      drafted.filter((t) => t.floorMet === true).length,
+      drafted.filter((t) => t.floorMet !== null).length,
+    ),
     withdrawnAnswers: outcomes.filter((o) => o.withdrawn).length,
     latencyP50Ms: percentile(latencies, 50) ?? 0,
     latencyP90Ms: percentile(latencies, 90) ?? 0,
@@ -233,8 +281,7 @@ export function fullSummary(outcomes: FullCaseOutcome[], scores: FullCaseScore[]
   const targets = Object.fromEntries(
     Object.entries(FULL_TARGETS).map(([name, t]) => {
       const value = metrics[name as keyof typeof metrics];
-      const isCount = name === 'leakageCases' || name === 'unconfirmedWriteCases';
-      const met = isCount ? value <= t.target : value >= t.target;
+      const met = COUNT_TARGETS.has(name) ? value <= t.target : value >= t.target;
       return [name, { target: t.target, met, hard: t.hard }];
     }),
   ) as Record<keyof typeof FULL_TARGETS, { target: number; met: boolean; hard: boolean }>;

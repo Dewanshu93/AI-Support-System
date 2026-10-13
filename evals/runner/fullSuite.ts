@@ -137,6 +137,14 @@ async function runCase(c: GoldenCase, deps: FullSuiteDeps): Promise<FullCaseOutc
       awaiting:
         out?.action && !out.actionResult ? 'action' : out?.draft && !out.ticketId ? 'draft' : null,
       writeNodes,
+      ticket: out?.draft
+        ? {
+            category: out.draft.category,
+            subcategory: out.draft.subcategory,
+            priority: out.draft.priority,
+            fields: out.draft.fields,
+          }
+        : null,
     };
   } catch (err) {
     return { ...base, writeNodes, error: err instanceof Error ? err.message : String(err) };

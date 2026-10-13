@@ -128,7 +128,10 @@ export async function runFullCli(
       concurrency: 4,
       log: (line) => console.log(`  ${line}`),
     });
-    const scores = outcomes.map((o) => scoreFullCase(o, options.refMatcher));
+    const required = (category: string) =>
+      config.ticketSchemas.schemas[category]?.fields.filter((f) => f.required).map((f) => f.key) ??
+      [];
+    const scores = outcomes.map((o) => scoreFullCase(o, options.refMatcher, required));
     const summary = fullSummary(outcomes, scores);
     const durationMs = Date.now() - startedAt.getTime();
 

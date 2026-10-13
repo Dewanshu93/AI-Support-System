@@ -54,6 +54,77 @@ function outcome(
   };
 }
 
+describe('W3-08: escalation quality in the case score and the summary', () => {
+  const escalation = (ticket: FullCaseOutcome['ticket'], tags: string[] = []) =>
+    outcome({
+      caseId: 'IT-ESC-001',
+      category: 'escalate',
+      tags,
+      decision: 'ESCALATE',
+      reasonCode: 'USER_REQUESTED',
+      contextDocs: [],
+      citedDocs: [],
+      answerText: '',
+      ticket,
+      expected: {
+        decision: 'ESCALATE',
+        docSlugs: [],
+        forbiddenDocSlugs: [],
+        keyFacts: [],
+        ticket: {
+          category: 'hardware',
+          minPriority: 'critical',
+          fields: { device_model: 'Dell Latitude 7440', asset_tag: 'unknown' },
+        },
+      },
+    });
+  const required = () => ['device_model'];
+
+  it('a wrong field and an invented value fail the case with their codes', () => {
+    const o = escalation(
+      {
+        category: 'hardware',
+        subcategory: null,
+        priority: 'critical',
+        fields: { device_model: 'ThinkPad', asset_tag: 'AT-9' },
+      },
+      ['safety'],
+    );
+    const s = scoreFullCase(o, refMatcher, required);
+    expect(s.failureReasons).toEqual(expect.arrayContaining(['FIELD_MISMATCH', 'INVENTED_VALUE']));
+    expect(s.failureReasons).not.toContain('PRIORITY_FLOOR');
+  });
+
+  it('the summary reports category, field accuracy, invented values and floor compliance', () => {
+    const good = escalation(
+      {
+        category: 'hardware',
+        subcategory: null,
+        priority: 'critical',
+        fields: { device_model: 'Dell Latitude 7440', asset_tag: 'unknown' },
+      },
+      ['safety'],
+    );
+    const bad = escalation(
+      { category: 'software', subcategory: null, priority: 'high', fields: { asset_tag: 'AT-9' } },
+      ['safety'],
+    );
+    const noDraft = escalation(null);
+    const cases = [good, bad, noDraft];
+    const m = fullSummary(
+      cases,
+      cases.map((o) => scoreFullCase(o, refMatcher, required)),
+    ).metrics;
+    expect(m).toMatchObject({
+      ticketCases: 2, // the case without a draft is a decision miss, not a ticket metric
+      ticketCategoryAccuracy: 0.5,
+      fieldAccuracy: 0.5,
+      inventedValues: 1,
+      priorityFloorCompliance: 0.5,
+    });
+  });
+});
+
 describe('UC-09: workspace intents and the confirmation hard gate', () => {
   const ws = (over: Parameters<typeof outcome>[0] = {}) =>
     outcome({
