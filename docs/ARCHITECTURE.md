@@ -897,6 +897,16 @@ The ticket nodes (W3-02) and the API (W3-04) use these.
   model configured.
 - The agent ticket DTO carries `agentAssist` (`status`, `headline`, `firstChecks`).
 
+## Agent UI (W3-07)
+
+- `app/(agent)/agent/queue` → `components/agent/AgentQueue.tsx` (filters in the URL, table).
+- `app/(agent)/agent/tickets/[id]` → `components/agent/AgentTicketDetail.tsx`: header with
+  `StatusSelector`, AI brief, `ReplyComposer` (reply / internal note, "Generate draft" → P-7),
+  emails, transcript, timeline; aside with `ClassificationEditor`, fields (AI markers), articles
+  shown. Each action calls the agent API and reloads the ticket.
+- The detail response supplies `allowedStatuses` and `categoryOptions`, so the browser never
+  holds the workflow or taxonomy rules; `lib/agentTicket.ts` computes only what an edit changed.
+
 ## Employee workspace: mock HR systems (UC-01, UC-02)
 
 Build Contract v2.0 (ADR-015). The task tracker, timesheets and HR/payroll systems are mocked

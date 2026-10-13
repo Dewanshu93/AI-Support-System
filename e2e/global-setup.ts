@@ -9,7 +9,7 @@ import { E2E_TODAY } from './today';
 // (DEMO_TODAY, playwright.config.ts). E2E_SKIP_SEED=1 skips it.
 export default function globalSetup(): void {
   if (process.env.E2E_SKIP_SEED === '1') return;
-  execSync(`npm run seed -- --today ${E2E_TODAY}`, {
+  execSync(`npm run seed -- --today ${E2E_TODAY} --reset-requests`, {
     cwd: path.resolve(__dirname, '..'),
     stdio: 'inherit',
   });

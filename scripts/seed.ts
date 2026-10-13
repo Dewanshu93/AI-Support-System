@@ -4,6 +4,7 @@
 //
 //   npm run seed                      # "today" = DEMO_TODAY or the system date
 //   npm run seed -- --today 2026-10-07
+//   npm run seed -- --reset-requests  # also delete requests created since (E2E setup)
 import { ConfigError, loadConfig, loadDotEnv } from '../apps/api/src/config';
 import { connectDatabase, getCollections } from '../apps/api/src/db';
 import { isoDate } from '../apps/api/src/domain/workday';
@@ -11,6 +12,7 @@ import { findSeedProblems, loadSeedUsers, seedUsers } from '../apps/api/src/modu
 import {
   buildMockHrData,
   buildMockRequests,
+  resetRequests,
   seedMockHr,
 } from '../apps/api/src/modules/workspace/seed';
 
@@ -69,6 +71,12 @@ async function main(): Promise<number> {
     const data = buildMockHrData({ users: stored, today, workday: config.workday });
     const requests = buildMockRequests({ users: stored, today, routing: config.routing });
     const employeeIds = stored.filter((u) => u.role === 'employee').map((u) => u._id);
+    if (process.argv.includes('--reset-requests')) {
+      const removed = await resetRequests(collections, requests, employeeIds);
+      console.log(
+        `Reset requests: removed ${removed.tickets} tickets and ${removed.events} events created after seeding.`,
+      );
+    }
     const counts = await seedMockHr(collections, data, requests, employeeIds);
     console.log(
       `Mock HR data for ${today}: ${Object.entries(counts)

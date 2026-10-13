@@ -326,6 +326,32 @@ describe('ticket detail', () => {
       }),
     ]);
   });
+
+  it('W3-07: carries the allowed next statuses and the category options for the editors', async () => {
+    const { ctx, t, cookies } = await setup();
+    const res = await request(ctx.app)
+      .get(`${BASE}/${id(t.itLowOld)}`)
+      .set('Cookie', cookies.sam);
+    expect(res.body.allowedStatuses).toEqual(['in_progress', 'waiting_on_employee', 'resolved']);
+    const ids = res.body.categoryOptions.map((c: { id: string }) => c.id);
+    expect(ids).toEqual(expect.arrayContaining(['hardware', 'access', 'payroll']));
+    expect(res.body.categoryOptions.find((c: { id: string }) => c.id === 'hardware')).toMatchObject(
+      {
+        domain: 'IT',
+        subcategories: expect.arrayContaining([{ id: 'battery', label: 'Battery or power' }]),
+      },
+    );
+  });
+
+  it('W3-07: a confidential case offers only its own category', async () => {
+    const { ctx, t, cookies } = await setup();
+    const res = await request(ctx.app)
+      .get(`${BASE}/${id(t.restricted)}`)
+      .set('Cookie', cookies.hana);
+    expect(res.body.categoryOptions.map((c: { id: string }) => c.id)).toEqual([
+      'employee_relations',
+    ]);
+  });
 });
 
 describe('replies and notes', () => {

@@ -1,11 +1,8 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { AgentTicketDetail } from '@/components/agent/AgentTicketDetail';
 
-export default function TicketworkspacePage() {
-  return (
-    <PlaceholderPage
-      title="Ticket workspace"
-      description="Full ticket context, AI summary, draft reply and classification corrections."
-      task="W3-07"
-    />
-  );
+export const metadata = { title: 'Ticket' };
+
+export default async function AgentTicketPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <AgentTicketDetail key={id} id={id} />;
 }

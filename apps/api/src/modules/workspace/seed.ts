@@ -15,6 +15,7 @@ import {
   type AttendanceDoc,
   AttendanceSchema,
   type ConversationDoc,
+  type EmailOutboxDoc,
   ConversationSchema,
   type MessageDoc,
   MessageSchema,
@@ -721,6 +722,41 @@ export interface MockHrCollections {
   messages: Collection<MessageDoc>;
   tickets: Collection<TicketDoc>;
   ticketEvents: Collection<TicketEventDoc>;
+}
+
+/**
+ * Removes requests created after seeding (E2E runs; `npm run seed -- --reset-requests`):
+ * the demo employees' tickets other than the seeded ones, with their events and
+ * emails, and events added to the seeded tickets. Without it, every test run
+ * leaves tickets behind and the dashboards drift.
+ */
+export async function resetRequests(
+  c: Pick<MockHrCollections, 'tickets' | 'ticketEvents'> & {
+    emailOutbox: Collection<EmailOutboxDoc>;
+  },
+  requests: MockRequests,
+  employeeIds: ObjectId[],
+): Promise<{ tickets: number; events: number }> {
+  const keepTickets = requests.tickets.map((t) => t._id);
+  const extra = await c.tickets
+    .find(
+      { requesterId: { $in: employeeIds }, _id: { $nin: keepTickets } },
+      { projection: { _id: 1 } },
+    )
+    .toArray();
+  const extraIds = extra.map((t) => t._id);
+  await c.emailOutbox.deleteMany({ ticketId: { $in: extraIds } });
+  const events = await c.ticketEvents.deleteMany({
+    $or: [
+      { ticketId: { $in: extraIds } },
+      {
+        ticketId: { $in: keepTickets },
+        _id: { $nin: requests.ticketEvents.map((e) => e._id) },
+      },
+    ],
+  });
+  const tickets = await c.tickets.deleteMany({ _id: { $in: extraIds } });
+  return { tickets: tickets.deletedCount, events: events.deletedCount };
 }
 
 /**

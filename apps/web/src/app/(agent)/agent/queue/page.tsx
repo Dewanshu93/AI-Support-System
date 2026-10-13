@@ -1,11 +1,13 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { Suspense } from 'react';
+import { AgentQueue } from '@/components/agent/AgentQueue';
+
+export const metadata = { title: 'Queue' };
 
 export default function QueuePage() {
+  // useSearchParams (filters) needs a Suspense boundary.
   return (
-    <PlaceholderPage
-      title="Queue"
-      description="Work tickets in your queues in priority order."
-      task="W3-07"
-    />
+    <Suspense>
+      <AgentQueue />
+    </Suspense>
   );
 }

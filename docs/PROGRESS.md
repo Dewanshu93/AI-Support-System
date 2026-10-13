@@ -1854,3 +1854,38 @@ salary question. Fixes found on the way: the LOP spec signs Hana in to her agent
 dashboard); replay follows the Pro-on path regardless of the user's setting, so its prompts match
 the recordings (`server.ts` `localMode`). On this PC run the suite with `--workers=1`: two workers
 overload the machine (browser crashes, "cannot reach the service").
+
+## W3-07 Agent UI — 2026-10-13
+
+Brought back from the deferred list by the owner (2026-10-08, ADR-019 context).
+
+**Delivered:**
+
+- **Queue** (`/agent/queue`, `components/agent/AgentQueue.tsx`): the agent's queues, critical
+  first then oldest (API order); filters for queue (agents with several), status and priority,
+  kept in the URL; table with priority, workflow status, queue, age and a lock icon on
+  confidential cases; skeleton, error with retry, "Queue clear" / "No tickets match".
+- **Ticket workspace** (`/agent/tickets/[id]`, `AgentTicketDetail.tsx`): header (ID, queue,
+  priority and floor, confidential badge, requester) with the **status selector**
+  (`StatusSelector`, only the moves the API allows); **AI brief** (P-6 headline, brief, first
+  checks; fallback and confidential notes); **reply composer** (`ReplyComposer`: reply or
+  internal note; "Generate draft" with tone, P-7, fills the box and lists the sources; sending is
+  blocked while `[placeholders]` remain; `usedAiDraft` sent with the reply); escalation emails
+  (agent view); conversation (collapsible); full timeline with internal notes, status changes and
+  corrections; **classification editor** (`ClassificationEditor`: category grouped by domain,
+  subcategory, priority; saves only the changed fields, warns about re-routing; a confidential
+  case keeps its category); fields with AI-filled markers; articles already shown. Per-action
+  messages; a refused action (e.g. 409) shows the API's reason.
+- API: the agent ticket detail carries `allowedStatuses` (from `TRANSITIONS`) and
+  `categoryOptions` (taxonomy; only the current category for a confidential case), so the rules
+  stay in code with no new endpoint.
+
+**Verification:** `lib/agentTicket.test.ts` (classification change, age labels),
+`components/agent/agentComponents.test.tsx` (status selector, classification editor, workspace:
+brief, AI markers, internal notes, confidential and fallback states), `test/api/agent.test.ts`
+(allowed statuses and category options), `e2e/tests/agent.spec.ts` (flow 8: Hana filters the
+queue, opens HR-9002, adds a note, a placeholder blocks sending, sends a reply, changes status,
+corrects priority; Tom is notified of the reply; an IT agent sees no HR ticket and an unknown
+ticket is not found). Lint and typecheck clean; Jest shared 67, web 92, api 1157; E2E 31/31 (replay, `--workers=1`). E2E setup now seeds with `--reset-requests` (`resetRequests`: the demo employees' tickets created after seeding, their events and emails, and events added to seeded tickets), because tickets left by earlier runs pushed the seeded VPN request off Priya's dashboard (54 tickets removed on the first run).
+
+**Not covered by E2E:** "Generate draft" (an LLM call); covered by API and component tests.

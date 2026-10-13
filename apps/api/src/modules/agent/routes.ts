@@ -28,6 +28,7 @@ import {
 import type { AppDeps } from '../../deps';
 import type { TicketDoc, TicketEventDoc } from '../../db/schemas';
 import { queueScope } from '../../domain/agentAccess';
+import { TRANSITIONS } from '../../domain/ticketStateMachine';
 import type { RouteDef } from '../../http/routes';
 import { validate } from '../../http/validate';
 import { AppError } from '../../lib/errors';
@@ -178,6 +179,16 @@ export function agentRoutes(
             })),
             citationsShown: [...citations.values()],
             emails: emails.map(toTicketEmail),
+            allowedStatuses: [...TRANSITIONS[ticket.status]],
+            // A confidential case keeps its category (applyClassification refuses a change).
+            categoryOptions: deps.ticketConfig.taxonomy.categories
+              .filter((c) => !ticket.restricted || c.id === ticket.category)
+              .map((c) => ({
+                id: c.id,
+                label: c.label,
+                domain: c.domain,
+                subcategories: c.subcategories.map((s) => ({ id: s.id, label: s.label })),
+              })),
           };
           res.json(body);
         },

@@ -116,6 +116,22 @@ export const AgentTicketDetailResponseSchema = z.object({
   citationsShown: z.array(CitationDtoSchema),
   /** Escalation emails linked to the ticket (UC-07), oldest first; never on restricted cases. */
   emails: z.array(TicketEmailSchema).default([]),
+  /** Statuses the workflow allows from the current one (W3-07; rules stay in the API). */
+  allowedStatuses: z.array(TicketStatusSchema).default([]),
+  /**
+   * Categories the agent may choose (W3-07): the taxonomy of the ticket's domain plus the
+   * other domain; only the current category for a confidential case (it keeps its queue).
+   */
+  categoryOptions: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        domain: DomainSchema,
+        subcategories: z.array(z.object({ id: z.string(), label: z.string() })),
+      }),
+    )
+    .default([]),
 });
 export type AgentTicketDetailResponse = z.infer<typeof AgentTicketDetailResponseSchema>;
 

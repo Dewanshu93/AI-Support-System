@@ -2,6 +2,13 @@
 // Next.js rewrites to the Express API, so the session cookie is first-party.
 // Every response is validated with the shared Zod schemas.
 import {
+  type AgentClassificationRequest,
+  AgentDraftReplyResponseSchema,
+  AgentEventResponseSchema,
+  AgentTicketDetailResponseSchema,
+  type AgentTicketListQuery,
+  AgentTicketListResponseSchema,
+  AgentTicketResponseSchema,
   AuthUserResponseSchema,
   ConversationDetailResponseSchema,
   ConversationListResponseSchema,
@@ -100,6 +107,44 @@ export const api = {
     (await apiRequest('/auth/login', AuthUserResponseSchema, { method: 'POST', body }))!.user,
   logout: () => apiRequest('/auth/logout', null, { method: 'POST' }),
   me: async () => (await apiRequest('/auth/me', AuthUserResponseSchema))!.user,
+
+  // Agent workspace (W3-07).
+  agentQueue: async (q: Partial<AgentTicketListQuery> = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(q)) if (value) params.set(key, String(value));
+    const query = params.toString();
+    return (await apiRequest(
+      `/agent/tickets${query ? `?${query}` : ''}`,
+      AgentTicketListResponseSchema,
+    ))!;
+  },
+  agentTicket: async (id: string) =>
+    (await apiRequest(`/agent/tickets/${id}`, AgentTicketDetailResponseSchema))!,
+  agentReply: async (id: string, body: string, usedAiDraft: boolean) =>
+    (await apiRequest(`/agent/tickets/${id}/replies`, AgentEventResponseSchema, {
+      method: 'POST',
+      body: { body, usedAiDraft },
+    }))!.event,
+  agentNote: async (id: string, body: string) =>
+    (await apiRequest(`/agent/tickets/${id}/notes`, AgentEventResponseSchema, {
+      method: 'POST',
+      body: { body },
+    }))!.event,
+  agentStatus: async (id: string, status: TicketStatus) =>
+    (await apiRequest(`/agent/tickets/${id}/status`, AgentTicketResponseSchema, {
+      method: 'PATCH',
+      body: { status },
+    }))!.ticket,
+  agentClassify: async (id: string, body: AgentClassificationRequest) =>
+    (await apiRequest(`/agent/tickets/${id}/classification`, AgentTicketResponseSchema, {
+      method: 'PATCH',
+      body,
+    }))!.ticket,
+  agentDraftReply: async (id: string, tone: 'standard' | 'brief') =>
+    (await apiRequest(`/agent/tickets/${id}/draft-reply`, AgentDraftReplyResponseSchema, {
+      method: 'POST',
+      body: { tone },
+    }))!,
   /** The signed-in user's own settings (ADR-020: Pro models). */
   setPreferences: async (body: PreferencesRequest) =>
     (await apiRequest('/profiles/me/preferences', AuthUserResponseSchema, {
