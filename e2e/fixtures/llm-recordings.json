@@ -18970,7 +18970,7 @@
  },
  "1981ddb376c1552f413237ec": {
   "kind": "stream",
-  "value": "Contractors do not receive a company laptop or phone [S1]. You work from your own device (or one provided by your agency) and reach company systems through the company virtual desktop [S1]. \n\nThe provided source does not cover troubleshooting steps or technical support for a Dell Latitude 7440 laptop that will not turn on after charging.\n\n```json\n{ \""
+  "value": "As a contractor, you do not receive a company laptop or phone [S1]. You work from your own device (or one provided by your agency) and reach company systems through the company virtual desktop [S1]. The provided sources do not contain troubleshooting steps or information for a Dell Latitude 7440 laptop that will not turn on after charging.\n\n```json\n{ \"un"
  },
  "4cc9e0cac70119cc5c013c14": {
   "kind": "structured",
@@ -18998,7 +18998,7 @@
  },
  "26544099cd61c69ce1689979": {
   "kind": "stream",
-  "value": "{\"category\":\"hardware\",\"subcategory\":\"laptop_fault\",\"urgency\":\"high\",\"urgencyReason\":\"The employee cannot turn on their laptop, preventing them from working.\",\"impactScope\":\"me\",\"summary\":\"Dell Latitude 7440 laptop will not turn on after charging overnight\",\"description\":\"The employee reports that their Dell Latitude 7440 laptop will not turn on, even after charging it overnight. They are requesting assistance from IT support to resolve the issue.\",\"alreadyTried\":[\"charging it overnight\"],\"errorMessages\":[],\"fields\":{\"device_model\":\"Dell Latitude 7440\",\"symptoms\":\"laptop will not turn on, even after charging it overnight\",\"started_at\":\"unknown\",\"asset_tag\":\"unknown\"},\"requiredMissing\":[]}"
+  "value": "{\"category\":\"hardware\",\"subcategory\":\"laptop_fault\",\"urgency\":\"high\",\"urgencyReason\":\"The laptop will not power on, preventing the employee from working.\",\"impactScope\":\"me\",\"summary\":\"Dell Latitude 7440 laptop will not turn on after charging overnight\",\"description\":\"The employee reports that their Dell Latitude 7440 laptop will not turn on. They already tried charging it overnight, but it remains unresponsive. Hardware assistance is requested.\",\"alreadyTried\":[\"charging it overnight\"],\"errorMessages\":[],\"fields\":{\"device_model\":\"Dell Latitude 7440\",\"symptoms\":\"laptop will not turn on, even after charging it overnight\",\"started_at\":\"unknown\",\"asset_tag\":\"unknown\"},\"requiredMissing\":[]}"
  },
  "b3420de8f77af02fe9c1d7ec": {
   "kind": "embedding",
@@ -19858,6 +19858,34 @@
    "fieldsAsked": [
     "pay_period",
     "employee_id"
+   ]
+  }
+ },
+ "669f88a47ae907fff922126e": {
+  "kind": "structured",
+  "value": {
+   "summary": "Dell Latitude 7440 laptop will not power on after overnight charging.",
+   "agentBrief": "The employee reports their Dell Latitude 7440 laptop is unresponsive and will not power on despite being charged overnight. The asset tag and the start date of the issue are unknown. No troubleshooting articles have been provided to the employee yet. The employee is requesting direct assistance from the IT team.",
+   "suggestedFirstChecks": [
+    "Verify if the charging indicator light is active when the power adapter is connected.",
+    "Perform a hard reset by holding the power button for 30 seconds.",
+    "Test with a known working power adapter if available."
+   ]
+  }
+ },
+ "d6ce653e9fc0021cc9c32182": {
+  "kind": "stream",
+  "value": "{\"category\":\"payroll\",\"subcategory\":\"payslip\",\"urgency\":\"medium\",\"urgencyReason\":\"Salary reduction due to Loss of Pay deduction directly impacts employee compensation.\",\"impactScope\":\"me\",\"summary\":\"Request for Loss of Pay deduction review\",\"description\":\"The employee had their salary reduced due to a Loss of Pay deduction. The employee stated they actually worked on that day and requested to log 8 hours for the Banking Module. They are requesting payroll to review the Loss of Pay deduction.\",\"alreadyTried\":[\"Requested logging 8 hours for the Banking Module\"],\"errorMessages\":[],\"fields\":{\"pay_period\":\"unknown\",\"question\":\"Please contact payroll about my Loss of Pay deduction.\"},\"requiredMissing\":[\"pay_period\"]}"
+ },
+ "1f3f3a117b571321f13d23aa": {
+  "kind": "structured",
+  "value": {
+   "summary": "Request for review of Loss of Pay deduction for September 11, 2026.",
+   "agentBrief": "The employee is requesting a review of a Loss of Pay deduction applied to the pay period of September 16–30, 2026. The deduction occurred because no timesheet or attendance records were present for September 11, 2026, by the payroll cutoff. The employee states they worked that day and has requested to log 8 hours for the Banking Module. The employee has been informed of the policy regarding late timesheet entries and the requirement for a payroll review. No articles have been shown to the employee yet.",
+   "suggestedFirstChecks": [
+    "Verify if the employee has submitted the timesheet entry for September 11, 2026.",
+    "Check if the requested 8 hours for the Banking Module were approved by the manager.",
+    "Review the payroll records for the September 16–30, 2026, pay period to confirm the LOP deduction."
    ]
   }
  }

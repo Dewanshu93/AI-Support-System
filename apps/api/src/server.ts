@@ -197,7 +197,9 @@ async function main() {
     config,
     prompts,
     chatFor,
-    localMode: () => currentModelMode() === 'local',
+    // Replay serves recordings made with Pro on (paid models), so it follows the Pro
+    // path whatever the user's setting: the same prompts, hence the same recordings.
+    localMode: () => mode !== 'replay' && currentModelMode() === 'local',
     users,
     conversations,
     tickets,

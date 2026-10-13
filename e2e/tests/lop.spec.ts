@@ -16,10 +16,11 @@ const LOP_AMOUNT = '$400.00';
 const DETAILS =
   'I worked a full day on the Banking Module on 11 September and have now logged it; please review the deduction.';
 
-async function signIn(page: Page, name: string) {
+/** Signs in; employees land on the dashboard, agents on their queue. */
+async function signIn(page: Page, name: string, home = /\/dashboard$/) {
   await page.goto('/login');
   await page.getByRole('button', { name: `Sign in as ${name}` }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(home);
 }
 
 async function ask(page: Page, text: string) {
@@ -37,7 +38,7 @@ async function ask(page: Page, text: string) {
 async function agentSetsStatus(browser: Browser, ticketId: string, status: string) {
   const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const agent = await context.newPage();
-  await signIn(agent, 'Hana Kim');
+  await signIn(agent, 'Hana Kim', /\/agent\/queue$/);
   const res = await agent.request.patch(`/api/agent/tickets/${ticketId}/status`, {
     data: { status },
   });

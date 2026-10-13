@@ -1844,3 +1844,13 @@ answer was withdrawn (invalid citations).
 Tests: `workspaceIntentRules.test.ts`, `turnUnderstanding.test.ts` (inferred, explicit kept,
 fallback analysis), `retrievalNodes.test.ts` (local ranking, non-local still calls P-2),
 `chatModel.test.ts` (no retries locally). Lint, typecheck, web 76 and api 1155 green.
+
+### E2E recordings complete — 2026-10-13
+
+All 29 E2E tests pass in replay (no LLM calls), the UC-10 LOP scenario included. The LOP scenario
+and the duplicate-ticket flow were recorded once with Pro on for their test users (owner
+decision; a few Gemini calls), since the local model on CPU timed out and misclassified the
+salary question. Fixes found on the way: the LOP spec signs Hana in to her agent queue (not the
+dashboard); replay follows the Pro-on path regardless of the user's setting, so its prompts match
+the recordings (`server.ts` `localMode`). On this PC run the suite with `--workers=1`: two workers
+overload the machine (browser crashes, "cannot reach the service").
