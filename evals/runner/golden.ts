@@ -17,10 +17,13 @@ import {
   CASE_CATEGORIES,
   CATEGORY_CODE,
   CATEGORY_DECISION,
+  CATEGORY_INTENT,
   type CaseCategory,
   DATASET_VERSION,
   type GoldenCase,
   GoldenCaseSchema,
+  isWorkspaceCategory,
+  KNOWLEDGE_CATEGORIES,
 } from './schema';
 
 export const GOLDEN_FILE = path.join(
@@ -30,9 +33,9 @@ export const GOLDEN_FILE = path.join(
   `golden.${DATASET_VERSION}.jsonl`,
 );
 
-/** Section 8 composition. */
+/** Section 8 composition, plus the UC-09 workspace cases (Build Contract v2.0 section R). */
 export const COMPOSITION = {
-  total: 80,
+  total: 97,
   byCategory: {
     answerable: 35,
     partial: 10,
@@ -40,6 +43,10 @@ export const COMPOSITION = {
     escalate: 12,
     sensitive: 8,
     out_of_scope: 5,
+    timesheet_log: 6,
+    timesheet_status: 3,
+    payroll: 5,
+    request_status: 3,
   },
   answerableByDomain: { IT: { min: 16, max: 20 }, HR: { min: 15, max: 19 } },
   minProfileVariantPairs: 8,
@@ -48,7 +55,7 @@ export const COMPOSITION = {
   minEscalateMultiTurn: 4,
   safety: 2,
   sensitiveIndirect: 2,
-  injection: 5,
+  injection: 6, // section 8: 5, plus one workspace case (UC-09)
   supersededTrap: 4,
   holdout: 15,
 } as const;
@@ -113,7 +120,7 @@ export function loadValidationContext(): ValidationContext {
 }
 
 const text = (c: GoldenCase) => c.turns.map((t) => t.content).join('\n');
-const domainOf = (c: GoldenCase) => c.id.split('-')[0] as 'IT' | 'HR' | 'GEN';
+const domainOf = (c: GoldenCase) => c.id.split('-')[0] as 'IT' | 'HR' | 'GEN' | 'WS';
 
 /** Per-case rules and cross-references. */
 export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): string[] {
@@ -134,7 +141,9 @@ export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): s
 
     if (c.id.split('-')[1] !== CATEGORY_CODE[c.category])
       say(`id code does not match category ${c.category}`);
-    if (c.expected.decision !== CATEGORY_DECISION[c.category]) {
+    // A timesheet request with missing details or a rule problem is a code-asked CLARIFY.
+    const clarifyingLog = c.category === 'timesheet_log' && c.expected.decision === 'CLARIFY';
+    if (c.expected.decision !== CATEGORY_DECISION[c.category] && !clarifyingLog) {
       say(
         `decision ${c.expected.decision} does not match category ${c.category} (${CATEGORY_DECISION[c.category]})`,
       );
@@ -147,6 +156,24 @@ export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): s
     }
     if (c.tags.includes('multi_turn') !== c.turns.length > 1)
       say('multi_turn tag must match turns.length > 1');
+
+    // Workspace cases (UC-09): routed by the P-1 workspace intent, answered from records.
+    if (isWorkspaceCategory(c.category)) {
+      if (c.expected.workspaceIntent !== CATEGORY_INTENT[c.category])
+        say(`workspace cases need workspaceIntent ${CATEGORY_INTENT[c.category]}`);
+      if (c.tags.includes('holdout')) say('workspace cases are not holdout cases');
+    } else if (c.expected.workspaceIntent && c.expected.workspaceIntent !== 'none') {
+      say('policy and ticket cases can only expect workspaceIntent none');
+    }
+    if ((domainOf(c) === 'WS') !== isWorkspaceCategory(c.category))
+      say('WS ids are for workspace categories only');
+    if (
+      c.expected.awaitsConfirmation &&
+      c.category !== 'timesheet_log' &&
+      c.category !== 'escalate'
+    ) {
+      say('only timesheet_log and escalate cases can await confirmation');
+    }
 
     const user = usersByEmail.get(c.userEmail);
     if (!user) say(`userEmail ${c.userEmail} is not a seeded user`);
@@ -314,7 +341,7 @@ export function findCompositionProblems(cases: GoldenCase[]): string[] {
   atLeast('categories with injection cases', c.injectionCategories, 4);
   exact('superseded_trap cases', c.supersededTrap, r.supersededTrap);
   exact('holdout cases', c.holdout, r.holdout);
-  exact('categories with holdout cases', c.holdoutCategories, CASE_CATEGORIES.length);
+  exact('categories with holdout cases', c.holdoutCategories, KNOWLEDGE_CATEGORIES.length);
   return problems;
 }
 

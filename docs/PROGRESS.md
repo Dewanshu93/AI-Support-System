@@ -36,19 +36,19 @@
 
 ### Use Case 1 tasks (Build Contract v2.0, ADR-015)
 
-| Task  | Name                                                                                                                         | Status | Contract flows |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------- | ------ | -------------- |
-| UC-00 | Pivot documents (contract v2.0, ADR-015, task list)                                                                          | Done   | —              |
-| UC-01 | Mock HR data (projects, tasks, timesheets, attendance, payroll, notifications) and new policies (LOP, timesheet, attendance) | Done   | 1, 4, 5        |
-| UC-02 | Employee data APIs: tasks, timesheets, payroll, notifications, dashboard summary                                             | Done   | 1, 3, 4        |
-| UC-03 | Employee dashboard and timesheet page                                                                                        | Done   | 1              |
-| UC-04 | Copilot intents: P-1 v2 intent field and deterministic branch routing                                                        | Done   | 2–7            |
-| UC-05 | Timesheet action branch: extract → validate → confirm card → write → audit; timesheet status answers                         | Done   | 3, 4, 8        |
-| UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | Done   | 5, 8           |
-| UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | Done   | 6              |
-| UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | Done   | 7              |
-| UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | Paused | all            |
-| UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | Done   | all            |
+| Task  | Name                                                                                                                         | Status                  | Contract flows |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------- | -------------- |
+| UC-00 | Pivot documents (contract v2.0, ADR-015, task list)                                                                          | Done                    | —              |
+| UC-01 | Mock HR data (projects, tasks, timesheets, attendance, payroll, notifications) and new policies (LOP, timesheet, attendance) | Done                    | 1, 4, 5        |
+| UC-02 | Employee data APIs: tasks, timesheets, payroll, notifications, dashboard summary                                             | Done                    | 1, 3, 4        |
+| UC-03 | Employee dashboard and timesheet page                                                                                        | Done                    | 1              |
+| UC-04 | Copilot intents: P-1 v2 intent field and deterministic branch routing                                                        | Done                    | 2–7            |
+| UC-05 | Timesheet action branch: extract → validate → confirm card → write → audit; timesheet status answers                         | Done                    | 3, 4, 8        |
+| UC-06 | Payroll investigation branch: records + policy, separated; follow-up offers                                                  | Done                    | 5, 8           |
+| UC-07 | Escalation with AI email draft, edit/send/cancel, email outbox (mock; SMTP switch)                                           | Done                    | 6              |
+| UC-08 | Request tracker (list + board, employee labels), status-change notifications, "show my requests"                             | Done                    | 7              |
+| UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | Done (eval run pending) | all            |
+| UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | Done                    | all            |
 
 ## Checkpoints
 
@@ -1889,3 +1889,35 @@ corrects priority; Tom is notified of the reply; an IT agent sees no HR ticket a
 ticket is not found). Lint and typecheck clean; Jest shared 67, web 92, api 1157; E2E 31/31 (replay, `--workers=1`). E2E setup now seeds with `--reset-requests` (`resetRequests`: the demo employees' tickets created after seeding, their events and emails, and events added to seeded tickets), because tickets left by earlier runs pushed the seeded VPN request off Priya's dashboard (54 tickets removed on the first run).
 
 **Not covered by E2E:** "Generate draft" (an LLM call); covered by API and component tests.
+
+## UC-09 Golden cases and eval for the new intents; confirmation hard gate — 2026-10-13
+
+**Delivered:**
+
+- **17 workspace cases** in `evals/golden/golden.v1.jsonl` (now 97): `WS-TSL` timesheet logging
+  6 (two must show a confirmation card; missing details, an over-limit day and a project the
+  employee is not on must CLARIFY with no card; one injection asking to skip confirmation),
+  `WS-TSS` timesheet status 3, `WS-PAY` payroll 5 (LOP explanation with the Loss of Pay policy
+  cited, "How many LOP days this month", a UK payslip, a contractor, a multi-turn "that day"
+  follow-up), `WS-REQ` request status 3.
+- **Schema and validator:** four workspace categories (ids `WS-…`), `expected.workspaceIntent`
+  (required for them; policy cases may only expect `none`) and `expected.awaitsConfirmation`
+  (timesheet_log and escalate only); a timesheet_log case may expect CLARIFY; composition 97
+  cases, 6 injection cases. The retrieval suite skips workspace cases.
+- **Scorers:** intent accuracy (cases that name an intent; target 90%), confirmation-card rate
+  (target 100%), and the **hard gate "no timesheet write or email without confirmation"**
+  (`unconfirmedWriteCases` = 0): the full suite records every write node
+  (`applyAction`, `createTicket`, `sendEmail`) in any turn; the eval never confirms, so any of them
+  is a failure. Report and CLI summary show them.
+- **Eval wiring:** the full suite runs with the employees' real records, with timesheet saves
+  refused (`EVAL_WRITE_REFUSED`); `--category` and `--prompt name=N` (evaluate a prompt version
+  before activating it) flags.
+
+**Verification:** `golden.test.ts` (97-case composition, workspace rules), `fullScorers.test.ts`
+(intent, card, hard gate in summary and targets), `scorers.test.ts` (new flags); evals 63/63;
+`npm run golden:validate` valid.
+
+**Not done (owner decision 2026-10-13):** the eval run itself. To run it:
+`npm run eval -- --suite full --category timesheet_log --category timesheet_status --category payroll --category request_status`
+(paid models, about 45 calls), then note the headline metrics here. The cases assume demo data
+seeded near today (the LOP day is the last working day on or before the 12th of last month).

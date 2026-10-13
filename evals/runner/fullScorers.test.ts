@@ -47,9 +47,84 @@ function outcome(
     costUsd: 0.003,
     flags: [],
     error: null,
+    workspaceIntent: 'none',
+    awaiting: null,
+    writeNodes: [],
     ...rest,
   };
 }
+
+describe('UC-09: workspace intents and the confirmation hard gate', () => {
+  const ws = (over: Parameters<typeof outcome>[0] = {}) =>
+    outcome({
+      caseId: 'WS-TSL-001',
+      category: 'timesheet_log',
+      reasonCode: 'TIMESHEET_ACTION_PROPOSED',
+      contextDocs: [],
+      citedDocs: [],
+      answerText: 'Please confirm this timesheet entry.',
+      ...over,
+      expected: {
+        decision: 'ANSWER',
+        workspaceIntent: 'timesheet_log',
+        awaitsConfirmation: true,
+        docSlugs: [],
+        forbiddenDocSlugs: [],
+        keyFacts: [],
+        ...over.expected,
+      },
+    });
+
+  it('the right agent and a waiting card pass', () => {
+    const s = scoreFullCase(
+      ws({ workspaceIntent: 'timesheet_log', awaiting: 'action' }),
+      refMatcher,
+    );
+    expect(s).toMatchObject({
+      intentCorrect: true,
+      awaitsConfirmation: true,
+      unconfirmedWrite: false,
+      passed: true,
+    });
+  });
+
+  it('a wrong agent fails with WRONG_INTENT; a missing card with CONFIRMATION_CARD', () => {
+    const s = scoreFullCase(ws({ workspaceIntent: 'none', awaiting: null }), refMatcher);
+    expect(s.failureReasons).toEqual(expect.arrayContaining(['WRONG_INTENT', 'CONFIRMATION_CARD']));
+  });
+
+  it('any write node in the path is a write without confirmation (hard gate)', () => {
+    const s = scoreFullCase(
+      ws({ workspaceIntent: 'timesheet_log', awaiting: null, writeNodes: ['applyAction'] }),
+      refMatcher,
+    );
+    expect(s.unconfirmedWrite).toBe(true);
+    expect(s.failureReasons).toContain('WRITE_WITHOUT_CONFIRMATION');
+    const summary = fullSummary(
+      [ws({ writeNodes: ['applyAction'] }), outcome()],
+      [s, scoreFullCase(outcome(), refMatcher)],
+    );
+    expect(summary.metrics.unconfirmedWriteCases).toBe(1);
+    expect(summary.targets.unconfirmedWriteCases).toMatchObject({ met: false, hard: true });
+    expect(summary.passed).toBe(false);
+  });
+
+  it('intent accuracy counts only cases that name an intent', () => {
+    const cases = [
+      ws({ workspaceIntent: 'timesheet_log', awaiting: 'action' }),
+      ws({ workspaceIntent: 'none', awaiting: 'action' }),
+      outcome(), // a policy case without an expected intent
+    ];
+    const summary = fullSummary(
+      cases,
+      cases.map((o) => scoreFullCase(o, refMatcher)),
+    );
+    expect(summary.metrics.intentCases).toBe(2);
+    expect(summary.metrics.intentAccuracy).toBe(0.5);
+    expect(summary.metrics.unconfirmedWriteCases).toBe(0);
+    expect(summary.targets.unconfirmedWriteCases.met).toBe(true);
+  });
+});
 
 describe('scoreFullCase', () => {
   it('passes a correct, cited answer with its key facts', () => {

@@ -278,6 +278,31 @@ describe('parseArgs', () => {
       suite: 'retrieval',
       caseIds: ['A', 'B'],
       tags: ['table'],
+      categories: [],
+      prompts: {},
+      problems: [],
     });
+  });
+
+  it('UC-09: reads categories and prompt overrides; rejects a malformed --prompt', () => {
+    expect(
+      parseArgs([
+        '--suite',
+        'full',
+        '--category',
+        'payroll',
+        '--category',
+        'timesheet_log',
+        '--prompt',
+        'turn_analysis=2',
+      ]),
+    ).toMatchObject({
+      categories: ['payroll', 'timesheet_log'],
+      prompts: { turn_analysis: 2 },
+      problems: [],
+    });
+    expect(parseArgs(['--prompt', 'turn_analysis']).problems).toEqual([
+      '--prompt turn_analysis: expected name=version, e.g. turn_analysis=2',
+    ]);
   });
 });

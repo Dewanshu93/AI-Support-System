@@ -1,6 +1,8 @@
 // npm run eval -- --suite retrieval|full [--case HR-ANS-007]… [--tag table]…
+//   [--category payroll]… [--prompt turn_analysis=2]…
 // Runs the golden set against the real index, stores eval_runs/eval_results,
 // writes a Markdown report to evals/reports/, and exits 1 if the run fails.
+// --prompt evaluates a prompt version before it is made active (full suite).
 import { execSync } from 'node:child_process';
 import { ObjectId } from 'mongodb';
 import fs from 'node:fs';
@@ -30,16 +32,25 @@ export interface CliArgs {
   suite?: string;
   caseIds: string[];
   tags: string[];
+  categories: string[];
+  /** name → version, from --prompt name=N. */
+  prompts: Record<string, number>;
+  problems: string[];
 }
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { caseIds: [], tags: [] };
+  const args: CliArgs = { caseIds: [], tags: [], categories: [], prompts: {}, problems: [] };
   for (let i = 0; i < argv.length; i++) {
     const value = argv[i + 1];
     if (argv[i] === '--suite') args.suite = value;
     else if (argv[i] === '--case' && value) args.caseIds.push(value);
     else if (argv[i] === '--tag' && value) args.tags.push(value);
-    else continue;
+    else if (argv[i] === '--category' && value) args.categories.push(value);
+    else if (argv[i] === '--prompt' && value) {
+      const match = /^([a-z_]+)=(\d+)$/.exec(value);
+      if (match) args.prompts[match[1]!] = Number(match[2]);
+      else args.problems.push(`--prompt ${value}: expected name=version, e.g. turn_analysis=2`);
+    } else continue;
     i++;
   }
   return args;
@@ -61,6 +72,14 @@ function gitCommit(): string {
 
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
+  if (args.problems.length > 0) {
+    console.error(args.problems.join('\n'));
+    return 1;
+  }
+  if (Object.keys(args.prompts).length > 0 && args.suite !== 'full') {
+    console.error('--prompt applies to the full suite only.');
+    return 1;
+  }
   if (args.suite !== 'retrieval' && args.suite !== 'full') {
     console.error(
       args.suite
@@ -93,6 +112,7 @@ async function main(): Promise<number> {
   if (args.caseIds.length > 0) cases = cases.filter((c) => args.caseIds.includes(c.id));
   if (args.tags.length > 0)
     cases = cases.filter((c) => args.tags.some((t) => c.tags.includes(t as never)));
+  if (args.categories.length > 0) cases = cases.filter((c) => args.categories.includes(c.category));
   if (cases.length === 0) {
     console.error('No golden cases match the filters.');
     return 1;
@@ -103,6 +123,7 @@ async function main(): Promise<number> {
       refMatcher,
       gitCommit: gitCommit(),
       reportsDir: REPORTS_DIR,
+      promptOverrides: args.prompts,
     });
   }
 

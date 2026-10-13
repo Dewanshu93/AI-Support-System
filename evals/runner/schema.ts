@@ -2,10 +2,12 @@
 // evals/golden/golden.v<N>.jsonl.
 import { DecisionSchema, PrioritySchema } from '@sd/shared';
 import { z } from 'zod';
+import { WORKSPACE_INTENTS, type WorkspaceIntent } from '../../apps/api/src/ai/schemas';
 
 export const DATASET_VERSION = 'v1';
 
-export const CASE_CATEGORIES = [
+/** Policy and ticket cases (playbook section 8). */
+export const KNOWLEDGE_CATEGORIES = [
   'answerable',
   'partial',
   'clarify',
@@ -13,9 +15,24 @@ export const CASE_CATEGORIES = [
   'sensitive',
   'out_of_scope',
 ] as const;
+/** Employee-records copilot cases (UC-09; Build Contract v2.0 section R). */
+export const WORKSPACE_CATEGORIES = [
+  'timesheet_log',
+  'timesheet_status',
+  'payroll',
+  'request_status',
+] as const;
+export const CASE_CATEGORIES = [...KNOWLEDGE_CATEGORIES, ...WORKSPACE_CATEGORIES] as const;
 export type CaseCategory = (typeof CASE_CATEGORIES)[number];
+export type WorkspaceCategory = (typeof WORKSPACE_CATEGORIES)[number];
+export const isWorkspaceCategory = (c: CaseCategory): c is WorkspaceCategory =>
+  (WORKSPACE_CATEGORIES as readonly string[]).includes(c);
 
-/** The decision each category is labelled with. */
+/**
+ * The decision each category is labelled with. Records replies are answers from
+ * data (ANSWER); a timesheet request with missing details is a CLARIFY, listed per
+ * case in acceptableDecisions.
+ */
 export const CATEGORY_DECISION = {
   answerable: 'ANSWER',
   partial: 'PARTIAL',
@@ -23,6 +40,10 @@ export const CATEGORY_DECISION = {
   escalate: 'ESCALATE',
   sensitive: 'SENSITIVE_HANDOFF',
   out_of_scope: 'OUT_OF_SCOPE',
+  timesheet_log: 'ANSWER',
+  timesheet_status: 'ANSWER',
+  payroll: 'ANSWER',
+  request_status: 'ANSWER',
 } as const satisfies Record<CaseCategory, z.infer<typeof DecisionSchema>>;
 
 export const CATEGORY_CODE = {
@@ -32,7 +53,19 @@ export const CATEGORY_CODE = {
   escalate: 'ESC',
   sensitive: 'SEN',
   out_of_scope: 'OOS',
+  timesheet_log: 'TSL',
+  timesheet_status: 'TSS',
+  payroll: 'PAY',
+  request_status: 'REQ',
 } as const satisfies Record<CaseCategory, string>;
+
+/** The P-1 workspace intent that routes each workspace category to its agent. */
+export const CATEGORY_INTENT = {
+  timesheet_log: 'timesheet_log',
+  timesheet_status: 'timesheet_status',
+  payroll: 'payroll_explain',
+  request_status: 'request_status',
+} as const satisfies Record<WorkspaceCategory, WorkspaceIntent>;
 
 /**
  * Section 8 cross-cutting tags, plus labels the validator uses for composition:
@@ -61,7 +94,10 @@ const DocRef = z
 export const GoldenCaseSchema = z.strictObject({
   id: z
     .string()
-    .regex(/^(IT|HR|GEN)-(ANS|PAR|CLR|ESC|SEN|OOS)-\d{3}$/, 'must look like HR-ANS-007'),
+    .regex(
+      /^((IT|HR|GEN)-(ANS|PAR|CLR|ESC|SEN|OOS)|WS-(TSL|TSS|PAY|REQ))-\d{3}$/,
+      'must look like HR-ANS-007 or WS-TSL-001',
+    ),
   category: z.enum(CASE_CATEGORIES),
   tags: z
     .array(z.enum(CASE_TAGS))
@@ -75,6 +111,10 @@ export const GoldenCaseSchema = z.strictObject({
   expected: z.strictObject({
     decision: DecisionSchema,
     acceptableDecisions: z.array(DecisionSchema).min(1).optional(),
+    /** The P-1 workspace intent; required for workspace categories, "none" elsewhere when given. */
+    workspaceIntent: z.enum(WORKSPACE_INTENTS).optional(),
+    /** A timesheet entry or ticket draft must be waiting for the employee's confirmation. */
+    awaitsConfirmation: z.boolean().optional(),
     /** At least one must be in the top 5 retrieved and cited. */
     docSlugs: z.array(DocRef),
     /** Superseded or wrong-profile documents: never retrieved into context or cited. */

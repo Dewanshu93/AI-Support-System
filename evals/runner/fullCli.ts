@@ -1,6 +1,8 @@
-// npm run eval -- --suite full [--case …] [--tag …]: wiring for the full-graph
-// suite (W2-10). Builds the runtime graph with the configured providers, real
-// retrieval and storage, an in-memory checkpointer and isEval persistence.
+// npm run eval -- --suite full [--case …] [--tag …] [--prompt name=N]: wiring for
+// the full-graph suite (W2-10, UC-09). Builds the runtime graph with the configured
+// providers, real retrieval and storage, the employees' records (read-only: the
+// eval never confirms, and a timesheet save is refused), an in-memory checkpointer
+// and isEval persistence.
 import fs from 'node:fs';
 import path from 'node:path';
 import { MemorySaver } from '@langchain/langgraph';
@@ -16,6 +18,9 @@ import { mongoConversationsRepository } from '../../apps/api/src/modules/convers
 import { mongoDocumentsRepository } from '../../apps/api/src/modules/documents/repository';
 import { mongoTicketsRepository } from '../../apps/api/src/modules/tickets/repository';
 import { mongoUsersRepository } from '../../apps/api/src/modules/users/repository';
+import { createWorkspaceRecords } from '../../apps/api/src/modules/workspace/records';
+import { mongoWorkspaceRepository } from '../../apps/api/src/modules/workspace/repository';
+import { createWorkspaceService } from '../../apps/api/src/modules/workspace/service';
 import { fullReport } from './fullReport';
 import { fullSummary, scoreFullCase } from './fullScorers';
 import { runFullSuite } from './fullSuite';
@@ -24,30 +29,61 @@ import { DATASET_VERSION } from './schema';
 import type { RefMatcher } from './scorers';
 import { evalStore } from './store';
 
+/** Thrown by the eval's records if anything tries to save a timesheet. */
+export const EVAL_WRITE_REFUSED = 'eval runs never save timesheets';
+
+/** Same "today" as the API (DEMO_TODAY), so relative dates resolve as in the demo. */
+const clockFor = (demoToday: string | undefined) =>
+  demoToday ? () => new Date(`${demoToday}T${new Date().toISOString().slice(11)}`) : undefined;
+
 export async function runFullCli(
   config: AppConfig,
   cases: GoldenCase[],
-  options: { refMatcher: RefMatcher; gitCommit: string; reportsDir: string },
+  options: {
+    refMatcher: RefMatcher;
+    gitCommit: string;
+    reportsDir: string;
+    /** Prompt versions to evaluate instead of the active ones (e.g. turn_analysis 2). */
+    promptOverrides?: Record<string, number>;
+  },
 ): Promise<number> {
   const { client, db } = await connectDatabase(config.env.MONGODB_URI, { appName: 'eval-full' });
   const collections = getCollections(db);
   const store = evalStore(collections);
   const conversations = mongoConversationsRepository(collections);
   const documents = mongoDocumentsRepository(collections);
+  const tickets = mongoTicketsRepository(collections);
   const users = await collections.users.find({}).toArray();
   const byEmail = new Map(users.map((u) => [u.email, u]));
   const qdrant = createQdrantClient(config.env.QDRANT_URL, config.env.QDRANT_API_KEY);
   const embeddings = createEmbeddings(config.models, config.env, 'query');
   const provider = config.models.chat.provider;
   const chatModels = `${provider}: ${Object.values(config.models.chat.models[provider]).join(', ')}`;
+  const promptVersions = { ...config.prompts.active, ...options.promptOverrides };
+
+  const records = createWorkspaceRecords({
+    service: createWorkspaceService({
+      workspace: mongoWorkspaceRepository(collections),
+      tickets,
+      workday: config.workday,
+      routing: config.routing,
+      clock: clockFor(config.env.DEMO_TODAY) ?? (() => new Date()),
+    }),
+    tickets,
+    routing: config.routing,
+  });
 
   const graph = buildTurnGraph({
     config,
-    prompts: loadPromptRegistry(config.prompts.active),
+    prompts: loadPromptRegistry(promptVersions),
     chatFor: (tier, o) => createChatModel(config.models, config.env, tier, undefined, o),
     users: mongoUsersRepository(collections.users),
     conversations,
-    tickets: mongoTicketsRepository(collections),
+    tickets,
+    records: {
+      ...records,
+      saveTimesheet: () => Promise.reject(new Error(EVAL_WRITE_REFUSED)),
+    },
     checkpointer: new MemorySaver(),
     isEval: true,
     retrieve: (input) =>
@@ -70,7 +106,7 @@ export async function runFullCli(
     datasetVersion: DATASET_VERSION,
     configSnapshot: {
       thresholds: config.thresholds as unknown as Record<string, unknown>,
-      promptVersions: config.prompts.active as Record<string, number>,
+      promptVersions: promptVersions as Record<string, number>,
       models: config.models as unknown as Record<string, unknown>,
       gitCommit: options.gitCommit,
     },
@@ -127,6 +163,9 @@ export async function runFullCli(
           reasonCode: o.reasonCode,
           flags: o.flags,
           ttftMs: o.ttftMs,
+          workspaceIntent: o.workspaceIntent,
+          awaiting: o.awaiting,
+          writeNodes: o.writeNodes,
           ...(o.error && { error: o.error }),
         },
         latencyMs: o.latencyMs,
@@ -164,7 +203,7 @@ export async function runFullCli(
     );
     const m = summary.metrics;
     console.log(
-      `\n  decision ${(m.decisionAccuracy * 100).toFixed(1)}%, sensitive ${(m.sensitivePassRate * 100).toFixed(1)}%, citation validity ${(m.citationValidity * 100).toFixed(1)}%, leakage ${m.leakageCases}, injection ${(m.injectionPassRate * 100).toFixed(1)}%, cost $${m.costUsd.toFixed(4)}`,
+      `\n  decision ${(m.decisionAccuracy * 100).toFixed(1)}%, intent ${(m.intentAccuracy * 100).toFixed(1)}%, sensitive ${(m.sensitivePassRate * 100).toFixed(1)}%, citation validity ${(m.citationValidity * 100).toFixed(1)}%, leakage ${m.leakageCases}, injection ${(m.injectionPassRate * 100).toFixed(1)}%, unconfirmed writes ${m.unconfirmedWriteCases}, cost $${m.costUsd.toFixed(4)}`,
     );
     console.log(
       `\n${summary.passed ? 'PASS' : 'FAIL'} — report: ${path.relative(REPO_ROOT, reportFile)}`,

@@ -1,14 +1,16 @@
 // Full-graph suite (playbook section 8; W2-10): every golden case runs through the
 // compiled runtime graph (real retrieval, storage and LLM; in-memory checkpointer)
 // as its seeded user, in an isolated eval conversation (isEval). Multi-turn cases
-// send each planned user turn; the last turn is scored. Concurrency 4.
+// send each planned user turn; the last turn is scored. Concurrency 4. The eval
+// never confirms: a turn that proposes a write stops at awaitConfirmation.
 import { ObjectId } from 'mongodb';
 import { threadConfig } from '../../apps/api/src/ai/graph/checkpointer';
 import type { SupportGraph } from '../../apps/api/src/ai/graph/graph';
 import { newTurn, type State } from '../../apps/api/src/ai/graph/state';
+import { workspaceIntentOf } from '../../apps/api/src/ai/schemas';
 import type { MessageDoc, UserDoc } from '../../apps/api/src/db/schemas';
 import type { ConversationsRepository } from '../../apps/api/src/modules/conversations/repository';
-import type { FullCaseOutcome } from './fullScorers';
+import { type FullCaseOutcome, WRITE_NODES } from './fullScorers';
 import type { GoldenCase } from './schema';
 
 export interface FullSuiteDeps {
@@ -57,7 +59,11 @@ async function runCase(c: GoldenCase, deps: FullSuiteDeps): Promise<FullCaseOutc
     costUsd: 0,
     flags: [],
     error: null,
+    workspaceIntent: null,
+    awaiting: null,
+    writeNodes: [],
   };
+  const writeNodes: string[] = [];
   const user = deps.userFor(c.userEmail);
   if (!user) return { ...base, error: `unknown user ${c.userEmail}` };
 
@@ -95,8 +101,12 @@ async function runCase(c: GoldenCase, deps: FullSuiteDeps): Promise<FullCaseOutc
         threadConfig(conversationId.toHexString()),
       )) as State;
       costUsd += state.trace.llmCalls.reduce((n, l) => n + l.costUsd, 0);
+      for (const step of state.trace.steps) {
+        if ((WRITE_NODES as readonly string[]).includes(step.node)) writeNodes.push(step.node);
+      }
     }
     const s = state!;
+    const out = s.output;
     const context = s.retrieval?.context ?? [];
     const contextIds = new Set(context.map((x) => x.chunkId));
     const bySlug = new Map(context.map((x) => [x.chunkId, x.docSlug]));
@@ -123,9 +133,13 @@ async function runCase(c: GoldenCase, deps: FullSuiteDeps): Promise<FullCaseOutc
       ttftMs: s.trace.llmCalls.find((l) => l.node === 'answer')?.ttftMs ?? null,
       costUsd,
       flags: s.trace.flags,
+      workspaceIntent: s.analysis ? workspaceIntentOf(s.analysis) : null,
+      awaiting:
+        out?.action && !out.actionResult ? 'action' : out?.draft && !out.ticketId ? 'draft' : null,
+      writeNodes,
     };
   } catch (err) {
-    return { ...base, error: err instanceof Error ? err.message : String(err) };
+    return { ...base, writeNodes, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

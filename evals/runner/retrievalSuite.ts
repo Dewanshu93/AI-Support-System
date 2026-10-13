@@ -5,7 +5,7 @@
 import type { ChunkDoc } from '../../apps/api/src/db/schemas';
 import type { AccessProfile } from '../../apps/api/src/ai/retrieval/accessRules';
 import type { RetrievalCandidate, RetrievalResult } from '../../apps/api/src/ai/retrieval/retrieve';
-import type { GoldenCase } from './schema';
+import { type GoldenCase, isWorkspaceCategory } from './schema';
 import { type CaseRetrieval, RECALL_K, type RetrievedDoc } from './scorers';
 
 export interface RetrievalSuiteDeps {
@@ -38,9 +38,12 @@ export interface SuiteCaseResult {
 }
 
 /** Cases the retrieval suite can score: those naming expected or forbidden documents. */
+/** Policy cases with expected or forbidden documents; workspace cases run in the full suite only. */
 export function retrievalCases(cases: GoldenCase[]): GoldenCase[] {
   return cases.filter(
-    (c) => c.expected.docSlugs.length > 0 || c.expected.forbiddenDocSlugs.length > 0,
+    (c) =>
+      !isWorkspaceCategory(c.category) &&
+      (c.expected.docSlugs.length > 0 || c.expected.forbiddenDocSlugs.length > 0),
   );
 }
 

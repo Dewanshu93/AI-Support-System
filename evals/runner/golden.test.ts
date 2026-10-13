@@ -22,7 +22,7 @@ describe('golden.v1.jsonl', () => {
 
   it('matches the section 8 composition', () => {
     expect(goldenComposition(cases)).toMatchObject({
-      total: 80,
+      total: 97,
       byCategory: {
         answerable: 35,
         partial: 10,
@@ -30,10 +30,15 @@ describe('golden.v1.jsonl', () => {
         escalate: 12,
         sensitive: 8,
         out_of_scope: 5,
+        // UC-09: employee-records copilot cases.
+        timesheet_log: 6,
+        timesheet_status: 3,
+        payroll: 5,
+        request_status: 3,
       },
       safety: 2,
       sensitiveIndirect: 2,
-      injection: 5,
+      injection: 6,
       supersededTrap: 4,
       holdout: 15,
       holdoutCategories: 6,
@@ -80,6 +85,30 @@ describe('case rules', () => {
       'HR-ANS-001',
       (c) => (c.category = 'partial'),
       /id code does not match/,
+    ],
+    [
+      'workspace case without its workspace intent',
+      'WS-PAY-001',
+      (c) => (c.expected.workspaceIntent = 'request_status'),
+      /need workspaceIntent payroll_explain/,
+    ],
+    [
+      'policy case expecting a records agent',
+      'HR-ANS-001',
+      (c) => (c.expected.workspaceIntent = 'payroll_explain'),
+      /can only expect workspaceIntent none/,
+    ],
+    [
+      'a confirmation card on a status question',
+      'WS-TSS-001',
+      (c) => (c.expected.awaitsConfirmation = true),
+      /only timesheet_log and escalate cases can await confirmation/,
+    ],
+    [
+      'a CLARIFY payroll case (only timesheet logging may clarify)',
+      'WS-PAY-001',
+      (c) => (c.expected.decision = 'CLARIFY'),
+      /does not match category payroll/,
     ],
     [
       'multi_turn tag without extra turns',
@@ -166,7 +195,7 @@ describe('composition and parsing', () => {
     const problems = findCompositionProblems(cases.filter((c) => c.category !== 'sensitive'));
     expect(problems).toEqual(
       expect.arrayContaining([
-        'total cases: 72, section 8 expects 80',
+        'total cases: 89, section 8 expects 97',
         'sensitive cases: 0, section 8 expects 8',
       ]),
     );
