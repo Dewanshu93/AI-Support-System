@@ -6,6 +6,7 @@ import { AgentSummaryResultSchema } from './agentSummary';
 import { ClarifyingQuestionSchema } from './clarifyingQuestion';
 import type { SchemaContext } from './common';
 import { AgentDraftReplySchema } from './draftReply';
+import { GapClusterLabelSchema } from './gapClusterLabel';
 import { GroundedAnswerTrailerSchema } from './groundedAnswer';
 import { PayrollExplanationSchema } from './payrollExplanation';
 import { RerankAssessmentSchema } from './rerank';
@@ -17,6 +18,7 @@ export * from './agentSummary';
 export * from './clarifyingQuestion';
 export * from './common';
 export * from './draftReply';
+export * from './gapClusterLabel';
 export * from './groundedAnswer';
 export * from './payrollExplanation';
 export * from './rerank';
@@ -36,6 +38,7 @@ export const OUTPUT_SCHEMAS = {
   PayrollExplanation: () => PayrollExplanationSchema,
   AgentSummary: () => AgentSummaryResultSchema,
   AgentDraftReply: () => AgentDraftReplySchema,
+  GapClusterLabel: () => GapClusterLabelSchema,
 } as const satisfies Record<string, (ctx: SchemaContext) => z.ZodType>;
 export type OutputSchemaName = keyof typeof OUTPUT_SCHEMAS;
 export const OUTPUT_SCHEMA_NAMES = Object.keys(OUTPUT_SCHEMAS) as [

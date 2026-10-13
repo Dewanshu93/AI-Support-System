@@ -58,6 +58,9 @@ describe('route policy table', () => {
       ['PATCH', '/api/agent/tickets/:id/classification', ['agent', 'admin']],
       // Admin (W4-01).
       ['GET', '/api/admin/metrics/overview', ['admin']],
+      // Knowledge gaps (W4-02).
+      ['GET', '/api/admin/knowledge-gaps', ['admin']],
+      ['POST', '/api/admin/knowledge-gaps/refresh', ['admin']],
       // Employee workspace (UC-02).
       ['GET', '/api/dashboard', ['employee']],
       ['GET', '/api/projects/mine', ['employee']],

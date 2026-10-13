@@ -7,6 +7,7 @@ export * from './api/chat-events';
 export * from './api/common';
 export * from './api/conversations';
 export * from './api/documents';
+export * from './api/gaps';
 export * from './api/health';
 export * from './api/metrics';
 export * from './api/tickets';

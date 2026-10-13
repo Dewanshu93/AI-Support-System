@@ -10,5 +10,6 @@ active:
   ticket_slot_fill: 1 # P-5
   agent_ticket_summary: 1 # P-6 (W3-06, ADR-019)
   agent_draft_reply: 1 # P-7 (W3-06, ADR-019)
+  gap_cluster_label: 1 # P-8 (W4-02)
   timesheet_extract: 1 # P-10 (UC-05, ADR-015)
   payroll_explain: 1 # P-11 (UC-06, ADR-015)

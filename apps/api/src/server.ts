@@ -17,6 +17,7 @@ import {
   createFallbackChatModel,
   createLocalChatModel,
   currentModelMode,
+  embedDocuments,
   embedQuery,
   fallbackChain,
   ProviderHealth,
@@ -24,6 +25,7 @@ import {
 } from './ai/llm';
 import { guardUnhandledRejections } from './ai/llm/orphanedStream';
 import { createDraftReply } from './ai/nodes/draftReply';
+import { createGapLabeler } from './ai/nodes/gapLabel';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
 import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
@@ -33,6 +35,8 @@ import { mongoEmailRepository } from './modules/email/repository';
 import { createEmailService } from './modules/email/service';
 import { createEmailTransport, type EmailTransport } from './modules/email/transport';
 import { mongoAgentTicketsRepository } from './modules/agent/repository';
+import { mongoGapsRepository } from './modules/gaps/repository';
+import { createGapsService } from './modules/gaps/service';
 import { mongoMetricsRepository } from './modules/metrics/repository';
 import { mongoTicketsRepository } from './modules/tickets/repository';
 import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
@@ -218,6 +222,34 @@ async function main() {
       }),
   });
 
+  // Knowledge gaps (W4-02): questions embedded with the clustering task type,
+  // clusters named by P-8 through the same model factory (follows the admin's Pro switch).
+  let clusteringEmbeddings: ReturnType<typeof createEmbeddings> | undefined;
+  const gapsRepository = mongoGapsRepository(collections);
+  const gaps = {
+    repository: gapsRepository,
+    service: createGapsService({
+      repository: gapsRepository,
+      config: config.thresholds.gaps,
+      embed: async (texts: string[]) => {
+        clusteringEmbeddings ??= createEmbeddings(config.models, config.env, 'clustering');
+        const { vectors } = await embedDocuments(clusteringEmbeddings, texts, {
+          policy: config.models.call,
+          dimension: config.models.embeddings.dimension,
+        });
+        return vectors;
+      },
+      label: createGapLabeler({
+        prompts,
+        chatFor,
+        policy: config.models.call,
+        costs: config.models.costs,
+      }),
+      now: clock,
+      onError: (err) => logger.error({ err }, 'knowledge-gap refresh failed'),
+    }),
+  };
+
   const app = createApp({
     users,
     audit: mongoAuditRepository(collections.auditLog),
@@ -242,6 +274,7 @@ async function main() {
     },
     workspace,
     metrics: mongoMetricsRepository(collections),
+    gaps,
     workday: config.workday,
     clock,
     auth: {

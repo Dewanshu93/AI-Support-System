@@ -182,6 +182,13 @@ export const ThresholdsSchema = z
       maxClarifyRounds: z.number().int().min(0).max(5),
       duplicateWindowDays: z.number().int().min(1).max(90),
     }),
+    gaps: z.strictObject({
+      similarityThreshold: z.number().min(0.5).max(0.99),
+      minClusterSize: z.number().int().min(1).max(20),
+      maxExamples: z.number().int().min(5).max(10),
+      maxClusters: z.number().int().min(1).max(50),
+      defaultRangeDays: z.number().int().min(1).max(365),
+    }),
   })
   .superRefine((t, ctx) => {
     const fail = (path: string[], message: string) =>

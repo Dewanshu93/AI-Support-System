@@ -106,14 +106,19 @@ export function computeOverview(rows: MetricRows) {
 
 const DAY_MS = 86_400_000;
 
-/** The query's whole-day range as [from 00:00, to + 1 day 00:00) UTC; default the last 7 days. */
+/**
+ * The query's whole-day range as [from 00:00, to + 1 day 00:00) UTC; default the
+ * last `defaultDays` days (7 for the overview, config for knowledge gaps).
+ */
 export function overviewRange(
   query: { from?: string; to?: string },
   today: string,
+  defaultDays = 7,
 ): { from: string; to: string; start: Date; end: Date } {
   const to = query.to ?? today;
   const from =
-    query.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 6 * DAY_MS).toISOString().slice(0, 10);
+    query.from ??
+    new Date(Date.parse(`${to}T00:00:00Z`) - (defaultDays - 1) * DAY_MS).toISOString().slice(0, 10);
   return {
     from,
     to,

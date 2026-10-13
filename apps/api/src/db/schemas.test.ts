@@ -292,11 +292,15 @@ const valid = {
   gapClusters: () => ({
     _id: id(),
     snapshotAt: now,
+    rangeFrom: '2026-09-14',
+    rangeTo: '2026-10-13',
     label: 'Home office equipment allowance',
+    labelled: true,
     domain: 'HR',
     questionCount: 7,
     exampleQuestions: ['Can I expense a monitor for home?'],
     messageIds: [id()],
+    conversationIds: [id()],
   }),
   emailOutbox: () => ({
     _id: id(),

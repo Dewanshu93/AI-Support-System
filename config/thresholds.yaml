@@ -18,3 +18,12 @@ conversation:
 ticket:
   maxClarifyRounds: 2
   duplicateWindowDays: 7
+# Knowledge gaps (W4-02): low-evidence questions are grouped when their cosine
+# similarity to a cluster is at least similarityThreshold; clusters smaller than
+# minClusterSize are dropped; each keeps up to maxExamples redacted questions.
+gaps:
+  similarityThreshold: 0.8
+  minClusterSize: 2
+  maxExamples: 10
+  maxClusters: 15
+  defaultRangeDays: 30

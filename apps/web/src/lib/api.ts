@@ -11,6 +11,8 @@ import {
   AgentTicketResponseSchema,
   AuthUserResponseSchema,
   MetricsOverviewResponseSchema,
+  KnowledgeGapsRefreshResponseSchema,
+  KnowledgeGapsResponseSchema,
   ConversationDetailResponseSchema,
   ConversationListResponseSchema,
   ConversationResponseSchema,
@@ -120,6 +122,15 @@ export const api = {
       MetricsOverviewResponseSchema,
     ))!;
   },
+
+  // Knowledge gaps (W4-02).
+  knowledgeGaps: async () =>
+    (await apiRequest('/admin/knowledge-gaps?snapshot=latest', KnowledgeGapsResponseSchema))!,
+  refreshKnowledgeGaps: async (body: { from?: string; to?: string } = {}) =>
+    (await apiRequest('/admin/knowledge-gaps/refresh', KnowledgeGapsRefreshResponseSchema, {
+      method: 'POST',
+      body,
+    }))!.refresh,
 
   // Agent workspace (W3-07).
   agentQueue: async (q: Partial<AgentTicketListQuery> = {}) => {

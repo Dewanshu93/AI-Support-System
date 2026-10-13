@@ -570,15 +570,29 @@ export const COUNTER_IDS = ['IT', 'HR'] as const;
 export const CounterSchema = z.object({ _id: z.enum(COUNTER_IDS), seq: Count });
 export type CounterDoc = z.infer<typeof CounterSchema>;
 
+/**
+ * One cluster of a knowledge-gap snapshot (W4-02). A refresh replaces the whole
+ * snapshot. Members are in the same order in messageIds and conversationIds; the
+ * examples are the first members.
+ */
 export const GapClusterSchema = z.object({
   _id: zObjectId,
   snapshotAt: z.date(),
+  /** The questions' date range (inclusive days). */
+  rangeFrom: IsoDateSchema,
+  rangeTo: IsoDateSchema,
   label: NonEmpty,
+  /** False when P-8 failed and the label is the fallback. */
+  labelled: z.boolean(),
   domain: z.enum(['IT', 'HR', 'unknown']),
   questionCount: Count,
-  /** Redacted before storage. */
+  /** Redacted before storage (the trace's redactedInput). */
   exampleQuestions: z.array(z.string()),
+  /** The assistant messages whose turns were gaps (trace messageId). */
   messageIds: z.array(zObjectId),
+  conversationIds: z.array(zObjectId),
   centroid: z.array(z.number()).optional(),
+  /** The P-8 call that named the cluster (trace entry); absent when none ran. */
+  labelCall: LlmCallSchema.optional(),
 });
 export type GapClusterDoc = z.infer<typeof GapClusterSchema>;

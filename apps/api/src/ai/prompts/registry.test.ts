@@ -161,6 +161,7 @@ describe('committed prompts', () => {
     payroll_explain: ['question', 'records', 'sources'],
     agent_ticket_summary: ['articles', 'conversation', 'ticket'],
     agent_draft_reply: ['brief', 'sources', 'ticket', 'tone'],
+    gap_cluster_label: ['questions'],
   } as const;
   /** Active versions other than v1 (P-1 v2: owner decision 2026-10-09, UC-10). */
   const activeVersion: Partial<Record<keyof typeof expected, number>> = { turn_analysis: 2 };
@@ -184,7 +185,7 @@ describe('committed prompts', () => {
     }
   });
 
-  it('activates exactly the prompts built so far (P-1 to P-5, P-10, P-11)', () => {
+  it('activates exactly the prompts built so far (P-1 to P-8, P-10, P-11)', () => {
     expect(Object.keys(registry.active()).sort()).toEqual(Object.keys(expected).sort());
   });
 });

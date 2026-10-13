@@ -2,6 +2,7 @@ import { loadConfig } from '../../config';
 import { VALID_ENV } from '../../../test/helpers/config';
 import {
   ClarifyingQuestionSchema,
+  GapClusterLabelSchema,
   GroundedAnswerTrailerSchema,
   RerankAssessmentSchema,
   turnAnalysisSchema,
@@ -69,5 +70,25 @@ describe('other output schemas', () => {
         fieldsAsked: ['a', 'b', 'c'],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('GapClusterLabel (P-8)', () => {
+  it('a short topic label and a domain', () => {
+    expect(
+      GapClusterLabelSchema.parse({ label: 'Parental leave for contractors', domain: 'HR' }),
+    ).toEqual({ label: 'Parental leave for contractors', domain: 'HR' });
+  });
+
+  it('labels over 8 words and unknown domains are rejected', () => {
+    expect(
+      GapClusterLabelSchema.safeParse({
+        label: 'one two three four five six seven eight nine',
+        domain: 'IT',
+      }).success,
+    ).toBe(false);
+    expect(GapClusterLabelSchema.safeParse({ label: 'VPN', domain: 'Finance' }).success).toBe(
+      false,
+    );
   });
 });

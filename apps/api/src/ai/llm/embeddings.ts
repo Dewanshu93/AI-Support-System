@@ -5,10 +5,17 @@ import type { LlmKeys, ModelsConfig } from './keys';
 import { LlmError } from './errors';
 import { type CallPolicy, withCallPolicy } from './retry';
 
-/** Documents and queries are embedded with different task types for better retrieval. */
-export type EmbeddingPurpose = 'document' | 'query';
+/**
+ * Documents and queries are embedded with different task types for better
+ * retrieval; knowledge-gap questions (W4-02) with the clustering task type.
+ */
+export type EmbeddingPurpose = 'document' | 'query' | 'clustering';
 
-const TASK_TYPE = { document: 'RETRIEVAL_DOCUMENT', query: 'RETRIEVAL_QUERY' } as const;
+const TASK_TYPE = {
+  document: 'RETRIEVAL_DOCUMENT',
+  query: 'RETRIEVAL_QUERY',
+  clustering: 'CLUSTERING',
+} as const;
 
 export const EMBEDDING_BATCH_SIZE = 50;
 

@@ -6,6 +6,8 @@ import type { AuditRepository } from './modules/audit/repository';
 import type { ConversationsRepository } from './modules/conversations/repository';
 import type { SourcesReader } from './modules/documents/repository';
 import type { EmailService } from './modules/email/service';
+import type { GapsRepository } from './modules/gaps/repository';
+import type { GapsService } from './modules/gaps/service';
 import type { MetricsRepository } from './modules/metrics/repository';
 import type { TicketsRepository } from './modules/tickets/repository';
 import type { UsersRepository } from './modules/users/repository';
@@ -55,6 +57,8 @@ export interface AppDeps {
   workspace: WorkspaceRepository;
   /** Rows for the admin overview metrics (W4-01). */
   metrics: MetricsRepository;
+  /** Knowledge-gap snapshot and background refresh (W4-02). */
+  gaps: { repository: GapsRepository; service: GapsService };
   /** config/workday.yaml: timesheet rules and holiday calendar. */
   workday: ConfigFiles['workday'];
   /** Current time; injected so tests and demos control "today". Defaults to the system clock. */

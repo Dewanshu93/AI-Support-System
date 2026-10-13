@@ -673,6 +673,15 @@ out_of_scope }`. No LLM call.
 - **Conversation status** stays `open` except `resolved`; `escalated`, `handed_off` and
   `restricted` are set by the W3 ticket tasks.
 
+## Theme (ADR-021)
+
+- Light, Dark or System (default) per browser (`localStorage.theme`); `lib/theme.ts` (pure rules
+  and `THEME_INIT_SCRIPT`, inlined in the `app/layout.tsx` `<head>` before paint),
+  `hooks/useTheme.ts` (follows OS changes and other tabs), `components/shell/ThemeMenu.tsx` (top
+  bar, left of the bell; top-right on /login).
+- `globals.css` remaps the palette under `html.dark`; components use `bg-surface` for cards and
+  `bg-ink` / `text-on-ink` for primary fills instead of `bg-white` / `bg-slate-900`.
+
 ## Chat UI (W2-09)
 
 - Routes `/chat` and `/chat/[conversationId]` render `components/chat/ChatWorkspace.tsx`
@@ -982,6 +991,23 @@ inside the app:
   the public event (`domain/requestNotifications.ts` builds the title and body; employee-facing
   stage labels from `REQUEST_STAGE_LABEL`). Notes and classification corrections stay internal.
 - `NotificationBell` reloads on window focus and every 60 s while visible.
+
+## Knowledge gaps (W4-02)
+
+- Candidates: turn traces with `PARTIAL`, or `ESCALATE` + `NO_EVIDENCE`, never restricted or
+  eval (`domain/gapClustering.ts isGapCandidate`; the Mongo query narrows, the service applies the
+  rule again). Text is the trace's `redactedInput`.
+- `modules/gaps/service.ts`: embed (Gemini, `clustering` task type) → agglomerative clustering
+  in code (centroid cosine ≥ `thresholds.gaps.similarityThreshold`, min size, max clusters) →
+  P-8 `gap_cluster_label` per cluster (fallback "Unlabelled cluster") → `gap_clusters` snapshot,
+  replacing the previous one. Runs in the background (in-process, one at a time, state in memory);
+  embed and label are injected (`server.ts`), so modules never import `ai/llm`.
+- `GET /api/admin/knowledge-gaps?snapshot=latest` → `{ snapshot | null, refresh }`;
+  `POST /api/admin/knowledge-gaps/refresh {from?,to?}` → 202 (409 while running, 503 without
+  models; audited `admin.gaps_refresh`). Default range: the last `defaultRangeDays` (30).
+- `/admin/gaps` (`components/admin/gaps/KnowledgeGaps.tsx`): topic list (domain, count),
+  detail with redacted examples linking to `/admin/traces/[conversationId]`, refresh with
+  polling, "No gaps detected yet".
 
 ## Runtime
 

@@ -1968,3 +1968,51 @@ from its results.
 nearest-rank percentile, ranges), `test/api/metrics.test.ts` (numbers and definitions, default and
 given range, 400, 403 agent/employee, 401), route policy table, `AdminOverview.test.tsx`,
 `e2e/tests/admin.spec.ts` (smoke). Lint and typecheck clean.
+
+## Dark / light theme and 3D avatars — 2026-10-13
+
+Owner request (between W4-01 and W4-02): dark and light modes across the whole application,
+control placed per common UX practice. ADR-021.
+
+- Sun/moon button in the top bar left of the notification bell (top-right on the sign-in page)
+  opens Light / Dark / System; System is the default and follows the OS; the choice is kept per
+  browser and applied before first paint (no flash).
+- `globals.css` remaps the palette under `html.dark`, so every page follows; `bg-white` became the
+  `bg-surface` token and dark primary fills the `bg-ink` / `text-on-ink` tokens (light mode looks
+  the same as before).
+- 3D avatars (owner request): each seeded persona has a 3D cartoon avatar instead of initials
+  (sign-in cards, top-bar profile button, profile panel). Images are Microsoft Fluent Emoji 3D
+  (MIT licence), stored in `apps/web/public/avatars/` so the demo works offline;
+  `lib/avatars.ts` maps names to files; other users fall back to initials
+  (`components/ui/Avatar.tsx`).
+
+**Verification:** `lib/theme.test.ts` (preference parsing, resolution, init script),
+`shell.test.tsx` (ThemeMenu renders closed with its label), `e2e/tests/auth.spec.ts` (switch to
+dark, survives reload, back to light), screenshots of login, dashboard, timesheets, Copilot and
+admin overview in both themes. Lint, typecheck and web tests clean.
+
+## W4-02 Knowledge gaps — 2026-10-13
+
+- Gap turns (partial answers and no-evidence escalations; never restricted or eval) in a range
+  (default 30 days) → redacted questions embedded (Gemini, clustering task type) → agglomerative
+  clustering in code (`domain/gapClustering.ts`, thresholds in `config/thresholds.yaml` `gaps`) →
+  each cluster named by **P-8 `gap_cluster_label` v1** (fast tier; fallback "Unlabelled
+  cluster", `labelled: false`) → stored as one `gap_clusters` snapshot with the P-8 call as its
+  trace entry.
+- API: `GET /api/admin/knowledge-gaps`, `POST /api/admin/knowledge-gaps/refresh` (admin only,
+  audited). `/admin/gaps` page replaces the placeholder.
+- **Deviations from the playbook:** the refresh runs in the background (202 + polling) instead of
+  inside the request, because naming up to 15 clusters on the local model (Pro off) takes minutes;
+  GET returns `snapshot: null` (200) instead of 404 so the page also gets the refresh state; a
+  refresh replaces the previous snapshot (no history). `gap_clusters` gains `rangeFrom/rangeTo`,
+  `labelled`, `conversationIds` (for trace links) and `labelCall`.
+- P-8 follows the requesting admin's Pro switch (ADR-020): local model when off.
+
+**Verification:** `domain/gapClustering.test.ts` (cosine; two synthetic topics cluster, a stray
+is dropped; threshold extremes; max clusters; centroid; candidate rule incl. restricted and eval),
+`test/api/gaps.test.ts` (labelled clusters largest first with trace links; restricted, eval and
+out-of-range turns never embedded or returned; fallback label; empty range clears the snapshot;
+409 while running; 400; 503 without models; failed refresh state; 403/401; audit), route policy
+table, P-8 schema and registry tests, `e2e/tests/admin.spec.ts` (page smoke). Not yet checked: a
+refresh on real data (the 0.8 similarity threshold is tuned on synthetic vectors only; needs live
+Gemini embeddings).
