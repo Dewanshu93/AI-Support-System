@@ -1943,3 +1943,28 @@ decision miss, not a ticket metric). Evals 76/76; typecheck clean.
 
 **Not done:** the eval run (paid models; owner decision as for UC-09). Week 4 tuning items come
 from its results.
+
+## W4-01 Metrics API and Admin Overview — 2026-10-13
+
+**Delivered:**
+
+- `GET /api/admin/metrics/overview?from&to` (admin only; whole UTC days, `to` inclusive;
+  default the last 7 days; 400 for an invalid range). Response per playbook section 4:
+  conversations, decision distribution (turns), confirmed resolution rate, escalation rate and by
+  category, sensitive handoffs, override rate, thumbs-down rate, latency p50/p90 (first token and
+  whole turn), cost per conversation, plus the **definitions** for tooltips.
+- Definitions fixed in `domain/metrics.ts` (`METRIC_DEFINITIONS`, `computeOverview`, pure); the
+  repository (`modules/metrics/repository.ts`) loads the range's non-eval rows (conversations,
+  turn traces, tickets, classification corrections, feedback) and code computes the numbers.
+  Deviation: playbook says "aggregation pipelines"; computing in code over the loaded rows gives
+  the same numbers with one tested definition. Fine at prototype volumes (W4-09 can move it into
+  pipelines if needed).
+- `/admin` page (`components/admin/overview`): range presets (7 / 30 days) and date inputs kept in
+  the URL; eight metric cards with definition tooltips; decision bar (Tailwind, no chart library)
+  whose legend links to `/admin/traces?decision=…` (W4-03); escalations by category; latency and
+  cost; skeleton, error with retry, "No conversations in range".
+
+**Verification:** `domain/metrics.test.ts` (a hand-computed fixture for every metric, empty range,
+nearest-rank percentile, ranges), `test/api/metrics.test.ts` (numbers and definitions, default and
+given range, 400, 403 agent/employee, 401), route policy table, `AdminOverview.test.tsx`,
+`e2e/tests/admin.spec.ts` (smoke). Lint and typecheck clean.

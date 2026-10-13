@@ -10,6 +10,7 @@ import {
   AgentTicketListResponseSchema,
   AgentTicketResponseSchema,
   AuthUserResponseSchema,
+  MetricsOverviewResponseSchema,
   ConversationDetailResponseSchema,
   ConversationListResponseSchema,
   ConversationResponseSchema,
@@ -107,6 +108,18 @@ export const api = {
     (await apiRequest('/auth/login', AuthUserResponseSchema, { method: 'POST', body }))!.user,
   logout: () => apiRequest('/auth/logout', null, { method: 'POST' }),
   me: async () => (await apiRequest('/auth/me', AuthUserResponseSchema))!.user,
+
+  // Admin (W4-01).
+  metricsOverview: async (q: { from?: string; to?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (q.from) params.set('from', q.from);
+    if (q.to) params.set('to', q.to);
+    const query = params.toString();
+    return (await apiRequest(
+      `/admin/metrics/overview${query ? `?${query}` : ''}`,
+      MetricsOverviewResponseSchema,
+    ))!;
+  },
 
   // Agent workspace (W3-07).
   agentQueue: async (q: Partial<AgentTicketListQuery> = {}) => {

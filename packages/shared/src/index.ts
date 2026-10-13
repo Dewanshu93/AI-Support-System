@@ -8,6 +8,7 @@ export * from './api/common';
 export * from './api/conversations';
 export * from './api/documents';
 export * from './api/health';
+export * from './api/metrics';
 export * from './api/tickets';
 export * from './api/workspace';
 export * from './enums';

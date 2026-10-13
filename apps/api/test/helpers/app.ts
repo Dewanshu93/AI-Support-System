@@ -72,6 +72,8 @@ export interface TestAppOptions extends CreateAppOptions {
   clock?: AppDeps['clock'];
   /** Defaults to an empty in-memory outbox (UC-07). */
   email?: AppDeps['email'];
+  /** Rows for the admin overview (W4-01); default: none. */
+  metrics?: AppDeps['metrics'];
   /** P-7 draft reply (W3-06); absent → the endpoint answers 503. */
   agentDraft?: AppDeps['agentDraft'];
 }
@@ -106,6 +108,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },
     workspace: options.workspace ?? memoryWorkspaceRepository(),
+    metrics: options.metrics ?? emptyMetrics(),
     workday: config.workday,
     clock: options.clock,
   };
@@ -134,4 +137,17 @@ export async function loginCookie(app: Express, email: string, password?: string
   );
   if (!cookie) throw new Error('no session cookie set');
   return cookie.split(';')[0]!;
+}
+
+/** A metrics repository with no rows (W4-01); tests that need numbers pass their own. */
+export function emptyMetrics(): AppDeps['metrics'] {
+  return {
+    loadRows: async () => ({
+      conversations: [],
+      turns: [],
+      tickets: [],
+      overriddenTicketIds: [],
+      feedback: [],
+    }),
+  };
 }

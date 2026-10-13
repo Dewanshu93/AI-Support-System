@@ -8,6 +8,7 @@ import { runWithModelMode } from '../ai/llm/modelMode';
 import { AppError } from '../lib/errors';
 import { createDraftReplyService } from '../modules/agent/draftReply';
 import { agentRoutes } from '../modules/agent/routes';
+import { metricsRoutes } from '../modules/metrics/routes';
 import { createAgentService } from '../modules/agent/service';
 import { authRoutes } from '../modules/auth/routes';
 import { chatRoutes } from '../modules/chat/routes';
@@ -92,6 +93,7 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
           }),
       }),
     ),
+    ...metricsRoutes(deps),
     ...workspaceRoutes(
       deps,
       createWorkspaceService({

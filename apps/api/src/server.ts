@@ -33,6 +33,7 @@ import { mongoEmailRepository } from './modules/email/repository';
 import { createEmailService } from './modules/email/service';
 import { createEmailTransport, type EmailTransport } from './modules/email/transport';
 import { mongoAgentTicketsRepository } from './modules/agent/repository';
+import { mongoMetricsRepository } from './modules/metrics/repository';
 import { mongoTicketsRepository } from './modules/tickets/repository';
 import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/prompts/registry';
 import { logger } from './lib/logger';
@@ -240,6 +241,7 @@ async function main() {
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },
     workspace,
+    metrics: mongoMetricsRepository(collections),
     workday: config.workday,
     clock,
     auth: {

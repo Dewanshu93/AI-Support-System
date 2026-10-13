@@ -1,11 +1,13 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { Suspense } from 'react';
+import { AdminOverview } from '@/components/admin/overview/AdminOverview';
+
+export const metadata = { title: 'Overview' };
 
 export default function OverviewPage() {
+  // useSearchParams (date range) needs a Suspense boundary.
   return (
-    <PlaceholderPage
-      title="Overview"
-      description="Service desk and AI health metrics."
-      task="W4-01"
-    />
+    <Suspense>
+      <AdminOverview />
+    </Suspense>
   );
 }
