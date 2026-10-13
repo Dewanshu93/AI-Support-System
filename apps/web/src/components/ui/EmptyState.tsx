@@ -14,7 +14,7 @@ export function EmptyState({
   icon?: IconName;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-10 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-surface/60 px-6 py-10 text-center">
       <span className="mb-1 grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-slate-500">
         <Icon name={icon} />
       </span>

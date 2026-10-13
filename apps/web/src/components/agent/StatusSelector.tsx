@@ -26,7 +26,7 @@ export function StatusSelector({
         value={status}
         disabled={busy || allowed.length === 0}
         onChange={(e) => onChange(e.target.value as TicketStatus)}
-        className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+        className="h-9 rounded-lg border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
       >
         <option value={status}>{AGENT_STATUS_LABEL[status]}</option>
         {allowed.map((s) => (

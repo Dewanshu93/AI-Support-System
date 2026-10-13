@@ -135,7 +135,7 @@ function PayslipListItem({
       className={`w-full rounded-xl border px-4 py-3 text-left transition ${
         active
           ? 'border-brand-300 bg-brand-50/60 ring-1 ring-brand-300'
-          : 'border-slate-200 bg-white hover:border-slate-300'
+          : 'border-slate-200 bg-surface hover:border-slate-300'
       }`}
     >
       <div className="flex items-center justify-between gap-2">

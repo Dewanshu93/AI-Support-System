@@ -138,3 +138,18 @@ test('signed-in users visiting /login go to their home', async ({ page }) => {
   await page.goto('/login');
   await expect(page).toHaveURL(/\/agent\/queue$/);
 });
+
+test('the theme menu switches to dark, and the choice survives a reload', async ({ page }) => {
+  await signInAs(page, 'Priya Shah');
+  await expect(page).toHaveURL(/\/dashboard$/);
+  const html = page.locator('html');
+  await page.getByTestId('theme-menu').click();
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click();
+  await expect(html).toHaveClass(/\bdark\b/);
+  await page.reload();
+  await expect(html).toHaveClass(/\bdark\b/);
+  await expect(page.getByTestId('theme-menu')).toHaveAttribute('aria-label', 'Theme: dark');
+  await page.getByTestId('theme-menu').click();
+  await page.getByRole('menuitemradio', { name: 'Light' }).click();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+});

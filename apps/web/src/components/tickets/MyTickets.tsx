@@ -29,7 +29,7 @@ const toError = (err: unknown) =>
 
 export function TicketRows({ items }: { items: Item[] }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-card">
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-surface shadow-card">
       <div className="hidden grid-cols-[7rem_1fr_7rem_10rem_9rem] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-xs font-semibold text-slate-500 md:grid">
         <span>Request</span>
         <span>Summary</span>
@@ -100,7 +100,7 @@ function Board({ items }: { items: Item[] }) {
               <li key={t.id}>
                 <Link
                   href={`/tickets/${t.id}`}
-                  className="block rounded-xl border border-slate-200 bg-white p-3.5 shadow-card transition hover:border-slate-300"
+                  className="block rounded-xl border border-slate-200 bg-surface p-3.5 shadow-card transition hover:border-slate-300"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs font-semibold text-slate-600">
@@ -192,7 +192,7 @@ export function MyTickets() {
                 data-testid="status-filter"
                 value={status ?? ''}
                 onChange={(e) => setFilter(e.target.value)}
-                className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none"
+                className="h-9 rounded-lg border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none"
               >
                 <option value="">All</option>
                 {TICKET_STATUSES.map((s) => (

@@ -79,7 +79,7 @@ export function TasksPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200/80 bg-white px-5 shadow-card">
+            <div className="rounded-2xl border border-slate-200/80 bg-surface px-5 shadow-card">
               <ul className="divide-y divide-slate-100">
                 {[...tasks]
                   .sort((a, b) => TASK_STATUSES.indexOf(a.status) - TASK_STATUSES.indexOf(b.status))
@@ -111,8 +111,8 @@ function FilterChip({
       onClick={onClick}
       className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
         active
-          ? 'border-slate-900 bg-slate-900 text-white'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+          ? 'border-ink bg-ink text-on-ink'
+          : 'border-slate-200 bg-surface text-slate-700 hover:border-slate-300'
       }`}
     >
       {children}
@@ -136,7 +136,7 @@ function Column({ status, tasks, today }: { status: TaskStatus; tasks: Task[]; t
           return (
             <li
               key={t.id}
-              className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-card"
+              className="rounded-xl border border-slate-200 bg-surface p-3.5 shadow-card"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-[11px] font-medium text-slate-500">{t.key}</span>

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { LoginPicker } from '@/components/auth/LoginPicker';
 import { BrandMark } from '@/components/shell/Sidebar';
+import { ThemeMenu } from '@/components/shell/ThemeMenu';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { homeFor } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
@@ -24,7 +25,7 @@ export default async function LoginPage() {
 
   return (
     <div className="grid min-h-[calc(100vh-1.75rem)] lg:grid-cols-[minmax(0,26rem)_1fr]">
-      <aside className="hidden flex-col justify-between border-r border-slate-200 bg-white px-10 py-10 lg:flex">
+      <aside className="hidden flex-col justify-between border-r border-slate-200 bg-surface px-10 py-10 lg:flex">
         <BrandMark />
         <div>
           <p className="text-2xl leading-snug font-semibold tracking-tight text-slate-900">
@@ -51,7 +52,10 @@ export default async function LoginPage() {
         </p>
       </aside>
 
-      <main className="w-full px-4 py-10 sm:px-8 lg:px-10 lg:py-14">
+      <main className="relative w-full px-4 py-10 sm:px-8 lg:px-10 lg:py-14">
+        <div className="absolute top-4 right-4 sm:right-8 lg:right-10">
+          <ThemeMenu />
+        </div>
         <div className="mb-8 lg:hidden">
           <BrandMark />
         </div>

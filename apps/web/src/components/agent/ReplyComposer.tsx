@@ -56,7 +56,7 @@ export function ReplyComposer({
     <section
       aria-label="Reply"
       data-testid="reply-composer"
-      className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card"
+      className="space-y-3 rounded-2xl border border-slate-200/80 bg-surface p-4 shadow-card"
     >
       <div role="tablist" aria-label="Message type" className="flex gap-1">
         {(['reply', 'note'] as const).map((m) => (
@@ -68,7 +68,7 @@ export function ReplyComposer({
             data-testid={`composer-${m}`}
             onClick={() => setMode(m)}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-              mode === m ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+              mode === m ? 'bg-ink text-on-ink' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             {m === 'reply' ? 'Reply to employee' : 'Internal note'}
@@ -94,7 +94,7 @@ export function ReplyComposer({
               data-testid="draft-tone"
               value={tone}
               onChange={(e) => setTone(e.target.value as 'standard' | 'brief')}
-              className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs"
+              className="h-8 rounded-lg border border-slate-300 bg-surface px-2 text-xs"
             >
               <option value="standard">Standard</option>
               <option value="brief">Brief</option>
@@ -117,7 +117,7 @@ export function ReplyComposer({
               : 'Visible to agents only.'
           }
           className={`w-full rounded-lg border px-3 py-2 text-sm leading-relaxed focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none ${
-            mode === 'note' ? 'border-amber-300 bg-amber-50/40' : 'border-slate-300 bg-white'
+            mode === 'note' ? 'border-amber-300 bg-amber-50/40' : 'border-slate-300 bg-surface'
           }`}
         />
       </label>

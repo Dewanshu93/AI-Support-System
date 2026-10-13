@@ -156,7 +156,7 @@ export function TimesheetPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center rounded-xl border border-slate-200/80 bg-white p-1 shadow-card">
+        <div className="flex items-center rounded-xl border border-slate-200/80 bg-surface p-1 shadow-card">
           <button
             type="button"
             aria-label="Previous week"
@@ -185,7 +185,7 @@ export function TimesheetPage() {
           </button>
         </div>
         {week && (
-          <div className="flex min-w-60 flex-1 items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-card sm:flex-none">
+          <div className="flex min-w-60 flex-1 items-center gap-3 rounded-xl border border-slate-200/80 bg-surface px-4 py-2.5 shadow-card sm:flex-none">
             <span className="text-sm text-slate-500">Logged</span>
             <span className="font-display text-lg font-semibold text-slate-900">
               {hours(weekTotal)}
@@ -205,7 +205,7 @@ export function TimesheetPage() {
       {!week ? (
         <Skeleton className="h-96 w-full rounded-2xl" />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-card">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-surface shadow-card">
           <table className="w-full min-w-[56rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-100">
@@ -324,14 +324,14 @@ export function TimesheetPage() {
                                 : dirty
                                   ? 'border-brand-300 bg-brand-50/60 text-brand-800'
                                   : value
-                                    ? 'border-slate-200 bg-white text-slate-900'
+                                    ? 'border-slate-200 bg-surface text-slate-900'
                                     : 'border-transparent bg-slate-50 text-slate-900 hover:border-slate-200'
                             }`}
                           />
                           {entry?.late && !dirty && (
                             <span
                               title="Logged after the pay period closed"
-                              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-slate-500 ring-2 ring-white"
+                              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-slate-500 ring-2 ring-surface"
                             />
                           )}
                           {entry?.source === 'copilot' && !dirty && (
@@ -412,7 +412,7 @@ export function TimesheetPage() {
       {/* Sticky save bar when there are unsaved changes. */}
       {(changed.length > 0 || saveError) && week && (
         <div className="fixed inset-x-0 bottom-0 z-30 animate-rise px-4 pb-4 lg:pl-72">
-          <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl dark:bg-slate-200 dark:ring-1 dark:ring-slate-300">
             <Icon
               name={saveError ? 'alert' : 'info'}
               className={`h-5 w-5 ${saveError ? 'text-rose-300' : 'text-brand-300'}`}
@@ -423,7 +423,7 @@ export function TimesheetPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-slate-300 hover:bg-white/10 hover:text-white"
+              className="text-slate-300 hover:bg-white/10 hover:text-white dark:text-slate-600"
               onClick={() => {
                 setGrid(initialGrid(week));
                 setErrors({});
@@ -434,7 +434,7 @@ export function TimesheetPage() {
             </Button>
             <Button
               size="sm"
-              className="bg-white text-slate-900 hover:bg-brand-50"
+              className="bg-surface text-slate-900 hover:bg-brand-50"
               disabled={saving || changed.length === 0}
               onClick={() => void save()}
               data-testid="save-timesheet"

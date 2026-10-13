@@ -86,7 +86,7 @@ export function ProModelsView({
         className={`group flex h-8 items-center gap-2 rounded-full border pr-1 pl-2.5 text-xs font-semibold transition disabled:opacity-60 ${
           on
             ? 'border-brand-200 bg-brand-50 text-brand-700'
-            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            : 'border-slate-200 bg-surface text-slate-600 hover:border-slate-300'
         }`}
       >
         <Icon
@@ -99,7 +99,7 @@ export function ProModelsView({
           className={`relative h-5 w-9 rounded-full transition-colors ${on ? 'bg-brand-600' : 'bg-slate-300'}`}
         >
           <span
-            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left] ${on ? 'left-4.5' : 'left-0.5'}`}
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-[left] ${on ? 'left-4.5' : 'left-0.5'}`}
           />
         </span>
       </button>

@@ -71,7 +71,7 @@ export function AssistantMessage({
             ? 'border-rose-200 bg-rose-50 text-rose-900'
             : view.withdrawn
               ? 'border-amber-200 bg-amber-50 text-amber-950'
-              : 'border-slate-200 bg-white text-slate-900'
+              : 'border-slate-200 bg-surface text-slate-900'
         }`}
       >
         {splitMarkers(view.text).map((part, i) => {

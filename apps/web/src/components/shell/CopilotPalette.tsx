@@ -54,7 +54,7 @@ export function CopilotPalette({ onClose }: { onClose: () => void }) {
         className="absolute inset-0 animate-fade bg-slate-900/30 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-xl animate-rise overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5">
+      <div className="relative w-full max-w-xl animate-rise overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-slate-900/5">
         <form onSubmit={submit} className="flex items-center gap-3 border-b border-slate-100 px-4">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">
             <Icon name="sparkles" className="h-4 w-4" />

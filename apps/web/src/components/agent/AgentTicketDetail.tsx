@@ -195,7 +195,7 @@ export function AgentTicketView({
 
           <details
             data-testid="transcript"
-            className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card"
+            className="rounded-2xl border border-slate-200/80 bg-surface p-4 shadow-card"
           >
             <summary className="cursor-pointer text-sm font-semibold text-slate-900">
               Conversation ({data.transcript.length} messages)
@@ -265,7 +265,7 @@ export function AgentTicketView({
                         className={`text-sm whitespace-pre-wrap ${
                           e.visibility === 'internal'
                             ? 'rounded-md bg-amber-50 px-3 py-2 text-slate-800 ring-1 ring-amber-200'
-                            : 'rounded-md bg-white px-3 py-2 ring-1 ring-slate-200'
+                            : 'rounded-md bg-surface px-3 py-2 ring-1 ring-slate-200'
                         }`}
                       >
                         {e.body}

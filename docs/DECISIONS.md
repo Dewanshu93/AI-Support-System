@@ -595,3 +595,30 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   no Copilot page yet, so their P-7 drafts use their own saved setting (off unless set via the API).
 - **Consequences:** Pro off is free but slower (the local 8B model on CPU: seconds per call, about
   2 min on first load) and less precise; Pro on is fast but uses paid quota.
+
+## ADR-021 — Light / dark theme by remapping the palette, not per-component `dark:` classes
+
+- **Status:** Accepted (owner request, 2026-10-13)
+- **Context:** the owner asked for dark and light modes across the whole application, with the
+  control placed per common UX practice. About 600 colour utilities are spread over ~35
+  components; adding a `dark:` twin to each would double the class strings and every new
+  component would have to remember them.
+- **Decision:**
+  - **One place:** `globals.css` defines a `.dark` block on `<html>` that remaps the palette
+    variables Tailwind utilities read: the slate ramp is inverted (text-slate-900 becomes
+    near-white, bg-slate-50 a raised dark panel), each accent hue's tints (50–300) become dim
+    washes and its dark text shades (700–950) become light ones; saturated fills (400–600) keep
+    their value so white text on buttons and badges stays legible. Mid-tone accent text
+    (`text-*-500/600`) is lifted one step. `@custom-variant dark` exists for the few exceptions.
+  - **Semantic tokens** where a fixed colour carried meaning: `bg-surface` (cards, panels; was
+    `bg-white`), `bg-ink`/`text-on-ink`/`ink-hover` (primary button, selected toggles). Literal
+    `white` keeps meaning white (text on coloured fills).
+  - **Preference:** Light, Dark or System (default), per browser in `localStorage` (`theme`),
+    not on the account: it is a display setting and must apply on the sign-in page too. An inline
+    script in `<head>` (`THEME_INIT_SCRIPT`, `lib/theme.ts`) sets the class before first paint,
+    so there is no light flash; "System" follows OS changes live.
+  - **Placement:** a sun/moon icon button in the top bar, left of the notification bell, opening a
+    three-option menu (`menuitemradio`); top-right on the sign-in page.
+- **Consequences:** new components get dark mode for free if they use the palette and `bg-surface`
+  instead of `bg-white`. A raw hex colour in a component (only project colours from data today)
+  does not adapt. Contrast was checked by screenshots of the main pages, not an automated audit.

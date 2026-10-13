@@ -52,7 +52,7 @@ export function Composer({
   return (
     <form
       onSubmit={submit}
-      className="space-y-2 rounded-xl border border-slate-300 bg-white p-2 transition focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/10"
+      className="space-y-2 rounded-xl border border-slate-300 bg-surface p-2 transition focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/10"
     >
       <label htmlFor="composer" className="sr-only">
         Your message
@@ -131,7 +131,7 @@ export function FeedbackButtons({
   onRate: (rating: 'up' | 'down') => void;
 }) {
   const style = (active: boolean) =>
-    `rounded px-2 py-1 text-xs ring-1 ring-inset ${active ? 'bg-slate-900 text-white ring-slate-900' : 'text-slate-600 ring-slate-200 hover:bg-slate-100'}`;
+    `rounded px-2 py-1 text-xs ring-1 ring-inset ${active ? 'bg-ink text-on-ink ring-ink' : 'text-slate-600 ring-slate-200 hover:bg-slate-100'}`;
   return (
     <div data-testid="feedback" className="flex items-center gap-1" aria-label="Rate this reply">
       <button
@@ -179,7 +179,7 @@ export function EmptyChat({ onPick }: { onPick: (prompt: string) => void }) {
             key={prompt}
             type="button"
             onClick={() => onPick(prompt)}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-800 transition hover:border-brand-200 hover:bg-brand-50/50"
+            className="rounded-xl border border-slate-200 bg-surface px-4 py-3 text-left text-sm text-slate-800 transition hover:border-brand-200 hover:bg-brand-50/50"
           >
             {prompt}
           </button>

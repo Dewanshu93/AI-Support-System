@@ -65,7 +65,7 @@ export function Sidebar({ user, items }: { user: AuthUser; items: NavItem[] }) {
     <aside
       data-testid="sidebar"
       data-collapsed={collapsed}
-      className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-slate-200/70 bg-white/80 py-5 backdrop-blur transition-[width] duration-200 lg:flex ${
+      className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-slate-200/70 bg-surface/80 py-5 backdrop-blur transition-[width] duration-200 lg:flex ${
         collapsed ? 'w-18 px-3' : 'w-68 px-4'
       }`}
     >
@@ -87,8 +87,8 @@ export function Sidebar({ user, items }: { user: AuthUser; items: NavItem[] }) {
               Log hours, understand your pay and raise requests by just asking.
             </p>
             <p className="mt-2 text-[11px] text-slate-500">
-              Press <kbd className="rounded border border-slate-200 bg-white px-1">Ctrl</kbd>{' '}
-              <kbd className="rounded border border-slate-200 bg-white px-1">K</kbd>
+              Press <kbd className="rounded border border-slate-200 bg-surface px-1">Ctrl</kbd>{' '}
+              <kbd className="rounded border border-slate-200 bg-surface px-1">K</kbd>
             </p>
           </div>
         )}

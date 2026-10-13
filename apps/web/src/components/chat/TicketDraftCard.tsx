@@ -190,7 +190,7 @@ export function TicketDraftView({
                   aria-invalid={isMissing || undefined}
                   onChange={(e) => onEdit(key, e.target.value)}
                   placeholder={isMissing ? 'Please add this' : 'Not known'}
-                  className={`w-full rounded-md border bg-white px-3 py-2 focus:outline-none ${
+                  className={`w-full rounded-md border bg-surface px-3 py-2 focus:outline-none ${
                     isMissing
                       ? 'border-rose-300 focus:border-rose-500'
                       : 'border-slate-300 focus:border-slate-500'

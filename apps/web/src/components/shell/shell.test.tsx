@@ -7,6 +7,7 @@ import { NAV_BY_ROLE } from '@/lib/roles';
 import { NavLinks } from './NavLinks';
 import { ProfileMenu } from './ProfileMenu';
 import { Sidebar } from './Sidebar';
+import { ThemeMenu } from './ThemeMenu';
 
 jest.mock('next/navigation', () => ({ usePathname: () => '/payroll' }));
 
@@ -30,7 +31,7 @@ describe('ProfileMenu', () => {
     expect(html).toContain('data-testid="profile-menu"');
     expect(html).toContain('aria-label="Profile: Priya Shah"');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('>PS<');
+    expect(html).toContain('alt="Priya Shah"');
     // The details panel (and Sign out) render only when opened.
     expect(html).not.toContain('data-testid="user-badge"');
     expect(html).not.toContain('Sign out');
@@ -59,5 +60,16 @@ describe('NavLinks', () => {
     expect(html).not.toContain('title="Payroll"');
     expect(html).not.toContain('sr-only');
     expect(html).toContain('Payroll');
+  });
+});
+
+describe('ThemeMenu', () => {
+  it('a closed menu button labelled with the theme in effect', () => {
+    const html = renderToStaticMarkup(<ThemeMenu />);
+    expect(html).toContain('data-testid="theme-menu"');
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-label="Theme: light"');
+    expect(html).not.toContain('role="menuitemradio"');
   });
 });

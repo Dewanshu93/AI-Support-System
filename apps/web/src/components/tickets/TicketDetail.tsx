@@ -73,7 +73,7 @@ export function TicketDetailView({ data }: { data: TicketDetailResponse }) {
               </p>
               {e.body && (
                 <p
-                  className={`text-sm whitespace-pre-wrap ${e.type === 'reply' ? 'rounded-md bg-white px-3 py-2 ring-1 ring-slate-200' : 'text-slate-700'}`}
+                  className={`text-sm whitespace-pre-wrap ${e.type === 'reply' ? 'rounded-md bg-surface px-3 py-2 ring-1 ring-slate-200' : 'text-slate-700'}`}
                 >
                   {e.body}
                 </p>

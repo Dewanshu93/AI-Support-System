@@ -25,7 +25,7 @@ export function EmailCard({
     <li
       data-testid="ticket-email"
       data-status={email.status}
-      className="space-y-2 rounded-md bg-white px-3 py-3 text-sm ring-1 ring-slate-200"
+      className="space-y-2 rounded-md bg-surface px-3 py-3 text-sm ring-1 ring-slate-200"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="font-medium break-words text-slate-900">{email.subject}</p>

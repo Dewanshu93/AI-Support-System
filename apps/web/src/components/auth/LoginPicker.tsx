@@ -2,13 +2,13 @@
 
 import type { DemoUser, Role } from '@sd/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api';
-import { initials } from '@/lib/format';
 import { EMPLOYMENT_LABEL, homeFor } from '@/lib/roles';
 
 const GROUPS: { role: Role; title: string }[] = [
@@ -129,11 +129,9 @@ export function LoginPicker() {
                     onClick={() => signIn(user)}
                     disabled={pending !== null || needsPassword}
                     aria-label={`Sign in as ${user.name}`}
-                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-card transition hover:border-brand-300 hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-surface p-4 text-left shadow-card transition hover:border-brand-300 hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
-                      {initials(user.name)}
-                    </span>
+                    <Avatar name={user.name} />
                     <span className="min-w-0 flex-1 space-y-1">
                       <span className="block text-sm font-semibold text-slate-900">
                         {user.name}

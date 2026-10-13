@@ -221,7 +221,7 @@ export function ChatWorkspace({
       <nav
         aria-label="Conversations"
         data-testid="conversation-sidebar"
-        className="space-y-3 self-start rounded-2xl border border-slate-200/80 bg-white p-3 shadow-card md:sticky md:top-20"
+        className="space-y-3 self-start rounded-2xl border border-slate-200/80 bg-surface p-3 shadow-card md:sticky md:top-20"
       >
         {/* Full navigation: after the first message the URL is updated with
             history.replaceState, so the router may still think this is /chat. */}
@@ -261,7 +261,7 @@ export function ChatWorkspace({
         )}
       </nav>
 
-      <section className="flex min-h-[70vh] flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card sm:p-6">
+      <section className="flex min-h-[70vh] flex-col gap-4 rounded-2xl border border-slate-200/80 bg-surface p-4 shadow-card sm:p-6">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-600 text-white">
             <Icon name="sparkles" className="h-4.5 w-4.5" />

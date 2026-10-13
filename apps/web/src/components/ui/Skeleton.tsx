@@ -20,7 +20,7 @@ export function SkeletonCards({
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card"
+          className="space-y-3 rounded-2xl border border-slate-200/80 bg-surface p-5 shadow-card"
         >
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-3 w-1/2" />

@@ -83,7 +83,7 @@ export function NotificationBell() {
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-card transition hover:text-slate-900"
+        className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200/80 bg-surface text-slate-600 shadow-card transition hover:text-slate-900"
       >
         <Icon name="bell" className="h-5 w-5" />
         {unread > 0 && (
@@ -94,7 +94,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lift">
+        <div className="absolute right-0 z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] animate-rise overflow-hidden rounded-2xl border border-slate-200/80 bg-surface shadow-lift">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-semibold text-slate-900">Notifications</p>
             {unread > 0 && (

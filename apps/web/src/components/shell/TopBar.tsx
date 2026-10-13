@@ -10,9 +10,10 @@ import { CopilotPalette } from './CopilotPalette';
 import { NavLinks } from './NavLinks';
 import { NotificationBell } from './NotificationBell';
 import { ProfileMenu } from './ProfileMenu';
+import { ThemeMenu } from './ThemeMenu';
 import { BrandMark } from './Sidebar';
 
-/** Sticky top bar: mobile menu, copilot launcher (Ctrl/⌘ K), notifications and the profile menu. */
+/** Sticky top bar: mobile menu, copilot launcher (Ctrl/⌘ K), theme, notifications and the profile menu. */
 export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -40,7 +41,7 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
             type="button"
             aria-label="Open menu"
             onClick={() => setMenuOpen(true)}
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-white lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-surface lg:hidden"
           >
             <Icon name="menu" />
           </button>
@@ -53,7 +54,7 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
               type="button"
               data-testid="copilot-launcher"
               onClick={() => setPaletteOpen(true)}
-              className="group flex h-10 min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-3 text-left text-sm text-slate-500 shadow-card transition hover:border-slate-300 sm:max-w-md"
+              className="group flex h-10 min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-200/80 bg-surface px-3 text-left text-sm text-slate-500 shadow-card transition hover:border-slate-300 sm:max-w-md"
             >
               <Icon name="sparkles" className="h-4 w-4 text-brand-500" />
               <span className="truncate">Ask Copilot anything…</span>
@@ -66,6 +67,7 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeMenu />
             {employee && <NotificationBell />}
             <ProfileMenu user={user} />
           </div>
@@ -85,7 +87,7 @@ export function TopBar({ user, items }: { user: AuthUser; items: NavItem[] }) {
             className="absolute inset-0 animate-fade bg-slate-900/30 backdrop-blur-sm"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 animate-slide-in flex-col bg-white px-4 py-5 shadow-2xl">
+          <div className="absolute inset-y-0 left-0 flex w-72 animate-slide-in flex-col bg-surface px-4 py-5 shadow-2xl">
             <div className="mb-6 flex items-center justify-between px-2">
               <BrandMark />
               <button

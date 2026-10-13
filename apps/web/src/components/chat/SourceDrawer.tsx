@@ -44,7 +44,7 @@ export function SourceDrawer({
       data-testid="source-drawer"
       role="dialog"
       aria-label="Source"
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-xl"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-slate-200 bg-surface shadow-xl"
     >
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <p className="text-sm font-semibold text-slate-900">Source</p>

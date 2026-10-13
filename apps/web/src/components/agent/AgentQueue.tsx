@@ -32,11 +32,11 @@ const toError = (err: unknown) =>
   err instanceof ApiError ? err : new ApiError(0, 'NETWORK', 'Cannot reach the service.');
 
 const SELECT =
-  'h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none';
+  'h-9 rounded-lg border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none';
 
 export function QueueTable({ items }: { items: Item[] }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-card">
+    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-surface shadow-card">
       <table data-testid="queue-table" className="w-full min-w-[44rem] text-sm">
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs font-semibold text-slate-500">

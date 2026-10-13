@@ -14,7 +14,7 @@ export function ViewToggle({
       aria-pressed={value === v}
       onClick={() => onChange(v)}
       className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition ${
-        value === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+        value === v ? 'bg-surface text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
       }`}
     >
       <Icon name={icon} className="h-4 w-4" />

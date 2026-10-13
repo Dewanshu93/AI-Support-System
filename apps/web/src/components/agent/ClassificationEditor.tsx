@@ -9,7 +9,7 @@ import { type Classification, classificationChange } from '@/lib/agentTicket';
 type Options = AgentTicketDetailResponse['categoryOptions'];
 
 const SELECT =
-  'h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
+  'h-9 w-full rounded-lg border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
 
 /**
  * Correct the category, subcategory or priority. Saves only what changed; the API

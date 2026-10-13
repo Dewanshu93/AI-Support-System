@@ -44,7 +44,7 @@ export function ActionCard({
     <section
       data-testid="action-card"
       aria-labelledby="action-card-title"
-      className="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card"
+      className="overflow-hidden rounded-2xl border border-brand-200 bg-surface shadow-card"
     >
       <header className="flex items-center gap-3 border-b border-brand-100 bg-brand-50/60 px-4 py-3">
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">

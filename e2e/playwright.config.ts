@@ -24,12 +24,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // Live turns are slow (minutes on the local model) and providers rate-limit: one at a time.
-  // Replayed turns skip the LLM but still query the LAN MongoDB and Qdrant, which
-  // slows down under parallel load: two workers, generous timeouts.
+  // Replayed turns skip the LLM but still query the LAN MongoDB and Qdrant; with two
+  // workers the API drops proxied connections (ECONNRESET) on the demo PC, so one
+  // worker by default (E2E_WORKERS overrides). Generous timeouts.
   // Live and record runs use the local model (E2E users have Pro off, ADR-020): on CPU a
   // turn takes minutes, so they get 5 min per expectation and 10 min per test (×3 with
   // test.slow). Replay stays fast.
-  workers: live ? 1 : 2,
+  workers: live ? 1 : Number(process.env.E2E_WORKERS ?? 1),
   timeout: live ? 600_000 : 180_000,
   expect: { timeout: live ? 300_000 : 60_000 },
   reporter: [['list'], ['html', { open: 'never' }]],

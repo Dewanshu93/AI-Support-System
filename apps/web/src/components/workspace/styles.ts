@@ -28,13 +28,13 @@ export const DAY_STYLE: Record<
   today: {
     label: 'Today',
     icon: 'clock',
-    tile: 'border-brand-300 bg-white text-brand-700 ring-2 ring-brand-500/20',
+    tile: 'border-brand-300 bg-surface text-brand-700 ring-2 ring-brand-500/20',
     chip: 'bg-brand-600 text-white',
   },
   future: {
     label: 'Upcoming',
     icon: null,
-    tile: 'border-dashed border-slate-200 bg-white text-slate-400',
+    tile: 'border-dashed border-slate-200 bg-surface text-slate-400',
     chip: 'bg-slate-200 text-slate-500',
   },
   weekend: {

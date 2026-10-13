@@ -32,7 +32,7 @@ export function EmailDraftSection({
     <fieldset
       data-testid="email-draft"
       disabled={disabled}
-      className="space-y-3 rounded-md border border-slate-200 bg-white p-3"
+      className="space-y-3 rounded-md border border-slate-200 bg-surface p-3"
     >
       <legend className="px-1 text-xs font-medium tracking-wide text-slate-700 uppercase">
         Email
@@ -64,7 +64,7 @@ export function EmailDraftSection({
           maxLength={EMAIL_LIMITS.subject}
           aria-invalid={!email.subject.trim() || undefined}
           onChange={(e) => onEdit('subject', e.target.value)}
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-slate-500 focus:outline-none"
+          className="w-full rounded-md border border-slate-300 bg-surface px-3 py-2 focus:border-slate-500 focus:outline-none"
         />
       </div>
 
@@ -83,7 +83,7 @@ export function EmailDraftSection({
           maxLength={EMAIL_LIMITS.body}
           aria-invalid={!email.body.trim() || undefined}
           onChange={(e) => onEdit('body', e.target.value)}
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-sans leading-relaxed focus:border-slate-500 focus:outline-none"
+          className="w-full rounded-md border border-slate-300 bg-surface px-3 py-2 font-sans leading-relaxed focus:border-slate-500 focus:outline-none"
         />
       </div>
 

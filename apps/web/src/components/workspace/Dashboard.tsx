@@ -83,7 +83,7 @@ function Hero({ data }: { data: DashboardResponse }) {
     .slice(0, 4);
 
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white shadow-card">
+    <section className="rounded-2xl border border-slate-200/80 bg-surface shadow-card">
       <div className="grid gap-6 p-6 lg:grid-cols-[1fr_minmax(0,32rem)] lg:items-center lg:p-7">
         <div>
           <p className="text-sm text-slate-500">{fullDate(data.today)}</p>
@@ -98,7 +98,7 @@ function Hero({ data }: { data: DashboardResponse }) {
         <div>
           <form
             onSubmit={submit}
-            className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white p-1.5 transition focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/10"
+            className="flex items-center gap-2 rounded-xl border border-slate-300 bg-surface p-1.5 transition focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/10"
           >
             <span className="ml-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600">
               <Icon name="sparkles" className="h-4.5 w-4.5" />
@@ -178,7 +178,7 @@ function Stat({
   return (
     <Link
       href={href}
-      className="card-hover group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card"
+      className="card-hover group rounded-2xl border border-slate-200/80 bg-surface p-5 shadow-card"
     >
       <div className="flex items-center justify-between">
         <span className={`grid h-9 w-9 place-items-center rounded-xl ${tones[tone]}`}>
@@ -377,7 +377,7 @@ function PayrollCard({ data }: { data: DashboardResponse }) {
             {money(slip.totalDeductions, slip.currency)}
           </p>
           {slip.lopAmount > 0 && (
-            <div className="mt-4 rounded-xl border border-rose-200 bg-linear-to-br from-rose-50 to-white p-4">
+            <div className="mt-4 rounded-xl border border-rose-200 bg-linear-to-br from-rose-50 to-surface p-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-rose-800">
                 <Icon name="trendDown" className="h-4 w-4" />
                 Loss of Pay −{money(slip.lopAmount, slip.currency)}
