@@ -1055,14 +1055,14 @@ inside the app:
 
 ## Document management (W4-04, ADR-022)
 
--  (rules) + : ,
-   (chunk previews),  (multipart  +
-   JSON → 201 with ingestStatus; 400 type/size/metadata; 409 slug+version or second active
+- (rules) + : ,
+  (chunk previews), (multipart +
+  JSON → 201 with ingestStatus; 400 type/size/metadata; 409 slug+version or second active
   version), , . Admin only; writes audited
   (, , ).
-- Upload and re-index call  through an injected  (server.ts: document
-  embedder created on first use); status changes go through   (document + chunks in MongoDB + Qdrant payloads). Originals in .
--  (, ) and   (: metadata, chunk list, re-index, activate / deactivate, new version).
+- Upload and re-index call through an injected (server.ts: document
+  embedder created on first use); status changes go through (document + chunks in MongoDB + Qdrant payloads). Originals in .
+- (, ) and (: metadata, chunk list, re-index, activate / deactivate, new version).
 
 ## Runtime
 
