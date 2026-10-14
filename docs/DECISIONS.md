@@ -622,3 +622,25 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** new components get dark mode for free if they use the palette and `bg-surface`
   instead of `bg-white`. A raw hex colour in a component (only project colours from data today)
   does not adapt. Contrast was checked by screenshots of the main pages, not an automated audit.
+
+## ADR-022 — Document upload: pdf-parse directly, originals kept under data/uploads
+
+- **Status:** Accepted (W4-04, 2026-10-14)
+- **Context:** the admin upload (playbook section 4) takes Markdown or PDF up to 5 MB and must
+  reuse the ingestion pipeline; re-index must rebuild a document from its source. Multipart
+  parsing and PDF text extraction are new needs.
+- **Decision:**
+  - `multer` (approved list) parses the multipart request into memory, capped at 5 MB.
+  - PDF text comes from `pdf-parse` 2.x, the PDF parsing dependency the approved LangChain PDF
+    loader uses, called directly (`ai/ingestion/loaders.ts extractPdfText`) instead of adding all
+    of `@langchain/community` for one loader. Text is chunked like Markdown without headings.
+  - The original file is written to `data/uploads/<slug>@<version>.<ext>` (git-ignored) and
+    becomes the document's `sourcePath`; corpus documents keep `corpus/...`. Re-index reads
+    `sourcePath` and rebuilds with the stored metadata (`force` skips the up-to-date check) and
+    keeps the stored supersede link.
+  - Code enforces: type and size; metadata with the shared Zod schema; one active version per
+    slug (an upload must name the active version it supersedes, an activation 409s if another is
+    active); `supersedes` must exist and be lower.
+- **Consequences:** uploads live on the API host's disk (fine for the single-instance prototype;
+  production would use object storage, see PRODUCTION_GAPS). PDFs with scanned pages and no text
+  layer index as empty and are rejected ("contains no text").

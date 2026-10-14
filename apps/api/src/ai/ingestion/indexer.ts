@@ -42,7 +42,13 @@ export function chunkStats(perDocument: ChunkDraft[][]): ChunkStats {
 
 export async function ingestSources(
   sources: SourceDocument[],
-  deps: { documents: DocumentsService; embedder: ChunkEmbedder; log?: (line: string) => void },
+  deps: {
+    documents: DocumentsService;
+    embedder: ChunkEmbedder;
+    log?: (line: string) => void;
+    /** Re-index even when the stored content is up to date (admin re-index, W4-04). */
+    force?: boolean;
+  },
 ): Promise<IngestResult> {
   const log = deps.log ?? (() => {});
   const embedding = { model: deps.embedder.model, dimension: deps.embedder.dimension };
@@ -73,7 +79,7 @@ export async function ingestSources(
     const drafts = await chunkMarkdown(source.body);
     allDrafts.push(drafts);
     try {
-      if (await deps.documents.isUpToDate(id, hash)) {
+      if (!deps.force && (await deps.documents.isUpToDate(id, hash))) {
         result.skipped.push(label(source));
         log(`= ${label(source)} unchanged (${drafts.length} chunks)`);
         continue;

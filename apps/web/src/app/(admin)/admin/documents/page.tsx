@@ -1,11 +1,13 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { Suspense } from 'react';
+import { DocumentTable } from '@/components/admin/documents/DocumentTable';
+
+export const metadata = { title: 'Documents' };
 
 export default function DocumentsPage() {
+  // useSearchParams (filters) needs a Suspense boundary.
   return (
-    <PlaceholderPage
-      title="Documents"
-      description="Manage the knowledge base: upload, re-index and change status."
-      task="W4-04"
-    />
+    <Suspense>
+      <DocumentTable />
+    </Suspense>
   );
 }

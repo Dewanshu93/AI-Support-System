@@ -14,6 +14,7 @@ import { buildSupportGraph } from '../../src/ai/graph/graph';
 import { loadConfig } from '../../src/config';
 import { VALID_ENV } from './config';
 import { memoryConversationsRepository, memorySourcesReader } from './conversations';
+import { testDocumentAdmin } from './documentAdmin';
 import { testGaps } from './gaps';
 import { memoryTracesRepository } from './traces';
 import {
@@ -82,6 +83,8 @@ export interface TestAppOptions extends CreateAppOptions {
   gaps?: AppDeps['gaps'];
   /** Trace-viewer reads (W4-03); default: empty. */
   traces?: AppDeps['traces'];
+  /** Admin documents (W4-04); default: empty in-memory stores with fake embeddings. */
+  documentAdmin?: AppDeps['documentAdmin'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -117,6 +120,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     metrics: options.metrics ?? emptyMetrics(),
     gaps: options.gaps ?? testGaps(),
     traces: options.traces ?? memoryTracesRepository(),
+    documentAdmin: options.documentAdmin ?? testDocumentAdmin().admin,
     workday: config.workday,
     clock: options.clock,
   };

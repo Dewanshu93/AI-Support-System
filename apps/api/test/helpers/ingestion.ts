@@ -13,7 +13,8 @@ export function memoryDocumentStores() {
 
   const repo: DocumentsRepository = {
     findById: async (id) => documents.get(key(id)) ?? null,
-    save: async (doc) => void documents.set(key(doc._id), structuredClone(doc)),
+    // A shallow copy: structuredClone would turn ObjectIds into plain objects.
+    save: async (doc) => void documents.set(key(doc._id), { ...doc }),
     update: async (id, fields) => {
       const doc = documents.get(key(id));
       if (doc) documents.set(key(id), { ...doc, ...fields });
@@ -31,6 +32,18 @@ export function memoryDocumentStores() {
     },
     findChunksByIds: async (ids) =>
       [...chunks.values()].flat().filter((c) => ids.includes(c._id.toHexString())),
+    list: async (filter) =>
+      [...documents.values()]
+        .filter(
+          (d) =>
+            (!filter.domain || d.domain === filter.domain) &&
+            (!filter.status || d.status === filter.status) &&
+            (!filter.country || d.countries.includes(filter.country)),
+        )
+        .sort((a, b) => a.slug.localeCompare(b.slug) || a.version.localeCompare(b.version)),
+    findBySlug: async (slug) => [...documents.values()].filter((d) => d.slug === slug),
+    listChunks: async (id) =>
+      [...(chunks.get(key(id)) ?? [])].sort((a, b) => a.ordinal - b.ordinal),
   };
 
   const vectors: ChunkVectorStore = {

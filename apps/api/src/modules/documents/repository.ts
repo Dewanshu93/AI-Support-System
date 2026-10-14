@@ -14,6 +14,16 @@ export interface DocumentsRepository {
   setChunkStatus(id: ObjectId, status: ChunkDoc['status']): Promise<void>;
   /** Chunks by hex ID, in no particular order; unknown or malformed IDs are ignored. */
   findChunksByIds(ids: string[]): Promise<ChunkDoc[]>;
+  /** Admin list (W4-04): by domain, status and country; slug then version order. */
+  list(filter: {
+    domain?: DocumentDoc['domain'];
+    status?: DocumentDoc['status'];
+    country?: DocumentDoc['countries'][number];
+  }): Promise<DocumentDoc[]>;
+  /** Every stored version of a slug. */
+  findBySlug(slug: string): Promise<DocumentDoc[]>;
+  /** A document's chunks in reading order. */
+  listChunks(id: ObjectId): Promise<ChunkDoc[]>;
 }
 
 export function mongoDocumentsRepository(collections: {
@@ -43,6 +53,15 @@ export function mongoDocumentsRepository(collections: {
       const valid = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
       return valid.length === 0 ? [] : chunks.find({ _id: { $in: valid } }).toArray();
     },
+    list(filter) {
+      const query: Record<string, unknown> = {};
+      if (filter.domain) query.domain = filter.domain;
+      if (filter.status) query.status = filter.status;
+      if (filter.country) query.countries = filter.country;
+      return documents.find(query).sort({ slug: 1, version: 1 }).toArray();
+    },
+    findBySlug: (slug) => documents.find({ slug }).toArray(),
+    listChunks: (id) => chunks.find({ documentId: id }).sort({ ordinal: 1 }).toArray(),
   };
 }
 

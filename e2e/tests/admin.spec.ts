@@ -64,3 +64,19 @@ test('trace viewer: conversations list, and a conversation opens its turn timeli
     }
   }
 });
+
+test('documents: the knowledge base lists versions and a document shows its chunks', async ({
+  page,
+}) => {
+  await signIn(page, 'Alex Morgan', /\/admin$/);
+  await page.goto('/admin/documents');
+  await expect(page.getByRole('heading', { level: 1, name: 'Documents' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Upload policy' })).toBeEnabled();
+  const rows = page.getByTestId('document-row');
+  await expect(rows.first().or(page.getByText('No documents'))).toBeVisible();
+  if (await rows.first().isVisible()) {
+    await rows.first().getByRole('link').click();
+    await expect(page.getByTestId('chunk-list')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Re-index' })).toBeVisible();
+  }
+});

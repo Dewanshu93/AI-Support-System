@@ -1,3 +1,4 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { APP_NAME } from '@sd/shared';
 import { createApp } from './app';
@@ -26,6 +27,12 @@ import {
 import { guardUnhandledRejections } from './ai/llm/orphanedStream';
 import { createDraftReply } from './ai/nodes/draftReply';
 import { createGapLabeler } from './ai/nodes/gapLabel';
+import { createChunkEmbedder } from './ai/ingestion/embedder';
+import { ingestSources } from './ai/ingestion/indexer';
+import { loadSourceBody } from './ai/ingestion/loaders';
+import { createDocumentAdmin } from './modules/documents/admin';
+import { createDocumentsService } from './modules/documents/service';
+import { qdrantChunkStore } from './modules/documents/vectorStore';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
 import { llmConfigured } from './ai/llm/keys';
 import { retrieve } from './ai/retrieval/retrieve';
@@ -226,6 +233,43 @@ async function main() {
   // Knowledge gaps (W4-02): questions embedded with the clustering task type,
   // clusters named by P-8 through the same model factory (follows the admin's Pro switch).
   let clusteringEmbeddings: ReturnType<typeof createEmbeddings> | undefined;
+  // Admin documents (W4-04): upload and re-index run the ingestion pipeline with the
+  // document embedder (created on first use) and keep originals under data/uploads.
+  let documentEmbedder: ReturnType<typeof createChunkEmbedder> | undefined;
+  const documentsService = createDocumentsService({
+    repo: documents,
+    vectors: qdrantChunkStore(qdrant),
+  });
+  const documentAdmin = createDocumentAdmin({
+    repo: documents,
+    documents: documentsService,
+    files: {
+      read: (relativePath) => readFile(path.join(REPO_ROOT, relativePath)),
+      write: async (relativePath, data) => {
+        const file = path.join(REPO_ROOT, relativePath);
+        await mkdir(path.dirname(file), { recursive: true });
+        await writeFile(file, data);
+      },
+    },
+    ingest: (sources, options) => {
+      documentEmbedder ??= createChunkEmbedder(
+        createEmbeddings(config.models, config.env, 'document'),
+        {
+          model: config.models.embeddings.model,
+          dimension: config.models.embeddings.dimension,
+          policy: config.models.call,
+        },
+      );
+      return ingestSources(sources, {
+        documents: documentsService,
+        embedder: documentEmbedder,
+        force: options?.force,
+        log: (line) => logger.info({ line }, 'document ingest'),
+      });
+    },
+    loadBody: (file, data) => loadSourceBody(file, data),
+  });
+
   const gapsRepository = mongoGapsRepository(collections);
   const gaps = {
     repository: gapsRepository,
@@ -277,6 +321,7 @@ async function main() {
     metrics: mongoMetricsRepository(collections),
     gaps,
     traces: mongoTracesRepository(collections),
+    documentAdmin,
     workday: config.workday,
     clock,
     auth: {

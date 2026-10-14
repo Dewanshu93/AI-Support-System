@@ -2,6 +2,12 @@
 // Next.js rewrites to the Express API, so the session cookie is first-party.
 // Every response is validated with the shared Zod schemas.
 import {
+  AdminDocumentDetailResponseSchema,
+  type AdminDocumentListQuery,
+  AdminDocumentListResponseSchema,
+  AdminDocumentResponseSchema,
+  type DocumentStatus,
+  type DocumentUploadMetadata,
   type AdminConversationListQuery,
   AdminConversationListResponseSchema,
   ConversationTracesResponseSchema,
@@ -62,23 +68,30 @@ export class ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
+/** Upload metadata as the form sends it (dates as YYYY-MM-DD strings). */
+export type DocumentUploadMetadataInput = Omit<DocumentUploadMetadata, 'effectiveDate'> & {
+  effectiveDate: string;
+};
+
 export async function apiRequest<S extends z.ZodType>(
   path: string,
   schema: S | null,
   { method = 'GET', body }: { method?: Method; body?: unknown } = {},
 ): Promise<z.output<S> | undefined> {
   let res: Response;
+  // Multipart uploads (W4-04) go as is: the browser sets the boundary header.
+  const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
   try {
     res = await fetch(`/api${path}`, {
       method,
       credentials: 'include',
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+        ...(body !== undefined && !multipart && { 'Content-Type': 'application/json' }),
         // Marks requests from this app; the API checks it on mutations (W4-07).
         ...(method !== 'GET' && { 'X-Requested-With': 'sd-web' }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, 'NETWORK', 'Cannot reach the service. Check your connection and retry.');
@@ -154,6 +167,43 @@ export const api = {
   trace: async (traceId: string) =>
     (await apiRequest(`/admin/traces/${encodeURIComponent(traceId)}`, TraceDetailResponseSchema))!
       .trace,
+
+  // Documents (W4-04).
+  adminDocuments: async (q: Partial<AdminDocumentListQuery> = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(q)) if (value) params.set(key, String(value));
+    const query = params.toString();
+    return (await apiRequest(
+      `/admin/documents${query ? `?${query}` : ''}`,
+      AdminDocumentListResponseSchema,
+    ))!.items;
+  },
+  adminDocument: async (id: string) =>
+    (await apiRequest(
+      `/admin/documents/${encodeURIComponent(id)}`,
+      AdminDocumentDetailResponseSchema,
+    ))!,
+  uploadDocument: async (file: File, metadata: DocumentUploadMetadataInput) => {
+    const form = new FormData();
+    form.set('metadata', JSON.stringify(metadata));
+    form.set('file', file);
+    return (await apiRequest('/admin/documents', AdminDocumentResponseSchema, {
+      method: 'POST',
+      body: form,
+    }))!.document;
+  },
+  reindexDocument: async (id: string) =>
+    (await apiRequest(
+      `/admin/documents/${encodeURIComponent(id)}/reindex`,
+      AdminDocumentResponseSchema,
+      { method: 'POST' },
+    ))!.document,
+  setDocumentStatus: async (id: string, status: DocumentStatus) =>
+    (await apiRequest(
+      `/admin/documents/${encodeURIComponent(id)}/status`,
+      AdminDocumentResponseSchema,
+      { method: 'PATCH', body: { status } },
+    ))!.document,
 
   // Agent workspace (W3-07).
   agentQueue: async (q: Partial<AgentTicketListQuery> = {}) => {

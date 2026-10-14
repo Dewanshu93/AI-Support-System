@@ -2037,3 +2037,26 @@ redacted input and no raw email, ticket floor, audit; full trace with resolved c
 stored field present, audit; 404; 403 agent/employee, 401), route policy table,
 `e2e/tests/admin.spec.ts` (list → timeline → all tabs). Screenshots of list, timeline and tabs on
 the dev site.
+
+## W4-04 Document management — 2026-10-14
+
+- API (admin only, writes audited): list with domain / status / country filters; detail with
+  chunk previews; upload (multipart `.md` / `.pdf` ≤ 5 MB + metadata JSON) through the ingestion
+  pipeline; re-index from the stored source; status change in MongoDB and Qdrant. Code enforces
+  type, size, metadata (shared schema), one active version per slug, and a valid `supersedes`.
+- New dependencies from the approved list: `multer` 2.0.2, `pdf-parse` 2.4.5 (the LangChain PDF
+  loader's parser, used directly; ADR-022). Originals kept in `data/uploads/` (git-ignored).
+- Web: `/admin/documents` (filters in the URL, upload dialog with metadata form and per-field
+  errors) and `/admin/documents/[id]` (metadata, audience, index state, chunk list, re-index,
+  activate / deactivate, new version prefilled to supersede).
+
+**Verification:** `test/api/documents.test.ts` (upload indexes with the audience on every chunk
+in both stores and keeps the original; PDF; supersede hides v1 in both stores; rejections:
+no file, wrong type, > 5 MB, empty, metadata missing / not JSON / invalid with field paths; 409
+slug+version and second active version; 400 bad supersede; re-index recreates chunks, 404,
+409 missing source; status change and 409 on a second active; 403 / 401; audit),
+`ai/ingestion/indexer.test.ts` (upload bodies: Markdown frontmatter dropped, PDF text, rejects),
+route policy table, `e2e/tests/admin.spec.ts` (page smoke), screenshots on the dev site.
+`test/integration/documentUpload.test.ts` (upload → retrieve on a throwaway MongoDB database and
+Qdrant collection: UK full-time only, superseding switches to v2, deactivating hides it) passes
+3/3 on the LAN MongoDB and Qdrant (`MONGODB_TEST_URI`, `QDRANT_TEST_URL`). Full E2E 36/36.

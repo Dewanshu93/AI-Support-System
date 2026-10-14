@@ -101,6 +101,17 @@ export function createDocumentsService(options: DocumentsServiceOptions) {
       await vectors.setDocumentStatus(oldId, 'superseded');
       return true;
     },
+
+    /** Admin status change (W4-04): the document and its chunks in both stores. */
+    async setStatus(id: ObjectId, status: DocumentDoc['status']): Promise<void> {
+      await repo.update(id, {
+        status,
+        ...(status !== 'superseded' && { supersededBy: null }),
+        updatedAt: now(),
+      });
+      await repo.setChunkStatus(id, status);
+      await vectors.setDocumentStatus(id, status);
+    },
   };
 }
 export type DocumentsService = ReturnType<typeof createDocumentsService>;

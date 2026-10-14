@@ -1022,6 +1022,20 @@ inside the app:
   here) and `/admin/traces/[conversationId]` (`TraceViewer`: turn timeline, trace panel with
   Analysis, Retrieval, Decision, Output and LLM calls tabs).
 
+## Document management (W4-04, ADR-022)
+
+- `modules/documents/admin.ts` (rules) and `adminRoutes.ts`: `GET /api/admin/documents`
+  (`?domain&status&country`), `GET /api/admin/documents/:id` (chunk previews),
+  `POST /api/admin/documents` (multipart `file` + `metadata` JSON → 201 with `ingestStatus`;
+  400 type / size / metadata; 409 slug+version or a second active version),
+  `POST /api/admin/documents/:id/reindex`, `PATCH /api/admin/documents/:id/status`. Admin only;
+  writes audited (`document.upload`, `document.reindex`, `document.status_change`).
+- Upload and re-index call `ingestSources` through an injected `ingest` (server.ts: document
+  embedder created on first use); status changes go through `DocumentsService.setStatus`
+  (document, chunks in MongoDB and Qdrant payloads). Originals kept in `data/uploads/`.
+- `/admin/documents` (`DocumentTable`, `UploadDialog`) and `/admin/documents/[id]`
+  (`DocumentDetail`: metadata, chunk list, re-index, activate / deactivate, new version).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

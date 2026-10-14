@@ -5,7 +5,13 @@ import { loadCorpus } from './corpus';
 import { createChunkEmbedder } from './embedder';
 import { contentHash, documentId } from './identity';
 import { ingestSources } from './indexer';
-import { IngestError, loadCorpusSources, loadSourceFile, sourceFromCorpus } from './loaders';
+import {
+  IngestError,
+  loadCorpusSources,
+  loadSourceBody,
+  loadSourceFile,
+  sourceFromCorpus,
+} from './loaders';
 
 const policy = { timeoutMs: 1000, maxRetries: 0 };
 
@@ -192,13 +198,29 @@ describe('identity and loaders', () => {
     expect(contentHash(s, { ...emb, dimension: 1536 })).not.toBe(base);
   });
 
-  it('rejects PDF and other non-Markdown files', () => {
+  it('corpus files: rejects PDF (uploads only) and other non-Markdown files', () => {
     expect(() => loadSourceFile('policy.pdf', '')).toThrow(
-      new IngestError(
-        'policy.pdf: PDF ingestion arrives with the document upload endpoint (W4-04)',
-      ),
+      new IngestError('policy.pdf: PDFs are added through the document upload (W4-04)'),
     );
     expect(() => loadSourceFile('policy.docx', '')).toThrow(/only Markdown/);
+  });
+
+  it('upload bodies: Markdown without frontmatter, PDF as its text, others rejected', async () => {
+    const md = new TextEncoder().encode('---\ntitle: x\n---\n# Policy\n\nText.\n');
+    expect(await loadSourceBody('p.md', md)).toEqual({
+      body: '# Policy\n\nText.',
+      sourceType: 'markdown',
+    });
+    const pdf = await loadSourceBody('p.pdf', new Uint8Array([1]), async () => ' Page text ');
+    expect(pdf).toEqual({ body: 'Page text', sourceType: 'pdf' });
+    await expect(
+      loadSourceBody('p.pdf', new Uint8Array([1]), async () => {
+        throw new Error('bad xref');
+      }),
+    ).rejects.toThrow('p.pdf: the PDF could not be read (bad xref)');
+    await expect(loadSourceBody('p.docx', new Uint8Array())).rejects.toThrow(
+      /Markdown \(\.md\) or PDF/,
+    );
   });
 
   it('loads corpus sources with repo-relative paths', () => {
