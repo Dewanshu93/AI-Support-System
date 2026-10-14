@@ -280,8 +280,20 @@ describe('parseArgs', () => {
       tags: ['table'],
       categories: [],
       prompts: {},
+      modelMode: 'pro',
       problems: [],
     });
+  });
+
+  it('W4-05: reads the queued run id and the model mode; rejects bad values', () => {
+    const id = '6a0000000000000000000001';
+    expect(
+      parseArgs(['--suite', 'retrieval', '--run-id', id, '--model-mode', 'local']),
+    ).toMatchObject({ runId: id, modelMode: 'local', problems: [] });
+    expect(parseArgs(['--run-id', 'nope', '--model-mode', 'cheap']).problems).toEqual([
+      '--run-id nope: not an id',
+      '--model-mode cheap: expected pro or local',
+    ]);
   });
 
   it('UC-09: reads categories and prompt overrides; rejects a malformed --prompt', () => {

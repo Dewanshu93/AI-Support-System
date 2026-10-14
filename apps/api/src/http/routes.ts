@@ -11,6 +11,7 @@ import { agentRoutes } from '../modules/agent/routes';
 import { gapsRoutes } from '../modules/gaps/routes';
 import { tracesRoutes } from '../modules/traces/routes';
 import { documentAdminRoutes } from '../modules/documents/adminRoutes';
+import { evalsRoutes } from '../modules/evals/routes';
 import { metricsRoutes } from '../modules/metrics/routes';
 import { createAgentService } from '../modules/agent/service';
 import { authRoutes } from '../modules/auth/routes';
@@ -100,6 +101,7 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
     ...gapsRoutes(deps),
     ...tracesRoutes(deps),
     ...documentAdminRoutes(deps),
+    ...evalsRoutes(deps),
     ...workspaceRoutes(
       deps,
       createWorkspaceService({

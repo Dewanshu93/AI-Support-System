@@ -20,6 +20,8 @@ export interface RetrievalSuiteDeps {
   ): Promise<RerankOutcome>;
   /** Progress callback, one line per case. */
   log?(line: string): void;
+  /** Called after each case with the number of cases finished (progress, W4-05). */
+  onCaseDone?(completed: number): void | Promise<void>;
 }
 
 export interface RerankOutcome {
@@ -78,6 +80,7 @@ export async function runRetrievalSuite(
         error: `unknown user ${c.userEmail}`,
         rerank: null,
       });
+      await deps.onCaseDone?.(results.length);
       continue;
     }
     const started = performance.now();
@@ -122,6 +125,7 @@ export async function runRetrievalSuite(
       });
       deps.log?.(`${c.id} ERROR ${error}`);
     }
+    await deps.onCaseDone?.(results.length);
   }
   return results;
 }

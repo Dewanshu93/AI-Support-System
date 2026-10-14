@@ -1,11 +1,7 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { EvalRuns } from '@/components/admin/evals/EvalRuns';
+
+export const metadata = { title: 'Evaluation' };
 
 export default function EvaluationPage() {
-  return (
-    <PlaceholderPage
-      title="Evaluation"
-      description="Evaluation runs against the golden set, with targets and pass/fail."
-      task="W4-05"
-    />
-  );
+  return <EvalRuns />;
 }

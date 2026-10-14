@@ -71,6 +71,11 @@ describe('route policy table', () => {
       ['POST', '/api/admin/documents', ['admin']],
       ['POST', '/api/admin/documents/:id/reindex', ['admin']],
       ['PATCH', '/api/admin/documents/:id/status', ['admin']],
+      // Evaluation (W4-05).
+      ['POST', '/api/admin/evals/runs', ['admin']],
+      ['GET', '/api/admin/evals/runs', ['admin']],
+      ['GET', '/api/admin/evals/runs/:id', ['admin']],
+      ['GET', '/api/admin/evals/runs/:id/results', ['admin']],
       // Employee workspace (UC-02).
       ['GET', '/api/dashboard', ['employee']],
       ['GET', '/api/projects/mine', ['employee']],

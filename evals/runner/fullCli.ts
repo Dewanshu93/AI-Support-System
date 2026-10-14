@@ -8,7 +8,6 @@ import path from 'node:path';
 import { MemorySaver } from '@langchain/langgraph';
 import { ObjectId } from 'mongodb';
 import { buildTurnGraph } from '../../apps/api/src/ai/graph/runtime';
-import { createChatModel, createEmbeddings, embedQuery } from '../../apps/api/src/ai/llm';
 import { loadPromptRegistry } from '../../apps/api/src/ai/prompts/registry';
 import { retrieve } from '../../apps/api/src/ai/retrieval/retrieve';
 import { type AppConfig, REPO_ROOT } from '../../apps/api/src/config';
@@ -27,7 +26,8 @@ import { runFullSuite } from './fullSuite';
 import type { GoldenCase } from './schema';
 import { DATASET_VERSION } from './schema';
 import type { RefMatcher } from './scorers';
-import { evalStore } from './store';
+import { type EvalModelMode, evalModels } from './models';
+import { beginRun, evalStore } from './store';
 
 /** Thrown by the eval's records if anything tries to save a timesheet. */
 export const EVAL_WRITE_REFUSED = 'eval runs never save timesheets';
@@ -45,6 +45,10 @@ export async function runFullCli(
     reportsDir: string;
     /** Prompt versions to evaluate instead of the active ones (e.g. turn_analysis 2). */
     promptOverrides?: Record<string, number>;
+    /** A run queued by the admin API (W4-05). */
+    runId?: string;
+    /** pro (configured chain, default) or local (Ollama), ADR-020. */
+    modelMode?: EvalModelMode;
   },
 ): Promise<number> {
   const { client, db } = await connectDatabase(config.env.MONGODB_URI, { appName: 'eval-full' });
@@ -56,9 +60,8 @@ export async function runFullCli(
   const users = await collections.users.find({}).toArray();
   const byEmail = new Map(users.map((u) => [u.email, u]));
   const qdrant = createQdrantClient(config.env.QDRANT_URL, config.env.QDRANT_API_KEY);
-  const embeddings = createEmbeddings(config.models, config.env, 'query');
-  const provider = config.models.chat.provider;
-  const chatModels = `${provider}: ${Object.values(config.models.chat.models[provider]).join(', ')}`;
+  const models = evalModels(config, options.modelMode ?? 'pro');
+  const chatModels = models.describe;
   const promptVersions = { ...config.prompts.active, ...options.promptOverrides };
 
   const records = createWorkspaceRecords({
@@ -76,7 +79,9 @@ export async function runFullCli(
   const graph = buildTurnGraph({
     config,
     prompts: loadPromptRegistry(promptVersions),
-    chatFor: (tier, o) => createChatModel(config.models, config.env, tier, undefined, o),
+    chatFor: models.chatFor,
+    // A local run (Pro off) takes the same lighter path as the API (ADR-020).
+    localMode: () => options.modelMode === 'local',
     users: mongoUsersRepository(collections.users),
     conversations,
     tickets,
@@ -89,11 +94,7 @@ export async function runFullCli(
     retrieve: (input) =>
       retrieve(input, {
         qdrant,
-        embedQuery: (text) =>
-          embedQuery(embeddings, text, {
-            policy: { ...config.models.call, maxRetries: 5 },
-            dimension: config.models.embeddings.dimension,
-          }),
+        embedQuery: models.embedQuery,
         loadChunks: (ids) => documents.findChunksByIds(ids),
         params: config.thresholds.retrieval,
         onViolation: (v) => console.error(`  ACCESS_FILTER_VIOLATION ${JSON.stringify(v)}`),
@@ -101,7 +102,7 @@ export async function runFullCli(
   });
 
   const startedAt = new Date();
-  const run = await store.createRun({
+  const run = await beginRun(store, options.runId, {
     suite: 'full',
     datasetVersion: DATASET_VERSION,
     configSnapshot: {
@@ -125,8 +126,10 @@ export async function runFullCli(
       graph,
       conversations,
       userFor: (email) => byEmail.get(email),
-      concurrency: 4,
+      // The local model serves one request at a time; more workers only queue.
+      concurrency: options.modelMode === 'local' ? 1 : 4,
       log: (line) => console.log(`  ${line}`),
+      onCaseDone: (n) => store.setProgress(run._id, n),
     });
     const required = (category: string) =>
       config.ticketSchemas.schemas[category]?.fields.filter((f) => f.required).map((f) => f.key) ??

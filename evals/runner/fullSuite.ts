@@ -20,6 +20,8 @@ export interface FullSuiteDeps {
   concurrency?: number;
   now?: () => Date;
   log?(line: string): void;
+  /** Called after each case with the number of cases finished (progress, W4-05). */
+  onCaseDone?(completed: number): void | Promise<void>;
 }
 
 const userMessage = (conversationId: ObjectId, content: string, at: Date): MessageDoc => ({
@@ -157,6 +159,7 @@ export async function runFullSuite(
 ): Promise<FullCaseOutcome[]> {
   const results: FullCaseOutcome[] = new Array(cases.length);
   let next = 0;
+  let done = 0;
   const worker = async () => {
     while (next < cases.length) {
       const i = next++;
@@ -165,6 +168,7 @@ export async function runFullSuite(
       deps.log?.(
         `${outcome.caseId} ${outcome.error ? `ERROR ${outcome.error.slice(0, 120)}` : `${outcome.decision}/${outcome.reasonCode}`} (expected ${outcome.expected.decision})`,
       );
+      await deps.onCaseDone?.(++done);
     }
   };
   await Promise.all(Array.from({ length: Math.min(deps.concurrency ?? 4, cases.length) }, worker));

@@ -28,6 +28,23 @@ export function evalStore(collections: EvalCollections) {
       await collections.evalRuns.insertOne(validateForWrite('eval_runs', EvalRunSchema, doc));
       return doc;
     },
+    /**
+     * A run queued by the admin API (W4-05): becomes `running` with its config
+     * snapshot and case count. Returns null if it is not queued any more.
+     */
+    async startQueuedRun(
+      id: ObjectId,
+      fields: Pick<EvalRunDoc, 'datasetVersion' | 'configSnapshot' | 'caseCount' | 'startedAt'>,
+    ): Promise<EvalRunDoc | null> {
+      return collections.evalRuns.findOneAndUpdate(
+        { _id: id, status: 'queued' },
+        { $set: { ...fields, status: 'running', completedCases: 0 } },
+        { returnDocument: 'after' },
+      );
+    },
+    async setProgress(id: ObjectId, completedCases: number) {
+      await collections.evalRuns.updateOne({ _id: id }, { $set: { completedCases } });
+    },
     async saveResults(results: EvalResultDoc[]) {
       if (results.length === 0) return;
       await collections.evalResults.insertMany(
@@ -54,4 +71,20 @@ export function evalStore(collections: EvalCollections) {
       );
     },
   };
+}
+
+type Store = ReturnType<typeof evalStore>;
+type NewRun = Parameters<Store['createRun']>[0];
+
+/** Attach to the API's queued run (--run-id) or create a CLI run. */
+export async function beginRun(store: Store, runId: string | undefined, run: NewRun) {
+  if (!runId) return store.createRun(run);
+  const started = await store.startQueuedRun(new ObjectId(runId), {
+    datasetVersion: run.datasetVersion,
+    configSnapshot: run.configSnapshot,
+    caseCount: run.caseCount,
+    startedAt: run.startedAt,
+  });
+  if (!started) throw new Error(`eval run ${runId} is not queued`);
+  return started;
 }

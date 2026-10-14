@@ -15,6 +15,7 @@ import { loadConfig } from '../../src/config';
 import { VALID_ENV } from './config';
 import { memoryConversationsRepository, memorySourcesReader } from './conversations';
 import { testDocumentAdmin } from './documentAdmin';
+import { testEvals } from './evals';
 import { testGaps } from './gaps';
 import { memoryTracesRepository } from './traces';
 import {
@@ -85,6 +86,8 @@ export interface TestAppOptions extends CreateAppOptions {
   traces?: AppDeps['traces'];
   /** Admin documents (W4-04); default: empty in-memory stores with fake embeddings. */
   documentAdmin?: AppDeps['documentAdmin'];
+  /** Eval runs (W4-05); default: none, and a start answers 503. */
+  evals?: AppDeps['evals'];
 }
 
 const config = loadConfig(VALID_ENV);
@@ -121,6 +124,7 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     gaps: options.gaps ?? testGaps(),
     traces: options.traces ?? memoryTracesRepository(),
     documentAdmin: options.documentAdmin ?? testDocumentAdmin().admin,
+    evals: options.evals ?? testEvals(),
     workday: config.workday,
     clock: options.clock,
   };

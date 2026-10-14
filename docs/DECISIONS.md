@@ -644,3 +644,24 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** uploads live on the API host's disk (fine for the single-instance prototype;
   production would use object storage, see PRODUCTION_GAPS). PDFs with scanned pages and no text
   layer index as empty and are rejected ("contains no text").
+
+## ADR-023 — Eval runs from the admin UI: the eval CLI as a child process, models by Pro switch
+
+- **Status:** Accepted (W4-05, 2026-10-14; owner decisions on models and the E2E smoke)
+- **Context:** the playbook asks for an in-process background job around the runner. The runner
+  lives in `evals/runner` (run with tsx, importing the API's code); the API package builds only
+  `src/`, so it cannot import the runner back without restructuring the build. A full run takes
+  minutes to hours and must not block the API.
+- **Decision:**
+  - The API queues the run (`eval_runs`, `queued`) and starts the existing CLI as a child process
+    with `--run-id` (attach to the queued run) and `--model-mode`; one run at a time, enforced on
+    the stored status. The same runner and collections serve `npm run eval` (`triggeredBy: cli`).
+  - Models follow the starting admin's Pro switch (owner decision): `pro` = the configured chain,
+    `local` = Ollama only (concurrency 1, P-2 skipped in the graph like the API). Query embeddings
+    stay Gemini (the index is Gemini).
+  - The runner honours `LLM_MODE` like the API. The E2E smoke run (tag `smoke`, 3 retrieval cases)
+    was recorded once (owner decision) and replays with no provider call; recorded / replayed runs
+    write their Markdown reports to the temp folder, not `evals/reports/`.
+- **Consequences:** progress is per case (`completedCases`), not per step. A run's process is
+  not cancellable from the UI (stop the API to stop it; the run is then marked interrupted).
+  Deviation: child process instead of in-process, for the reason above.

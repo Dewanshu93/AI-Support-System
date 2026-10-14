@@ -357,6 +357,13 @@ export const EvalRunSchema = z.object({
     gitCommit: z.string(),
   }),
   caseCount: Count,
+  /** Cases finished so far, for the progress bar (W4-05); absent on older runs. */
+  completedCases: Count.optional(),
+  /** UI runs (W4-05): the admin's Pro switch, and the tag / case filter. */
+  modelMode: z.enum(['pro', 'local']).optional(),
+  filter: z.object({ tags: z.array(z.string()), caseIds: z.array(z.string()) }).optional(),
+  /** The API process that launched a UI run (startup clean-up of interrupted runs). */
+  owner: z.object({ host: z.string(), pid: z.number().int() }).optional(),
   metrics: z.record(z.string(), z.number()),
   perCategory: z.record(z.string(), z.record(z.string(), z.number())),
   targets: z.record(z.string(), z.object({ target: z.number(), met: z.boolean() })),

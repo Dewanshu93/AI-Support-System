@@ -1,11 +1,8 @@
-import { PlaceholderPage } from '@/components/shell/PlaceholderPage';
+import { EvalRunDetail } from '@/components/admin/evals/EvalRunDetail';
 
-export default function EvaluationrunPage() {
-  return (
-    <PlaceholderPage
-      title="Evaluation run"
-      description="Metrics against targets, confusion matrix and failed cases."
-      task="W4-05"
-    />
-  );
+export const metadata = { title: 'Evaluation run' };
+
+export default async function EvalRunPage({ params }: { params: Promise<{ runId: string }> }) {
+  const { runId } = await params;
+  return <EvalRunDetail runId={runId} />;
 }

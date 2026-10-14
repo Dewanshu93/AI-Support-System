@@ -1,17 +1,18 @@
 // npm run eval -- --suite retrieval|full [--case HR-ANS-007]… [--tag table]…
 //   [--category payroll]… [--prompt turn_analysis=2]…
+//   [--run-id <id> --model-mode pro|local]   (admin UI runs, W4-05)
 // Runs the golden set against the real index, stores eval_runs/eval_results,
 // writes a Markdown report to evals/reports/, and exits 1 if the run fails.
 // --prompt evaluates a prompt version before it is made active (full suite).
 import { execSync } from 'node:child_process';
 import { ObjectId } from 'mongodb';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { ConfigError, loadConfig, loadDotEnv, REPO_ROOT } from '../../apps/api/src/config';
 import { connectDatabase, createQdrantClient, getCollections } from '../../apps/api/src/db';
 import type { EvalResultDoc } from '../../apps/api/src/db/schemas';
 import { documentId } from '../../apps/api/src/ai/ingestion/identity';
-import { createChatModel, createEmbeddings, embedQuery } from '../../apps/api/src/ai/llm';
 import { assessCandidates } from '../../apps/api/src/ai/nodes/rerankAssess';
 import { toSourceChunk } from '../../apps/api/src/ai/nodes/retrieve';
 import { loadPromptRegistry } from '../../apps/api/src/ai/prompts/registry';
@@ -24,7 +25,8 @@ import { retrievalReport } from './report';
 import { retrievalCases, runRetrievalSuite } from './retrievalSuite';
 import { DATASET_VERSION } from './schema';
 import { type RefMatcher, RETRIEVAL_MODES, retrievalSummary, scoreCase } from './scorers';
-import { evalStore } from './store';
+import { type EvalModelMode, EVAL_MODEL_MODES, evalModels } from './models';
+import { beginRun, evalStore } from './store';
 
 export const REPORTS_DIR = path.join(REPO_ROOT, 'evals', 'reports');
 
@@ -35,11 +37,22 @@ export interface CliArgs {
   categories: string[];
   /** name → version, from --prompt name=N. */
   prompts: Record<string, number>;
+  /** A run queued by the admin API to attach to (W4-05). */
+  runId?: string;
+  /** pro (configured chain) or local (Ollama): the admin's Pro switch (ADR-020). */
+  modelMode: EvalModelMode;
   problems: string[];
 }
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { caseIds: [], tags: [], categories: [], prompts: {}, problems: [] };
+  const args: CliArgs = {
+    caseIds: [],
+    tags: [],
+    categories: [],
+    prompts: {},
+    modelMode: 'pro',
+    problems: [],
+  };
   for (let i = 0; i < argv.length; i++) {
     const value = argv[i + 1];
     if (argv[i] === '--suite') args.suite = value;
@@ -50,6 +63,13 @@ export function parseArgs(argv: string[]): CliArgs {
       const match = /^([a-z_]+)=(\d+)$/.exec(value);
       if (match) args.prompts[match[1]!] = Number(match[2]);
       else args.problems.push(`--prompt ${value}: expected name=version, e.g. turn_analysis=2`);
+    } else if (argv[i] === '--run-id' && value) {
+      if (ObjectId.isValid(value)) args.runId = value;
+      else args.problems.push(`--run-id ${value}: not an id`);
+    } else if (argv[i] === '--model-mode' && value) {
+      if ((EVAL_MODEL_MODES as readonly string[]).includes(value))
+        args.modelMode = value as EvalModelMode;
+      else args.problems.push(`--model-mode ${value}: expected pro or local`);
     } else continue;
     i++;
   }
@@ -101,6 +121,12 @@ async function main(): Promise<number> {
     throw err;
   }
 
+  // Recorded / replayed runs (E2E) keep their reports out of evals/reports (committed).
+  const reportsDir =
+    config.env.LLM_MODE === 'record' || config.env.LLM_MODE === 'replay'
+      ? path.join(os.tmpdir(), 'sd-eval-reports')
+      : REPORTS_DIR;
+
   const golden = validateGolden();
   if (golden.problems.length > 0) {
     console.error(
@@ -122,29 +148,31 @@ async function main(): Promise<number> {
     return runFullCli(config, cases, {
       refMatcher,
       gitCommit: gitCommit(),
-      reportsDir: REPORTS_DIR,
+      reportsDir,
       promptOverrides: args.prompts,
+      runId: args.runId,
+      modelMode: args.modelMode,
     });
   }
 
   const users = new Map(loadSeedUsers().map((u) => [u.email, u]));
   const prompts = loadPromptRegistry(config.prompts.active);
+  const models = evalModels(config, args.modelMode);
   const rerankDeps = {
     prompts,
-    chatFor: (tier: 'fast' | 'quality') => createChatModel(config.models, config.env, tier),
+    chatFor: (tier: 'fast' | 'quality') => models.chatFor(tier),
     policy: config.models.call,
     costs: config.models.costs,
     retrieval: config.thresholds.retrieval,
   };
   const rerankModel = rerankDeps.chatFor(prompts.get('rerank_assess').modelTier).modelId;
-  const embeddings = createEmbeddings(config.models, config.env, 'query');
   const { client, db } = await connectDatabase(config.env.MONGODB_URI, { appName: 'eval' });
   const collections = getCollections(db);
   const repo = mongoDocumentsRepository(collections);
   const store = evalStore(collections);
   const qdrant = createQdrantClient(config.env.QDRANT_URL, config.env.QDRANT_API_KEY);
   const startedAt = new Date();
-  const run = await store.createRun({
+  const run = await beginRun(store, args.runId, {
     suite: 'retrieval',
     datasetVersion: DATASET_VERSION,
     configSnapshot: {
@@ -163,7 +191,9 @@ async function main(): Promise<number> {
   });
 
   try {
-    console.log(`Retrieval eval ${run._id.toHexString()}: ${cases.length} cases…`);
+    console.log(
+      `Retrieval eval ${run._id.toHexString()}: ${cases.length} cases, rerank ${models.describe}…`,
+    );
     const results = await runRetrievalSuite(cases, {
       profileFor: (email) => {
         const u = users.get(email);
@@ -176,11 +206,7 @@ async function main(): Promise<number> {
           { query, profile },
           {
             qdrant,
-            embedQuery: (text) =>
-              embedQuery(embeddings, text, {
-                policy: { ...config.models.call, maxRetries: 5 },
-                dimension: config.models.embeddings.dimension,
-              }),
+            embedQuery: models.embedQuery,
             loadChunks: (ids) => repo.findChunksByIds(ids),
             params: config.thresholds.retrieval,
             onViolation: (v) => console.error(`  ACCESS_FILTER_VIOLATION ${JSON.stringify(v)}`),
@@ -208,6 +234,7 @@ async function main(): Promise<number> {
         };
       },
       log: (line) => console.log(`  ${line}`),
+      onCaseDone: (n) => store.setProgress(run._id, n),
     });
 
     const scores = results.map((r) => {
@@ -325,9 +352,9 @@ async function main(): Promise<number> {
         ]),
       ),
     });
-    fs.mkdirSync(REPORTS_DIR, { recursive: true });
+    fs.mkdirSync(reportsDir, { recursive: true });
     const reportFile = path.join(
-      REPORTS_DIR,
+      reportsDir,
       `${startedAt.toISOString().slice(0, 10)}-retrieval-${run._id.toHexString().slice(-8)}.md`,
     );
     fs.writeFileSync(reportFile, report);

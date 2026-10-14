@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process';
+import { hostname } from 'node:os';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { APP_NAME } from '@sd/shared';
@@ -31,6 +33,8 @@ import { createChunkEmbedder } from './ai/ingestion/embedder';
 import { ingestSources } from './ai/ingestion/indexer';
 import { loadSourceBody } from './ai/ingestion/loaders';
 import { createDocumentAdmin } from './modules/documents/admin';
+import { mongoEvalsRepository } from './modules/evals/repository';
+import { createEvalsService } from './modules/evals/service';
 import { createDocumentsService } from './modules/documents/service';
 import { qdrantChunkStore } from './modules/documents/vectorStore';
 import { LlmRecordings, recordedChatHandle, recordedEmbedQuery } from './ai/llm/recording';
@@ -295,6 +299,57 @@ async function main() {
     }),
   };
 
+  // Eval runs from the admin UI (W4-05): the eval CLI (evals/runner) as a child
+  // process attached to the queued run, inheriting this process's env (LLM_MODE,
+  // DEMO_TODAY, database). Runs left active by a restart are failed at startup.
+  const evalsRepository = mongoEvalsRepository(collections);
+  const evals = {
+    repository: evalsRepository,
+    service: createEvalsService({
+      repository: evalsRepository,
+      launcher: (launch) =>
+        new Promise((resolve, reject) => {
+          const args = [
+            require.resolve('tsx/cli', { paths: [REPO_ROOT] }),
+            '--use-system-ca',
+            path.join('evals', 'runner', 'cli.ts'),
+            '--suite',
+            launch.suite,
+            '--run-id',
+            launch.runId,
+            '--model-mode',
+            launch.modelMode,
+            ...launch.tags.flatMap((t) => ['--tag', t]),
+            ...launch.caseIds.flatMap((c) => ['--case', c]),
+          ];
+          const child = spawn(process.execPath, args, { cwd: REPO_ROOT, env: process.env });
+          let output = '';
+          const keep = (chunk: Buffer) => {
+            output = (output + chunk.toString('utf8')).slice(-4000);
+          };
+          child.stdout.on('data', keep);
+          child.stderr.on('data', keep);
+          child.on('error', reject);
+          child.on('close', (code) => {
+            logger.info({ runId: launch.runId, exitCode: code }, 'eval run process exited');
+            resolve({ exitCode: code ?? 1, output });
+          });
+        }),
+      owner: { host: hostname(), pid: process.pid },
+      isAlive: (pid) => {
+        try {
+          process.kill(pid, 0);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      onError: (err) => logger.error({ err }, 'eval run could not be started'),
+    }),
+  };
+  const interrupted = await evals.service.failInterrupted();
+  if (interrupted > 0) logger.warn({ interrupted }, 'eval runs interrupted by a restart');
+
   const app = createApp({
     users,
     audit: mongoAuditRepository(collections.auditLog),
@@ -322,6 +377,7 @@ async function main() {
     gaps,
     traces: mongoTracesRepository(collections),
     documentAdmin,
+    evals,
     workday: config.workday,
     clock,
     auth: {

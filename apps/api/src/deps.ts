@@ -12,6 +12,8 @@ import type { MetricsRepository } from './modules/metrics/repository';
 import type { TicketsRepository } from './modules/tickets/repository';
 import type { TracesRepository } from './modules/traces/repository';
 import type { DocumentAdmin } from './modules/documents/admin';
+import type { EvalsRepository } from './modules/evals/repository';
+import type { EvalsService } from './modules/evals/service';
 import type { UsersRepository } from './modules/users/repository';
 import type { WorkspaceRepository } from './modules/workspace/repository';
 
@@ -65,6 +67,8 @@ export interface AppDeps {
   traces: TracesRepository;
   /** Admin document management (W4-04): upload, re-index, status. */
   documentAdmin: DocumentAdmin;
+  /** Eval runs from the admin UI (W4-05). */
+  evals: { repository: EvalsRepository; service: EvalsService };
   /** config/workday.yaml: timesheet rules and holiday calendar. */
   workday: ConfigFiles['workday'];
   /** Current time; injected so tests and demos control "today". Defaults to the system clock. */

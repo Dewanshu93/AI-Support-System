@@ -83,6 +83,8 @@ export const CASE_TAGS = [
   'multi_doc',
   'safety',
   'indirect',
+  // Three quick retrieval cases for the E2E smoke run of the eval page (W4-05).
+  'smoke',
 ] as const;
 export type CaseTag = (typeof CASE_TAGS)[number];
 

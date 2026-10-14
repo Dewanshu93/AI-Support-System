@@ -2060,3 +2060,31 @@ route policy table, `e2e/tests/admin.spec.ts` (page smoke), screenshots on the d
 `test/integration/documentUpload.test.ts` (upload → retrieve on a throwaway MongoDB database and
 Qdrant collection: UK full-time only, superseding switches to v2, deactivating hides it) passes
 3/3 on the LAN MongoDB and Qdrant (`MONGODB_TEST_URI`, `QDRANT_TEST_URL`). Full E2E 36/36.
+
+## W4-05 Evaluation API and page — 2026-10-14
+
+- API (admin only): start a run (`retrieval` or `full`, optional tags and case ids; 409 while one
+  is active; audited), list runs (UI and CLI), run detail (metrics, per category, targets,
+  config snapshot, error), results with failed-only and category filters.
+- The API starts the eval CLI as a background child process attached to the queued run; models
+  follow the admin's Pro switch; progress per case; interrupted runs are failed at startup
+  (ADR-023). The judge suite stays W4-06 (400 for now).
+- Web: `/admin/evals` (run table with pass badges and progress, start dialog, polling) and
+  `/admin/evals/[runId]` (progress, target cards, per category, decision confusion matrix for the
+  full suite, cases with expected vs actual).
+- Golden set: tag `smoke` on HR-ANS-001, HR-ANS-002, IT-ANS-001 (golden:validate passes).
+
+**Verification:** `test/api/evals.test.ts` (queued and launched with the filter and the Pro
+switch's model mode, audited; 409 while active, new run after it ends; runner exit with the run
+active fails it with its output; 400 judge / unknown fields / bad case ids; 503 without a
+runner; list order, suite filter, detail, results filters, 404; 403 / 401), route policy,
+`parseArgs` (`--run-id`, `--model-mode`), `e2e/tests/evals.spec.ts` (start a smoke run from the
+UI, progress, three cases, back to the list) recorded once and replayed.
+
+**Real run (dev API, 2026-10-14):** Alex (Pro off) started a retrieval run with tag `smoke`:
+queued → running, progress 1/3 → 3/3, completed and passed every target (recall@5 = 1.0 in all
+four modes, no leakage), local model, about 5 min, $0. Found and fixed while recording: an API's
+startup clean-up failed runs launched by another live API on the same database (dev and E2E
+share it); runs now carry their launching process (host + pid) and only runs whose process on
+this host has gone are failed (unit test). Also: the run's dataset version is set when the runner
+attaches; target cards show the measured value (`fusedRecallAt5` → `fused.recallAt5`).

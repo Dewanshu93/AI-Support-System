@@ -2,6 +2,11 @@
 // Next.js rewrites to the Express API, so the session cookie is first-party.
 // Every response is validated with the shared Zod schemas.
 import {
+  EvalResultsResponseSchema,
+  EvalRunDetailResponseSchema,
+  EvalRunListResponseSchema,
+  type EvalRunStartRequest,
+  EvalRunStartResponseSchema,
   AdminDocumentDetailResponseSchema,
   type AdminDocumentListQuery,
   AdminDocumentListResponseSchema,
@@ -204,6 +209,38 @@ export const api = {
       AdminDocumentResponseSchema,
       { method: 'PATCH', body: { status } },
     ))!.document,
+
+  // Evaluation (W4-05).
+  evalRuns: async (q: { limit?: number; cursor?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (q.limit) params.set('limit', String(q.limit));
+    if (q.cursor) params.set('cursor', q.cursor);
+    const query = params.toString();
+    return (await apiRequest(
+      `/admin/evals/runs${query ? `?${query}` : ''}`,
+      EvalRunListResponseSchema,
+    ))!;
+  },
+  evalRun: async (id: string) =>
+    (await apiRequest(`/admin/evals/runs/${encodeURIComponent(id)}`, EvalRunDetailResponseSchema))!
+      .run,
+  evalResults: async (
+    id: string,
+    q: { passed?: boolean; category?: string; limit?: number; cursor?: string } = {},
+  ) => {
+    const params = new URLSearchParams();
+    if (q.passed !== undefined) params.set('passed', String(q.passed));
+    if (q.category) params.set('category', q.category);
+    params.set('limit', String(q.limit ?? 100));
+    if (q.cursor) params.set('cursor', q.cursor);
+    return (await apiRequest(
+      `/admin/evals/runs/${encodeURIComponent(id)}/results?${params}`,
+      EvalResultsResponseSchema,
+    ))!;
+  },
+  startEvalRun: async (body: EvalRunStartRequest) =>
+    (await apiRequest('/admin/evals/runs', EvalRunStartResponseSchema, { method: 'POST', body }))!
+      .runId,
 
   // Agent workspace (W3-07).
   agentQueue: async (q: Partial<AgentTicketListQuery> = {}) => {

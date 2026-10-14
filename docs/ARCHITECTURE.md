@@ -1036,6 +1036,34 @@ inside the app:
 - `/admin/documents` (`DocumentTable`, `UploadDialog`) and `/admin/documents/[id]`
   (`DocumentDetail`: metadata, chunk list, re-index, activate / deactivate, new version).
 
+## Evaluation API and page (W4-05, ADR-023)
+
+- `modules/evals`: `POST /api/admin/evals/runs` `{ suite: retrieval | full, tags?, caseIds? }` →
+  202 `{ runId }` (409 while a run is queued or running; audited `eval.run`),
+  `GET /api/admin/evals/runs`, `GET /api/admin/evals/runs/:id`,
+  `GET /api/admin/evals/runs/:id/results?passed&category`. Admin only.
+- The service queues the run in `eval_runs` and starts the eval CLI (`evals/runner/cli.ts`) as a
+  child process (server.ts launcher) with `--run-id` and `--model-mode` (the admin's Pro switch);
+  the CLI attaches to the queued run, writes `completedCases` after each case and finishes it.
+  A process that exits with the run still active fails it with its last output; runs left active
+  by an API restart are failed at startup.
+- `evals/runner/models.ts`: pro (configured chain) or local (Ollama) chat models, Gemini query
+  embeddings, and LLM_MODE record / replay / cache like the API (E2E replays the smoke run).
+- `/admin/evals` (`EvalRuns`: run table, start dialog, 5 s polling) and `/admin/evals/[runId]`
+  (`EvalRunDetail`: progress, target cards, per category, decision confusion matrix for the
+  full suite, cases with expected vs actual, failed only by default).
+
+## Document management (W4-04, ADR-022)
+
+-  (rules) + : ,
+   (chunk previews),  (multipart  +
+   JSON → 201 with ingestStatus; 400 type/size/metadata; 409 slug+version or second active
+  version), , . Admin only; writes audited
+  (, , ).
+- Upload and re-index call  through an injected  (server.ts: document
+  embedder created on first use); status changes go through   (document + chunks in MongoDB + Qdrant payloads). Originals in .
+-  (, ) and   (: metadata, chunk list, re-index, activate / deactivate, new version).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.
