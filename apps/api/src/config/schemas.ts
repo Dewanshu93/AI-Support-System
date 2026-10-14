@@ -189,6 +189,12 @@ export const ThresholdsSchema = z
       maxClusters: z.number().int().min(1).max(50),
       defaultRangeDays: z.number().int().min(1).max(365),
     }),
+    /** In-memory limits (section 9, W4-07); RATE_LIMIT_SCALE multiplies them. */
+    rateLimits: z.strictObject({
+      loginsPerMinute: z.number().int().min(1),
+      chatTurnsPerMinute: z.number().int().min(1),
+      uploadsPerHour: z.number().int().min(1),
+    }),
   })
   .superRefine((t, ctx) => {
     const fail = (path: string[], message: string) =>

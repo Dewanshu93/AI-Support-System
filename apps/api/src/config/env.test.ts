@@ -27,6 +27,7 @@ describe('parseEnv', () => {
       QDRANT_URL: 'http://localhost:6333',
       LLM_MODE: 'live',
       EMAIL_DELIVERY: 'mock',
+      RATE_LIMIT_SCALE: 1,
     });
   });
 

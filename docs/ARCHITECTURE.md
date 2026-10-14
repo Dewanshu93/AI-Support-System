@@ -1064,6 +1064,20 @@ inside the app:
   embedder created on first use); status changes go through (document + chunks in MongoDB + Qdrant payloads). Originals in .
 - (, ) and (: metadata, chunk list, re-index, activate / deactivate, new version).
 
+## HTTP hardening (W4-07)
+
+- `app.ts`: `helmet()` headers; CORS only for `WEB_ORIGIN` (credentials; other origins get no
+  CORS headers); `requireCsrfHeader` (mutating requests need `X-Requested-With: sd-web`, sent by
+  `lib/api.ts` and `lib/sse.ts`; 403 otherwise); JSON body ≤ 100 KB; `x-powered-by` off.
+- `http/security.ts` rate limits (express-rate-limit, in memory, 429 `RATE_LIMITED` with
+  `RateLimit` / `Retry-After` headers): a route opts in with `rateLimit` in the route table —
+  `login` (per IP), `chat` (message and escalate turns, per user), `upload` (per admin). Values in
+  `config/thresholds.yaml` `rateLimits`; `RATE_LIMIT_SCALE` multiplies them (E2E: 100).
+- Uploads also check the MIME type against the extension, `%PDF-` magic bytes and UTF-8 Markdown.
+- Tests: `test/api/roleMatrix.test.ts` (every route × every role and no session, from the route
+  table), `test/api/security.test.ts`; API tests send the CSRF header through
+  `test/setup/csrfHeader.ts` (a Supertest patch), as the web app does.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

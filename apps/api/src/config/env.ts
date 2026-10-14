@@ -55,6 +55,11 @@ export const EnvSchema = z.object({
    * dependency and refuses to start until one exists.
    */
   EMAIL_DELIVERY: z.preprocess(blankToUndefined, z.enum(['mock', 'smtp']).default('mock')),
+  /**
+   * Multiplies every rate limit (config/thresholds.yaml rateLimits). Default 1; the E2E
+   * run raises it because its scripted sign-ins outpace the per-IP login limit.
+   */
+  RATE_LIMIT_SCALE: z.preprocess(blankToUndefined, z.coerce.number().min(1).max(1000).default(1)),
   /** Pins "today" (YYYY-MM-DD) for timesheets and the dashboard in demos and E2E runs. */
   DEMO_TODAY: z.preprocess(
     blankToUndefined,

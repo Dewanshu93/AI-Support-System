@@ -180,6 +180,27 @@ describe('POST /api/admin/documents (upload)', () => {
   });
 });
 
+describe('upload content checks (W4-07)', () => {
+  it('400: a PDF without the %PDF- header, non-UTF-8 Markdown, or a mismatched MIME type', async () => {
+    const { ctx } = setup({ pdfText: async () => BODY });
+    const cookie = await loginCookie(ctx.app, ADMIN);
+    const post = (file: Buffer, name: string, contentType?: string) =>
+      request(ctx.app)
+        .post(URL)
+        .set('Cookie', cookie)
+        .field('metadata', JSON.stringify(META))
+        .attach('file', file, contentType ? { filename: name, contentType } : name);
+    const notPdf = await post(Buffer.from('<html>not a pdf</html>'), 'policy.pdf');
+    expect(notPdf.status).toBe(400);
+    expect(notPdf.body.error.message).toBe('The file is not a valid PDF');
+    const latin1 = await post(Buffer.from([0x23, 0x20, 0xe9, 0x74, 0xe9]), 'policy.md');
+    expect(latin1.body.error.message).toBe('Markdown files must be UTF-8 text');
+    const image = await post(Buffer.from(BODY), 'policy.md', 'image/png');
+    expect(image.status).toBe(400);
+    expect(image.body.error.message).toContain('cannot have the type image/png');
+  });
+});
+
 describe('POST /api/admin/documents/:id/reindex', () => {
   it('recreates the chunks from the stored source; 404 unknown; audited', async () => {
     const { ctx, stores } = setup();

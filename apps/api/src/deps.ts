@@ -1,6 +1,7 @@
 import type { SupportGraph } from './ai/graph/graph';
 import type { DraftReplyFn } from './ai/nodes/draftReply';
 import type { ConfigFiles } from './config/schemas';
+import type { RateLimitConfig } from './http/security';
 import type { AgentTicketsRepository } from './modules/agent/repository';
 import type { AuditRepository } from './modules/audit/repository';
 import type { ConversationsRepository } from './modules/conversations/repository';
@@ -71,6 +72,8 @@ export interface AppDeps {
   evals: { repository: EvalsRepository; service: EvalsService };
   /** config/workday.yaml: timesheet rules and holiday calendar. */
   workday: ConfigFiles['workday'];
+  /** HTTP hardening (W4-07): CORS origin and in-memory rate limits. */
+  security: { webOrigin: string; rateLimits: RateLimitConfig };
   /** Current time; injected so tests and demos control "today". Defaults to the system clock. */
   clock?: () => Date;
 }

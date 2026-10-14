@@ -14,5 +14,16 @@ Docker Compose is not used for the time being; the app runs locally.
 
 - **Turn lock (W2-08, ADR-010):** the one-turn-per-conversation lock is in process memory. Running
   several API instances needs a shared lock (MongoDB lease with expiry).
-- **Rate limiting (W2-08):** the 429 responses in section 4 (login, conversations, messages) are
-  not implemented yet.
+- **Rate limiting (W4-07):** in-memory limits per API process (login per IP, chat turns and
+  uploads per user). Several instances, or a restart, reset them; production needs a shared limiter
+  (Redis or a gateway) and per-tenant quotas.
+- **CSRF (W4-07):** the `X-Requested-With: sd-web` header check plus SameSite=Lax cookies and a
+  single allowed CORS origin. If the web app and API ever live on different sites, add CSRF tokens.
+- **Uploads (W4-04, W4-07):** type, size, MIME, PDF magic bytes and UTF-8 checks; files parsed in
+  memory and kept on the API host's disk (`data/uploads/`). Production needs malware scanning,
+  sandboxed parsing and object storage.
+- **Dependency audit (W4-07, 2026-10-14):** `multer` upgraded to 2.4.0 (fixes three advisories);
+  the `undici` advisory above is unchanged (`npm audit fix --force` would downgrade the Qdrant
+  client, a breaking change) and stays deferred.
+- **Eval runs (W4-05):** the eval runner is a child process of one API instance; production would
+  run evals as a separate job with its own credentials.

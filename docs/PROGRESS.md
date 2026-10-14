@@ -2088,3 +2088,32 @@ startup clean-up failed runs launched by another live API on the same database (
 share it); runs now carry their launching process (host + pid) and only runs whose process on
 this host has gone are failed (unit test). Also: the run's dataset version is set when the runner
 attaches; target cards show the measured value (`fusedRecallAt5` → `fused.recallAt5`).
+
+## W4-06 Judge suite and threshold tuning — skipped for now (owner decision 2026-10-14)
+
+Needs paid runs (a full-suite run plus a P-9 judge call per answer) and a 20-answer manual spot
+check by the owner. Not built; to be picked up when the quota and the spot check are available.
+
+## W4-07 Security hardening — 2026-10-14
+
+- `helmet` headers; CORS only for `WEB_ORIGIN` (credentials); CSRF header check on every
+  mutating request (`X-Requested-With: sd-web`, 403 otherwise); JSON body ≤ 100 KB (already);
+  no stack traces, request IDs (already); startup warning when `NODE_ENV=production`.
+- In-memory rate limits from `config/thresholds.yaml` `rateLimits`: login 10/min per IP, chat
+  20 turns/min per user (message and escalate), uploads 10/hour per admin; eval runs one at a time
+  (W4-05). 429 `RATE_LIMITED` with `RateLimit` / `Retry-After`. `RATE_LIMIT_SCALE` (env) raises
+  them for the E2E run only (100).
+- Upload content checks: MIME type against the extension, `%PDF-` magic bytes, UTF-8 Markdown.
+- New dependencies from the approved list: `helmet` 8.1.0, `cors` 2.8.5, `express-rate-limit`
+  7.5.0. `npm audit`: `multer` 2.0.2 → 2.4.0 (three advisories fixed); `undici` (Qdrant client)
+  stays deferred (owner, 2026-10-05; see PRODUCTION_GAPS).
+
+**Acceptance:** route-policy test proves every route declares a role (existing) and the new role
+matrix exercises every route × every role and no session (`test/api/roleMatrix.test.ts`).
+"Injection cases 100%" needs a paid full-suite eval run; **pending** with W4-06 (not re-run in
+this task).
+
+**Verification:** `test/api/security.test.ts` (helmet headers, no `x-powered-by`, CORS allow /
+deny, CSRF middleware and a refused login without audit, login / chat per user / upload limits),
+`test/api/roleMatrix.test.ts`, upload content checks in `test/api/documents.test.ts`, env test.
+API 1248 passed (31 skipped integration), web 100, lint clean.

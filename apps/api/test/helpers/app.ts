@@ -88,6 +88,8 @@ export interface TestAppOptions extends CreateAppOptions {
   documentAdmin?: AppDeps['documentAdmin'];
   /** Eval runs (W4-05); default: none, and a start answers 503. */
   evals?: AppDeps['evals'];
+  /** Rate limits (W4-07); default: high enough that only rate-limit tests hit them. */
+  rateLimits?: Partial<AppDeps['security']['rateLimits']>;
 }
 
 const config = loadConfig(VALID_ENV);
@@ -125,6 +127,15 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     traces: options.traces ?? memoryTracesRepository(),
     documentAdmin: options.documentAdmin ?? testDocumentAdmin().admin,
     evals: options.evals ?? testEvals(),
+    security: {
+      webOrigin: 'http://localhost:3000',
+      rateLimits: {
+        loginsPerMinute: 10_000,
+        chatTurnsPerMinute: 10_000,
+        uploadsPerHour: 10_000,
+        ...options.rateLimits,
+      },
+    },
     workday: config.workday,
     clock: options.clock,
   };

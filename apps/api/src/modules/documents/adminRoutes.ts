@@ -127,6 +127,7 @@ export function documentAdminRoutes(deps: Pick<AppDeps, 'documentAdmin' | 'audit
       method: 'post',
       path: base,
       access: ['admin'],
+      rateLimit: 'upload',
       handlers: [
         singleFile(),
         async (req, res) => {
@@ -138,6 +139,7 @@ export function documentAdminRoutes(deps: Pick<AppDeps, 'documentAdmin' | 'audit
           const document = await admin.upload({
             fileName: req.file.originalname,
             data: req.file.buffer,
+            mimeType: req.file.mimetype,
             metadata: (req.body as Record<string, unknown> | undefined)?.metadata,
           });
           await audit.record(req, {

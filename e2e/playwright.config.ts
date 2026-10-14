@@ -50,7 +50,8 @@ export default defineConfig({
       url: `http://localhost:${apiPort}/api/health`,
       reuseExistingServer: false,
       timeout: 180_000,
-      env: { API_PORT: apiPort, LLM_MODE: llm, DEMO_TODAY: E2E_TODAY },
+      // Scripted sign-ins outpace the 10/min per-IP login limit (W4-07).
+      env: { API_PORT: apiPort, LLM_MODE: llm, DEMO_TODAY: E2E_TODAY, RATE_LIMIT_SCALE: '100' },
     },
     {
       // Production build in its own folder: timings reflect real use.

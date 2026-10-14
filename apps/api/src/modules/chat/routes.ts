@@ -65,6 +65,7 @@ export function chatRoutes(service: ConversationService, runner: TurnRunner): Ro
       method: 'post',
       path: `${base}/messages`,
       access: ['employee'],
+      rateLimit: 'chat',
       handlers: [
         validate({ params: ConversationParamsSchema, body: PostMessageRequestSchema }),
         turn((req) => (req.body as PostMessageRequest).content, false),
@@ -74,6 +75,7 @@ export function chatRoutes(service: ConversationService, runner: TurnRunner): Ro
       method: 'post',
       path: `${base}/escalate`,
       access: ['employee'],
+      rateLimit: 'chat',
       handlers: [
         validate({ params: ConversationParamsSchema, body: EscalateRequestSchema }),
         turn((req) => (req.body as EscalateRequest).reason || ESCALATE_DEFAULT_TEXT, true),

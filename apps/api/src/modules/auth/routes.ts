@@ -48,6 +48,7 @@ export function authRoutes(deps: AppDeps): RouteDef[] {
       method: 'post',
       path: `${base}/login`,
       access: 'public',
+      rateLimit: 'login',
       handlers: [
         validate({ body: LoginRequestSchema }),
         async (req, res) => {

@@ -30,6 +30,7 @@ import { workspaceRoutes } from '../modules/workspace/routes';
 import { createWorkspaceService } from '../modules/workspace/service';
 import { requireAuth } from './requireAuth';
 import { requireRole } from './requireRole';
+import type { RateLimitName } from './security';
 
 /** `public`: no session; `any`: any authenticated role; otherwise the allowed roles. */
 export type Access = 'public' | 'any' | readonly [Role, ...Role[]];
@@ -40,6 +41,8 @@ export interface RouteDef {
   access: Access;
   /** Validation, controller, … — run after the access guards. */
   handlers: RequestHandler[];
+  /** In-memory rate limit (W4-07): per user, or per IP on public routes. */
+  rateLimit?: RateLimitName;
 }
 
 /** The full route table: every module contributes its routes here. */
@@ -131,15 +134,21 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
 export const withModelMode: RequestHandler = (req, _res, next) =>
   runWithModelMode(req.user?.proModels ? 'pro' : 'local', next);
 
-export function mountRoutes(app: Express, routes: RouteDef[], deps: AppDeps): void {
+export function mountRoutes(
+  app: Express,
+  routes: RouteDef[],
+  deps: AppDeps,
+  limiters?: Record<RateLimitName, RequestHandler>,
+): void {
   const authenticate = requireAuth({ users: deps.users, jwtSecret: deps.auth.jwtSecret });
   for (const route of routes) {
+    const limit = route.rateLimit && limiters ? [limiters[route.rateLimit]] : [];
     const guards =
       route.access === 'public'
-        ? []
+        ? limit
         : route.access === 'any'
-          ? [authenticate, withModelMode]
-          : [authenticate, requireRole(...route.access), withModelMode];
+          ? [authenticate, ...limit, withModelMode]
+          : [authenticate, requireRole(...route.access), ...limit, withModelMode];
     app[route.method](route.path, ...guards, ...route.handlers);
   }
 }

@@ -109,6 +109,12 @@ async function main() {
   }
   const { client, db } = database;
   logger.info({ db: db.databaseName }, 'connected to MongoDB');
+  if (config.env.NODE_ENV === 'production') {
+    // Section 9: the prototype holds synthetic data and sends user text to LLM providers.
+    logger.warn(
+      'NODE_ENV=production: this prototype is for synthetic data only; do not load real employee data',
+    );
+  }
 
   // Qdrant is not required to boot: retrieval fails per request and health reports it.
   const qdrant = createQdrantClient(config.env.QDRANT_URL, config.env.QDRANT_API_KEY);
@@ -378,6 +384,15 @@ async function main() {
     traces: mongoTracesRepository(collections),
     documentAdmin,
     evals,
+    security: {
+      webOrigin: config.env.WEB_ORIGIN,
+      rateLimits: {
+        loginsPerMinute: config.thresholds.rateLimits.loginsPerMinute * config.env.RATE_LIMIT_SCALE,
+        chatTurnsPerMinute:
+          config.thresholds.rateLimits.chatTurnsPerMinute * config.env.RATE_LIMIT_SCALE,
+        uploadsPerHour: config.thresholds.rateLimits.uploadsPerHour * config.env.RATE_LIMIT_SCALE,
+      },
+    },
     workday: config.workday,
     clock,
     auth: {

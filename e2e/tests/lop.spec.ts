@@ -39,8 +39,10 @@ async function agentSetsStatus(browser: Browser, ticketId: string, status: strin
   const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const agent = await context.newPage();
   await signIn(agent, 'Hana Kim', /\/agent\/queue$/);
+  // As the web app does: mutating API calls carry the CSRF header (W4-07).
   const res = await agent.request.patch(`/api/agent/tickets/${ticketId}/status`, {
     data: { status },
+    headers: { 'X-Requested-With': 'sd-web' },
   });
   expect(res.status()).toBe(200);
   await context.close();

@@ -45,8 +45,38 @@ export interface DocumentAdminDeps {
 export interface UploadInput {
   fileName: string;
   data: Uint8Array;
+  /** The MIME type the browser sent (checked against the extension, W4-07). */
+  mimeType?: string;
   /** The multipart `metadata` field (JSON text). */
   metadata: unknown;
+}
+
+/**
+ * MIME types accepted per extension. Browsers send .md as text/markdown,
+ * text/plain or a generic type; anything else (an image renamed .md) is refused.
+ */
+const MIME_TYPES: Record<string, readonly string[]> = {
+  '.md': ['text/markdown', 'text/x-markdown', 'text/plain', 'application/octet-stream', ''],
+  '.pdf': ['application/pdf', 'application/x-pdf', 'application/octet-stream', ''],
+};
+const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
+
+/** Section 9 upload checks beyond the extension: MIME type, PDF magic bytes, UTF-8 Markdown. */
+export function checkUploadContent(ext: string, data: Uint8Array, mimeType = ''): string | null {
+  if (!MIME_TYPES[ext]?.includes(mimeType.toLowerCase().split(';')[0]!.trim())) {
+    return `A ${ext} file cannot have the type ${mimeType}`;
+  }
+  if (ext === '.pdf' && !PDF_MAGIC.every((byte, i) => data[i] === byte)) {
+    return 'The file is not a valid PDF';
+  }
+  if (ext === '.md') {
+    try {
+      new TextDecoder('utf-8', { fatal: true }).decode(data);
+    } catch {
+      return 'Markdown files must be UTF-8 text';
+    }
+  }
+  return null;
 }
 
 /** A VALIDATION_ERROR in the shared envelope shape (issues in the multipart body). */
@@ -122,6 +152,8 @@ export function createDocumentAdmin(deps: DocumentAdminDeps) {
       if (input.data.byteLength > DOCUMENT_UPLOAD.maxBytes) {
         invalid('The file is larger than 5 MB');
       }
+      const contentProblem = checkUploadContent(ext, input.data, input.mimeType);
+      if (contentProblem) invalid(contentProblem);
       const meta = parseUploadMetadata(input.metadata);
       const id = documentId(meta.slug, meta.version);
       if (await deps.repo.findById(id)) {

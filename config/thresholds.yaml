@@ -27,3 +27,11 @@ gaps:
   maxExamples: 10
   maxClusters: 15
   defaultRangeDays: 30
+
+# HTTP rate limits (playbook section 9, W4-07): in memory, one API process.
+# Login is per IP; chat turns and uploads per signed-in user. RATE_LIMIT_SCALE
+# (env) multiplies all three (E2E only).
+rateLimits:
+  loginsPerMinute: 10
+  chatTurnsPerMinute: 20
+  uploadsPerHour: 10

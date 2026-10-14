@@ -94,9 +94,14 @@ test('flow 7: requests show on the tracker, as a list and a board', async ({ pag
 
 test('the copilot palette opens with Ctrl+K and lists suggestions', async ({ page }) => {
   await signInAs(page, 'Priya Shah');
-  await page.keyboard.press('Control+k');
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByTestId('copilot-launcher')).toBeVisible();
   const palette = page.getByRole('dialog', { name: 'Ask Copilot' });
-  await expect(palette).toBeVisible();
+  // The shortcut listener attaches after hydration: retry until the palette opens.
+  await expect(async () => {
+    await page.keyboard.press('Control+k');
+    await expect(palette).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 30_000 });
   await expect(palette.getByText('Why was my salary reduced last month?')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(palette).toHaveCount(0);
