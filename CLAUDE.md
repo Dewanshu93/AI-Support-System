@@ -26,6 +26,7 @@ Supertest · Playwright. npm workspaces modular monolith: `apps/web`, `apps/api`
 | `npm run test:e2e`                         | Playwright on its own API (:4100) and web build (:3100); replays recorded LLM replies (`E2E_LLM=record` / `live` to change) |
 | `npm run db:indexes`                       | Create Mongo indexes + Qdrant collection (idempotent)                                                                       |
 | `npm run seed`                             | Upsert demo users from `seed/users.json` (idempotent)                                                                       |
+| `npm run reset`                            | Demo reset: seed + clear demo-run data + 14 days of synthetic history (idempotent)                                          |
 | `npm run corpus:validate`                  | Validate `corpus/` (`-- --write` refreshes the README inventory)                                                            |
 | `npm run golden:validate`                  | Validate `evals/golden/golden.v1.jsonl` and print its composition                                                           |
 | `npm run eval -- --suite retrieval`        | Retrieval eval: recall@5 per mode, leakage, report in `evals/reports/`                                                      |

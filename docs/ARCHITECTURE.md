@@ -1078,6 +1078,20 @@ inside the app:
   table), `test/api/security.test.ts`; API tests send the CSRF header through
   `test/setup/csrfHeader.ts` (a Supertest patch), as the web app does.
 
+## Historic demo data and reset (W4-08)
+
+- `seed/historic/scenarios.json` (20 turn scenarios mapped to corpus documents, with gap labels
+  and ticket specs) and `people.json` (12 synthetic employees, `isDemo: false`, never on the
+  login picker). `modules/workspace/historic.ts` `buildHistoric` draws 120 conversations over
+  the 14 days before "today" with a fixed seed (stable ids): messages, full turn traces (real
+  chunk ids where the index has them), feedback, ~40 tickets (`IT-5xxx` / `HR-5xxx`) with events
+  and priority corrections, and a labelled `gap_clusters` snapshot. Conversations and tickets
+  carry `synthetic: true`.
+- `modules/workspace/reset.ts` `resetDemo` (`npm run reset`): seed users, mock HR data and
+  demo requests; `clearDemoRuns` deletes every non-eval conversation and ticket that is neither
+  seeded nor historic (with messages, traces, feedback, checkpoints, events, emails); then
+  `applyHistoric` replaces the historic records by id. Eval data and the audit log are kept.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

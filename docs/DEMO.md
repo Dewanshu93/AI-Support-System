@@ -14,14 +14,22 @@ picks it up.
 
 1. Pick the demo date. The examples below use **2026-10-08**, which makes the unpaid day
    **Fri 11 Sept 2026** and the amount **$400.00** (salary $104,000 / 260 working days).
-2. In `.env`, set `DEMO_TODAY=2026-10-08`, then restore the demo data for that date:
+2. In `.env`, set `DEMO_TODAY=2026-10-08`, then reset the demo data for that date:
 
    ```bash
-   npm run seed -- --today 2026-10-08
+   npm run reset -- --today 2026-10-08
    ```
 
-   The seed prints the scenario: `priya.shah@example.com has Loss of Pay $400.00 for 2026-09-11`.
-   Run it again after a rehearsal: it resets the timesheets, notifications and demo requests.
+   Reset (W4-08) restores the demo users, Priya's scenario (Loss of Pay $400.00 for 2026-09-11),
+   timesheets, notifications and demo requests; **deletes every conversation and ticket that
+   earlier rehearsals, tests or dev chats left behind**; and loads 14 days of synthetic history
+   (~120 conversations, ~40 tickets, traces, feedback, a knowledge-gap snapshot) so the admin
+   overview, traces, knowledge gaps and agent queues are populated. It takes well under two
+   minutes and is safe to run again after every rehearsal. Evaluation runs and the audit log are
+   kept. (`npm run seed` alone restores the scenario without touching other conversations.)
+
+   Run the reset **after** any E2E run: E2E tests share the database and leave their
+   conversations behind (and re-seed the scenario for 2026-10-08).
 
 3. Start the app (`npm run dev:api`, `npm run dev:web`) and check http://localhost:4000/api/health
    reports `db`, `vectorStore` and `llmConfigured` as up/true.

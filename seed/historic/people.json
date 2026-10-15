@@ -1,0 +1,89 @@
+{
+  "_comment": "SYNTHETIC employees who own the historic conversations (W4-08). isDemo false: they never appear on the login picker, so the five demo personas keep their curated dashboards.",
+  "people": [
+    {
+      "name": "Aisha Rahman",
+      "country": "US",
+      "employmentType": "full_time",
+      "department": "Finance",
+      "jobTitle": "Financial Analyst"
+    },
+    {
+      "name": "Ben Carter",
+      "country": "UK",
+      "employmentType": "full_time",
+      "department": "Engineering",
+      "jobTitle": "Backend Engineer"
+    },
+    {
+      "name": "Chloe Martin",
+      "country": "US",
+      "employmentType": "full_time",
+      "department": "Marketing",
+      "jobTitle": "Campaign Manager"
+    },
+    {
+      "name": "Daniel Osei",
+      "country": "UK",
+      "employmentType": "contractor",
+      "department": "Engineering",
+      "jobTitle": "QA Engineer (Contractor)"
+    },
+    {
+      "name": "Elena Petrova",
+      "country": "US",
+      "employmentType": "full_time",
+      "department": "Engineering",
+      "jobTitle": "Data Engineer"
+    },
+    {
+      "name": "Farhan Ali",
+      "country": "UK",
+      "employmentType": "full_time",
+      "department": "Sales",
+      "jobTitle": "Account Executive"
+    },
+    {
+      "name": "Grace Kim",
+      "country": "US",
+      "employmentType": "contractor",
+      "department": "Design",
+      "jobTitle": "UX Designer (Contractor)"
+    },
+    {
+      "name": "Hugo Silva",
+      "country": "UK",
+      "employmentType": "full_time",
+      "department": "Operations",
+      "jobTitle": "Operations Lead"
+    },
+    {
+      "name": "Isabel Reyes",
+      "country": "US",
+      "employmentType": "full_time",
+      "department": "People",
+      "jobTitle": "Recruiter"
+    },
+    {
+      "name": "Jack Thompson",
+      "country": "UK",
+      "employmentType": "full_time",
+      "department": "Finance",
+      "jobTitle": "Accountant"
+    },
+    {
+      "name": "Kavya Nair",
+      "country": "US",
+      "employmentType": "full_time",
+      "department": "Engineering",
+      "jobTitle": "Frontend Engineer"
+    },
+    {
+      "name": "Liam O'Connor",
+      "country": "UK",
+      "employmentType": "contractor",
+      "department": "Support",
+      "jobTitle": "Support Analyst (Contractor)"
+    }
+  ]
+}

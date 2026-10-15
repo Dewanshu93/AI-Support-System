@@ -2117,3 +2117,20 @@ this task).
 deny, CSRF middleware and a refused login without audit, login / chat per user / upload limits),
 `test/api/roleMatrix.test.ts`, upload content checks in `test/api/documents.test.ts`, env test.
 API 1248 passed (31 skipped integration), web 100, lint clean.
+
+## W4-08 Historic seed data and reset — 2026-10-15
+
+- `seed/historic/` (scenarios and 12 synthetic employees) and `buildHistoric`: 120 synthetic
+  conversations over 14 days with traces, feedback, ~40 tickets with events and corrections, and a
+  knowledge-gap snapshot (no embedding calls). Deterministic (fixed seed, stable ids); records
+  marked `synthetic`; owned by non-demo users so the five personas keep their curated data.
+- `npm run reset` (`resetDemo`): seed + clear demo-run conversations and tickets + historic data;
+  idempotent; eval runs and audit log kept. Documented in `docs/DEMO.md`, README, CLAUDE.md.
+- Owner decision (2026-10-15): reset not run on the shared dev database (it would delete the
+  dev chats); verified on a throwaway database instead. Run it before a demo.
+
+**Verification:** `modules/workspace/historic.test.ts` (deterministic, volumes, every record
+passes its schema, 14-day window, references, enforced rules, no clash with demo personas);
+`test/integration/demoReset.test.ts` on the LAN MongoDB (2/2: reset twice gives the same data,
+in well under 2 minutes; a demo-run conversation and ticket are cleared, seeded / historic /
+eval data kept).

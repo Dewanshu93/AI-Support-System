@@ -1,0 +1,338 @@
+{
+  "_comment": "Historic demo data (W4-08): SYNTHETIC conversations for the admin dashboards. Each scenario is a kind of turn; the builder (apps/api/src/modules/workspace/historic.ts) draws ~120 conversations from them over the 14 days before 'today', with a fixed seed. weight = relative frequency.",
+  "scenarios": [
+    {
+      "key": "leave-us",
+      "weight": 8,
+      "audience": { "countries": ["US"], "employmentTypes": ["full_time"] },
+      "domain": "HR",
+      "category": "leave",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["hr-annual-leave-us"],
+      "questions": [
+        "How many days of annual leave do I get?",
+        "How much PTO do I have per year?",
+        "Can I carry over unused vacation days?"
+      ],
+      "answer": "Full-time employees in the US receive 20 days of paid annual leave a year, accrued monthly [S1]. Up to 5 unused days carry over to the next year [S1]."
+    },
+    {
+      "key": "leave-uk",
+      "weight": 6,
+      "audience": { "countries": ["UK"], "employmentTypes": ["full_time"] },
+      "domain": "HR",
+      "category": "leave",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["hr-annual-leave-uk"],
+      "questions": [
+        "How much holiday am I entitled to?",
+        "Do bank holidays count towards my annual leave?"
+      ],
+      "answer": "Full-time employees in the UK receive 25 days of paid annual leave plus the 8 UK bank holidays [S1]. After 5 years of service it rises to 27 days [S1]."
+    },
+    {
+      "key": "vpn",
+      "weight": 8,
+      "domain": "IT",
+      "category": "network",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["it-vpn-remote-access"],
+      "questions": [
+        "My VPN keeps disconnecting. What should I do?",
+        "How do I connect to the VPN from home?",
+        "GlobalProtect says the portal is unreachable"
+      ],
+      "answer": "Restart GlobalProtect and sign in again with MFA [S1]. If it still drops, switch from Wi-Fi to a wired connection and check the portal address is vpn.example.com [S1]."
+    },
+    {
+      "key": "password",
+      "weight": 6,
+      "domain": "IT",
+      "category": "access",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["it-password-mfa-policy"],
+      "questions": [
+        "How often do I have to change my password?",
+        "How do I reset my MFA on a new phone?"
+      ],
+      "answer": "Passwords expire every 90 days and must be at least 14 characters [S1]. To move MFA to a new phone, use the self-service portal while signed in on your laptop [S1]."
+    },
+    {
+      "key": "expenses",
+      "weight": 5,
+      "audience": { "employmentTypes": ["full_time"] },
+      "domain": "HR",
+      "category": "policy",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["hr-expenses-policy"],
+      "questions": [
+        "What is the daily meal allowance when travelling?",
+        "What hotel rate can I book on a business trip?"
+      ],
+      "answer": "On business travel the daily meal allowance is 60 in the local currency [S1]. Hotels should stay within the city rate listed in the travel tool [S1]."
+    },
+    {
+      "key": "printing",
+      "weight": 4,
+      "domain": "IT",
+      "category": "hardware",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["it-office-printing"],
+      "questions": ["How do I connect to the office printer?", "Where do I pick up secure prints?"],
+      "answer": "Add the printer FollowMe-Print from the Software Centre, then release your job at any printer with your badge [S1]."
+    },
+    {
+      "key": "sick-us",
+      "weight": 4,
+      "audience": { "countries": ["US"] },
+      "domain": "HR",
+      "category": "leave",
+      "decision": "ANSWER",
+      "reasonCode": "EVIDENCE_STRONG",
+      "docSlugs": ["hr-sick-leave-us"],
+      "questions": ["How many sick days do I get?", "Do I need a doctor's note for sick leave?"],
+      "answer": "You receive 10 paid sick days a year [S1]. A doctor's note is needed after 3 consecutive days [S1]."
+    },
+    {
+      "key": "home-office",
+      "weight": 6,
+      "domain": "HR",
+      "category": "benefits",
+      "decision": "PARTIAL",
+      "reasonCode": "EVIDENCE_PARTIAL",
+      "docSlugs": ["hr-expenses-policy"],
+      "gap": { "label": "Home office equipment allowance", "domain": "HR" },
+      "questions": [
+        "Can I expense a standing desk for working from home?",
+        "Is there an allowance for a home office chair?",
+        "Will the company pay for my home internet?",
+        "Can I claim a second monitor for home?"
+      ],
+      "answer": "The expenses policy covers business travel and client meals [S1]. It does not say whether home office equipment can be claimed.",
+      "uncovered": ["Home office equipment or internet allowances"]
+    },
+    {
+      "key": "contractor-parental",
+      "weight": 4,
+      "audience": { "employmentTypes": ["contractor"] },
+      "domain": "HR",
+      "category": "leave",
+      "decision": "PARTIAL",
+      "reasonCode": "EVIDENCE_PARTIAL",
+      "docSlugs": ["hr-contractor-time-off"],
+      "gap": { "label": "Parental leave for contractors", "domain": "HR" },
+      "questions": [
+        "Do contractors get parental leave?",
+        "Can I take paternity leave as a contractor?",
+        "Is maternity leave paid for agency contractors?"
+      ],
+      "answer": "Contractors arrange time off with their agency [S1]. The policy does not say how parental leave works for contractors.",
+      "uncovered": ["Parental leave for contractors"]
+    },
+    {
+      "key": "parking",
+      "weight": 4,
+      "domain": "HR",
+      "category": "policy",
+      "decision": "ESCALATE",
+      "reasonCode": "NO_EVIDENCE",
+      "docSlugs": [],
+      "gap": { "label": "Office parking permits", "domain": "HR" },
+      "questions": [
+        "How do I get a parking permit for the office?",
+        "Is there staff parking at the London office?",
+        "Who do I ask about a car park space?"
+      ],
+      "answer": "I could not find a policy on office parking. I can raise a request with HR General for you.",
+      "ticket": {
+        "summary": "Office parking permit",
+        "priority": "low",
+        "fields": { "question": "How to get an office parking permit" }
+      }
+    },
+    {
+      "key": "sabbatical",
+      "weight": 3,
+      "audience": { "employmentTypes": ["full_time"] },
+      "domain": "HR",
+      "category": "leave",
+      "decision": "ESCALATE",
+      "reasonCode": "NO_EVIDENCE",
+      "docSlugs": [],
+      "gap": { "label": "Sabbatical and career breaks", "domain": "HR" },
+      "questions": [
+        "Can I take a sabbatical?",
+        "Is there a career break policy?",
+        "How long can unpaid leave be?"
+      ],
+      "answer": "I could not find a sabbatical or career-break policy. I can raise a request with HR General.",
+      "ticket": {
+        "summary": "Sabbatical / career break question",
+        "priority": "low",
+        "fields": { "leave_type": "unpaid", "question": "Sabbatical eligibility" }
+      }
+    },
+    {
+      "key": "laptop-dead",
+      "weight": 6,
+      "domain": "IT",
+      "category": "hardware",
+      "decision": "ESCALATE",
+      "reasonCode": "ACTION_REQUIRED",
+      "docSlugs": ["it-laptop-troubleshooting"],
+      "questions": [
+        "My laptop will not turn on even when plugged in",
+        "My laptop screen stays black after the update",
+        "The keyboard on my laptop stopped working"
+      ],
+      "answer": "Try a hard reset: hold the power button for 15 seconds, then plug in the charger [S1]. If that does not help, I have prepared a hardware request for IT.",
+      "ticket": {
+        "summary": "Laptop not working",
+        "priority": "high",
+        "fields": {
+          "device": "Company laptop",
+          "symptom": "Does not power on",
+          "asset_tag": "AT-4471"
+        }
+      }
+    },
+    {
+      "key": "access",
+      "weight": 5,
+      "domain": "IT",
+      "category": "access",
+      "decision": "ESCALATE",
+      "reasonCode": "ACTION_REQUIRED",
+      "docSlugs": ["it-access-requests"],
+      "questions": [
+        "I need access to the finance SharePoint site",
+        "Please give me access to the Jira project for Northwind",
+        "I need admin rights on the build server"
+      ],
+      "answer": "Access needs your manager's approval [S1]. I have prepared an access request for IT Access.",
+      "ticket": {
+        "summary": "Access request",
+        "priority": "medium",
+        "fields": {
+          "system": "Finance SharePoint",
+          "access_level": "Read",
+          "business_reason": "Quarter-end reporting"
+        }
+      }
+    },
+    {
+      "key": "software",
+      "weight": 4,
+      "domain": "IT",
+      "category": "software",
+      "decision": "ESCALATE",
+      "reasonCode": "ACTION_REQUIRED",
+      "docSlugs": ["it-software-installation"],
+      "questions": [
+        "Please install Visual Studio on my laptop",
+        "I need Tableau Desktop installed",
+        "Can I get Docker Desktop?"
+      ],
+      "answer": "Licensed software is requested through IT [S1]. I have prepared a software request.",
+      "ticket": {
+        "summary": "Software installation",
+        "priority": "low",
+        "fields": { "software": "Visual Studio 2022", "business_reason": "Project work" }
+      }
+    },
+    {
+      "key": "payslip",
+      "weight": 4,
+      "audience": { "employmentTypes": ["full_time"] },
+      "domain": "HR",
+      "category": "payroll",
+      "decision": "ESCALATE",
+      "reasonCode": "ACTION_REQUIRED",
+      "docSlugs": ["hr-payroll-and-payslips"],
+      "questions": [
+        "My payslip shows the wrong tax code",
+        "My overtime is missing from this month's pay",
+        "I was paid less than my contract salary"
+      ],
+      "answer": "Pay corrections are handled by Payroll [S1]. I have prepared a request with the details.",
+      "ticket": {
+        "summary": "Payslip correction",
+        "priority": "high",
+        "fields": { "pay_period": "September 2026", "question": "Incorrect amount on payslip" }
+      }
+    },
+    {
+      "key": "battery",
+      "weight": 2,
+      "domain": "IT",
+      "category": "hardware",
+      "decision": "ESCALATE",
+      "reasonCode": "SAFETY",
+      "docSlugs": ["it-battery-safety"],
+      "safety": "safety_battery",
+      "questions": [
+        "My laptop battery is swollen and getting hot",
+        "My laptop smells of burning plastic"
+      ],
+      "answer": "Stop using the laptop now, unplug it and move it away from anything flammable [S1]. I have raised an urgent request for IT.",
+      "ticket": {
+        "summary": "Swollen laptop battery",
+        "priority": "critical",
+        "aiUrgency": "high",
+        "floor": "safety_battery",
+        "fields": { "device": "Company laptop", "symptom": "Swollen battery" }
+      }
+    },
+    {
+      "key": "harassment",
+      "weight": 2,
+      "domain": "HR",
+      "category": "employee_relations",
+      "decision": "SENSITIVE_HANDOFF",
+      "reasonCode": "SENSITIVE_TOPIC",
+      "docSlugs": [],
+      "sensitive": "harassment",
+      "questions": [
+        "My manager keeps humiliating me in team meetings",
+        "A colleague is making comments that make me uncomfortable"
+      ],
+      "answer": "I am sorry this is happening. This is something an HR advisor should handle privately. Would you like me to open a confidential case?",
+      "ticket": {
+        "summary": "Confidential employee relations case",
+        "priority": "high",
+        "fields": {}
+      }
+    },
+    {
+      "key": "vague",
+      "weight": 4,
+      "domain": "IT",
+      "category": "hardware",
+      "decision": "CLARIFY",
+      "reasonCode": "AMBIGUOUS",
+      "docSlugs": [],
+      "questions": ["it is broken", "doesn't work again", "help please"],
+      "answer": "Could you tell me what is not working — your laptop, an app, or your access?"
+    },
+    {
+      "key": "off-topic",
+      "weight": 3,
+      "domain": "IT",
+      "category": "software",
+      "decision": "OUT_OF_SCOPE",
+      "reasonCode": "OUT_OF_SCOPE",
+      "docSlugs": [],
+      "questions": [
+        "Can you recommend a good restaurant nearby?",
+        "What will the weather be tomorrow?"
+      ],
+      "answer": "I can help with IT and HR questions, your timesheets, pay and requests. For anything else, please use the usual channels."
+    }
+  ]
+}

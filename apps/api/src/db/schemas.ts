@@ -142,6 +142,8 @@ export const ConversationSchema = z.object({
   turnCount: Count,
   /** Created by the eval runner; excluded from every dashboard query. */
   isEval: z.boolean(),
+  /** Historic demo data (W4-08, seed/historic): synthetic, not a real conversation. */
+  synthetic: z.boolean().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -304,6 +306,8 @@ export const TicketSchema = z
     restricted: z.boolean(),
     duplicateOf: nullable(zObjectId),
     isEval: z.boolean(),
+    /** Historic demo data (W4-08, seed/historic): synthetic, not a real request. */
+    synthetic: z.boolean().optional(),
     createdAt: z.date(),
     updatedAt: z.date(),
     resolvedAt: nullable(z.date()),
