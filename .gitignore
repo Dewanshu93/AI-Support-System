@@ -26,3 +26,6 @@ e2e/test-results/
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+
+# Review deck and its build inputs (generated locally, not part of the codebase)
+docs/presentation/
