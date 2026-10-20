@@ -13,7 +13,17 @@ import type { ChatHandle } from './chatModel';
 export type FakeReply =
   | string
   | Error
-  | { text: string; inputTokens?: number; outputTokens?: number; streamError?: Error };
+  | { text: string; inputTokens?: number; outputTokens?: number; streamError?: Error }
+  /** A provider that never answers: the call blocks until it is aborted (W4-09). */
+  | { hang: true };
+
+/** Blocks until the call's signal aborts (never resolves without one). */
+const hangUntilAborted = (signal?: AbortSignal) =>
+  new Promise<never>((_, reject) => {
+    signal?.addEventListener('abort', () =>
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+    );
+  });
 
 export interface FakeChatOptions {
   /** If true, withStructuredOutput works natively (parses the reply as JSON). */
@@ -41,6 +51,7 @@ export class FakeChatModel extends BaseChatModel {
     const reply = this.replies.shift();
     if (reply === undefined) throw new Error('FakeChatModel: no scripted reply left');
     if (reply instanceof Error) throw reply;
+    if (typeof reply === 'object' && 'hang' in reply) return { hang: true as const };
     const {
       text,
       inputTokens = 100,
@@ -57,10 +68,12 @@ export class FakeChatModel extends BaseChatModel {
 
   async _generate(
     messages: BaseMessage[],
-    _options: this['ParsedCallOptions'],
+    options: this['ParsedCallOptions'],
     _runManager?: CallbackManagerForLLMRun,
   ): Promise<ChatResult> {
-    const { text, usage } = this.nextReply(messages);
+    const reply = this.nextReply(messages);
+    if ('hang' in reply) return hangUntilAborted(options.signal);
+    const { text, usage } = reply;
     const message = new AIMessage({ content: text, usage_metadata: usage });
     return { generations: [{ text, message }] };
   }
@@ -68,10 +81,12 @@ export class FakeChatModel extends BaseChatModel {
   /** Streams the reply in 12-character chunks; usage arrives on the last chunk. */
   override async *_streamResponseChunks(
     messages: BaseMessage[],
-    _options: this['ParsedCallOptions'],
+    options: this['ParsedCallOptions'],
     runManager?: CallbackManagerForLLMRun,
   ): AsyncGenerator<ChatGenerationChunk> {
-    const { text, usage, streamError } = this.nextReply(messages);
+    const reply = this.nextReply(messages);
+    if ('hang' in reply) return void (await hangUntilAborted(options.signal));
+    const { text, usage, streamError } = reply;
     const pieces = text.match(/[\s\S]{1,12}/g) ?? [''];
     for (const [i, piece] of pieces.entries()) {
       const last = i === pieces.length - 1;

@@ -65,6 +65,44 @@ describe('withCallPolicy', () => {
   });
 });
 
+describe('whole-call budget (totalTimeoutMs, W4-09)', () => {
+  it('a hung provider is abandoned within the budget, not after every retry', async () => {
+    const fn = jest.fn(() => new Promise<string>(() => {}));
+    const started = Date.now();
+    await expect(
+      withCallPolicy(fn, { timeoutMs: 50, maxRetries: 5, baseDelayMs: 1, totalTimeoutMs: 70 }),
+    ).rejects.toMatchObject({ kind: 'timeout' });
+    // Without the budget: 6 attempts × 50 ms. With it: a full attempt, then only the time left.
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(Date.now() - started).toBeLessThan(250);
+  });
+
+  it('does not wait out a rate-limit hint that would overrun the budget', async () => {
+    const slept: number[] = [];
+    const fn = jest.fn().mockRejectedValue(Object.assign(httpError(429), { retryAfter: 30 }));
+    await expect(
+      withCallPolicy(fn, {
+        ...fast,
+        totalTimeoutMs: 5_000,
+        sleep: async (ms) => void slept.push(ms),
+      }),
+    ).rejects.toMatchObject({
+      kind: 'timeout',
+      message: expect.stringContaining('5000 ms budget'),
+    });
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(slept).toEqual([]);
+  });
+
+  it('retries normally while the budget allows', async () => {
+    const fn = jest.fn().mockRejectedValueOnce(httpError(503)).mockResolvedValueOnce('ok');
+    await expect(withCallPolicy(fn, { ...fast, totalTimeoutMs: 5_000 })).resolves.toEqual({
+      value: 'ok',
+      retries: 1,
+    });
+  });
+});
+
 describe('error classification', () => {
   it.each<[string, unknown, number | undefined]>([
     ['status field', httpError(429), 429],

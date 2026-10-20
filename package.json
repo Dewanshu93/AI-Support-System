@@ -23,6 +23,7 @@
     "db:indexes": "npm run build -w @sd/shared && tsx scripts/create-indexes.ts",
     "seed": "npm run build -w @sd/shared && tsx scripts/seed.ts",
     "reset": "npm run build -w @sd/shared && tsx scripts/reset.ts",
+    "latency": "npm run build -w @sd/shared && tsx --use-system-ca scripts/latency.ts",
     "corpus:validate": "npm run build -w @sd/shared && tsx scripts/validate-corpus.ts",
     "golden:validate": "npm run build -w @sd/shared && tsx scripts/validate-golden.ts",
     "eval": "npm run build -w @sd/shared && tsx --use-system-ca evals/runner/cli.ts",

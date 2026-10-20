@@ -44,6 +44,10 @@ export function policyFor(
   return {
     ...policy,
     ...(handle.timeoutMs && handle.timeoutMs > policy.timeoutMs && { timeoutMs: handle.timeoutMs }),
+    // A slower model's own attempt budget always fits in the whole-call budget.
+    ...(handle.timeoutMs &&
+      policy.totalTimeoutMs !== undefined &&
+      handle.timeoutMs > policy.totalTimeoutMs && { totalTimeoutMs: handle.timeoutMs }),
     ...(handle.maxRetries !== undefined &&
       handle.maxRetries < policy.maxRetries && { maxRetries: handle.maxRetries }),
   };

@@ -40,6 +40,9 @@ call:
   # The local model on CPU needs longer per attempt (API server's fallback chain only).
   providerTimeoutMs: { ollama: 120000 }
   maxRetries: 2
+  # Whole-call budget, retries and backoff included (W4-09): bounds each graph node.
+  # A slower model's own per-attempt budget (providerTimeoutMs) still applies.
+  totalTimeoutMs: 75000
   maxOutputTokens: 2048
 
 # USD per 1M tokens, used for trace and eval cost reporting. Chat prices are

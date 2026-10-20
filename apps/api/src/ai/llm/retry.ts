@@ -7,8 +7,15 @@ export interface CallPolicy {
   baseDelayMs?: number;
   /** Upper bound for any single wait, including provider retry hints. */
   maxDelayMs?: number;
+  /**
+   * Wall-clock budget for the whole call, retries and backoff included (W4-09):
+   * each node makes one call, so this bounds how long a node can take. Each
+   * attempt gets at most the time left; no retry starts that could not finish.
+   */
+  totalTimeoutMs?: number;
   /** Injectable for tests. */
   sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
 }
 
 const sleepFor = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -82,15 +89,18 @@ export async function withCallPolicy<T>(
   policy: CallPolicy,
 ): Promise<{ value: T; retries: number }> {
   const sleep = policy.sleep ?? sleepFor;
+  const now = policy.now ?? Date.now;
   const base = policy.baseDelayMs ?? 500;
+  const deadline = policy.totalTimeoutMs ? now() + policy.totalTimeoutMs : Infinity;
   for (let attempt = 0; ; attempt++) {
     const controller = new AbortController();
     let timer: NodeJS.Timeout | undefined;
+    const attemptMs = Math.max(1, Math.min(policy.timeoutMs, deadline - now()));
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new LlmError('timeout', `LLM call timed out after ${policy.timeoutMs} ms`));
-      }, policy.timeoutMs);
+        reject(new LlmError('timeout', `LLM call timed out after ${attemptMs} ms`));
+      }, attemptMs);
     });
     try {
       const value = await Promise.race([fn(controller.signal), timeout]);
@@ -107,7 +117,16 @@ export async function withCallPolicy<T>(
         );
       }
       const backoff = base * 2 ** attempt + Math.floor(Math.random() * base * 0.2);
-      await sleep(Math.min(Math.max(backoff, retryAfterMs(err) ?? 0), policy.maxDelayMs ?? 60_000));
+      const wait = Math.min(Math.max(backoff, retryAfterMs(err) ?? 0), policy.maxDelayMs ?? 60_000);
+      // Out of budget: give up now rather than start an attempt that cannot finish.
+      if (now() + wait >= deadline) {
+        throw new LlmError(
+          'timeout',
+          `LLM call gave up after its ${policy.totalTimeoutMs} ms budget (${attempt + 1} attempts)`,
+          { cause: err },
+        );
+      }
+      await sleep(wait);
     } finally {
       clearTimeout(timer);
     }

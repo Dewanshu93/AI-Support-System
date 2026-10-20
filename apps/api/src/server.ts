@@ -16,6 +16,7 @@ import { createMongoCheckpointer } from './ai/graph/checkpointer';
 import { buildTurnGraph, type TurnGraphDeps } from './ai/graph/runtime';
 import {
   createChatModel,
+  cachedEmbedQuery,
   createEmbeddings,
   createFallbackChatModel,
   createLocalChatModel,
@@ -156,13 +157,14 @@ async function main() {
 
   // Created on first use, so the API boots without a Gemini key (turns then fail with an error event).
   let queryEmbeddings: ReturnType<typeof createEmbeddings> | undefined;
-  const liveEmbedQuery = (text: string) => {
+  // Reused per question text (W4-09): a repeated question skips the embedding call.
+  const liveEmbedQuery = cachedEmbedQuery((text: string) => {
     queryEmbeddings ??= createEmbeddings(config.models, config.env, 'query');
     return embedQuery(queryEmbeddings, text, {
       policy: config.models.call,
       dimension: config.models.embeddings.dimension,
     });
-  };
+  });
   // Per-user model mode (ADR-020): Pro off → the local Ollama model only; Pro on →
   // the paid chain with provider fallback (ADR-018). E2E recording uses one model per
   // mode, so fixtures never hold a fallback's reply.

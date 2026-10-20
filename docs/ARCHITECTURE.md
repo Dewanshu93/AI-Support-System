@@ -1092,6 +1092,25 @@ inside the app:
   seeded nor historic (with messages, traces, feedback, checkpoints, events, emails); then
   `applyHistoric` replaces the historic records by id. Eval data and the audit log are kept.
 
+## Performance and resilience (W4-09)
+
+- Retrieval: vector and keyword search run in parallel (`ai/retrieval/retrieve.ts`, since
+  W1-11); query embeddings are reused per question text (`ai/llm/embeddingCache.ts`, LRU 500,
+  1 h, concurrent calls share one request, failures not cached) in the API.
+- Model tiers: P-1, P-2, P-4 (and the other short prompts) on the fast tier; P-3 grounded answer
+  and P-5 slot fill on the quality tier.
+- Time budgets: `call.timeoutMs` per attempt (30 s; `providerTimeoutMs.ollama` 120 s) and
+  `call.totalTimeoutMs` per call, retries and backoff included (75 s), in `withCallPolicy`.
+  Each node makes one call, so this bounds every node; each attempt gets only the time left, and
+  no retry (or provider retry-after wait) starts that could not finish. `policyFor` raises the
+  whole-call budget to a slower model's per-attempt budget. On exhaustion the node takes its
+  documented fallback (e.g. P-2 → search order, coverage "unknown").
+- Retries: exponential backoff with jitter on 408 / 429 / 5xx / network errors, honouring
+  provider retry hints (since W1-09); provider fallback chain (ADR-018).
+- Latency measurement: `npm run latency` (`scripts/latency.ts`, `evals/runner/latency.ts`) sends
+  30 scripted turns to a running API and writes `evals/reports/latency.md` (p50 / p90 first word
+  and whole turn, cost per turn, against NFR-1 / NFR-2).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

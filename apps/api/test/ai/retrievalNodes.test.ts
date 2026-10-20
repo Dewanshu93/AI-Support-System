@@ -257,6 +257,27 @@ describe('rerankAssess node', () => {
     expect((update.trace as unknown as { flags: string[] }).flags).toEqual([RERANK_FALLBACK]);
   });
 
+  it('W4-09: a hung provider is abandoned within the call budget and the node falls back', async () => {
+    const chat = fakeChatHandle([{ hang: true }, { hang: true }, { hang: true }, { hang: true }]);
+    const node = createRerankAssess({
+      prompts,
+      chatFor: () => chat,
+      // Per attempt 60 ms, whole call 150 ms: without the budget, 4 attempts would run.
+      policy: { timeoutMs: 60, maxRetries: 3, baseDelayMs: 1, totalTimeoutMs: 150 },
+      costs: config.models.costs,
+      retrieval: config.thresholds.retrieval,
+    });
+    const state = await retrievedState();
+    const started = Date.now();
+    const update = await node(state);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(chat.model.calls.length).toBeLessThan(4);
+    // The turn carries on with search order (coverage "unknown"), flagged in the trace.
+    expect(ret(update).coverage).toBe('unknown');
+    expect(ret(update).reranked.map((r) => r.chunkId)).toEqual([id(0), id(1), id(2)]);
+    expect((update.trace as unknown as { flags: string[] }).flags).toEqual([RERANK_FALLBACK]);
+  });
+
   it('provider failure → fallback without a retry', async () => {
     const { node, chat } = rerankNode([new LlmError('timeout', 'timed out'), 'unused']);
     const update = await node(await retrievedState());

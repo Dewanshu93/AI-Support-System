@@ -308,6 +308,8 @@ export const ModelsSchema = z
       providerTimeoutMs: z
         .partialRecord(z.enum(CHAT_PROVIDERS), z.number().int().min(1000).max(300_000))
         .optional(),
+      /** Whole-call budget incl. retries (W4-09); defaults to no overall limit. */
+      totalTimeoutMs: z.number().int().min(1000).max(900_000).optional(),
       maxRetries: z.number().int().min(0).max(5),
       /** Output cap per chat call; also stops OpenRouter reserving credit for the model maximum. */
       maxOutputTokens: z.number().int().min(64).max(65_536),

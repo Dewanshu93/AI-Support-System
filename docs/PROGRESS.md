@@ -50,6 +50,46 @@
 | UC-09 | Golden-set cases and eval for the new intents; confirmation hard gate                                                        | Done (eval run pending) | all            |
 | UC-10 | LOP end-to-end scenario test, README, demo script                                                                            | Done                    | all            |
 
+### Use Case 1 extensions (owner, 2026-10-20)
+
+Not yet in Build Contract v2.0: each task needs a dated amendment (section U) before it starts,
+and each new prompt or intent needs an ADR (CLAUDE.md "Do Not Build": LLM calls beyond ADR-015).
+
+| Task  | Name                                                       | Status                      | Depends on   |
+| ----- | ---------------------------------------------------------- | --------------------------- | ------------ |
+| UC-11 | Leave management: balances, apply for leave by chat/form   | Planned (amendment pending) | UC-01, UC-05 |
+| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Planned (amendment pending) | UC-02, UC-03 |
+| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending) | UC-05        |
+| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending) | W2-09        |
+| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending) | UC-04, UC-09 |
+| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending) | W4-02        |
+| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending) | UC-08        |
+
+Scope notes (to be expanded into task cards when each task starts):
+
+- **UC-11** Mock leave balances and leave records in the seed; leave types and limits from
+  config. New intents "leave balance" (records only) and "apply leave" (extract → code validates
+  balance, overlaps, holidays, date range → confirm card → write → audit → notification). Leave
+  without balance is flagged as LOP by code. Leave page under `(employee)`. New extraction prompt.
+- **UC-12** Code-computed items: missing timesheet days before the payroll cutoff, LOP risk
+  for those days, requests in "Waiting for you", leave expiring (after UC-11). Shown on the
+  dashboard; the copilot answers "What should I do today?" from the same list. In-app only.
+- **UC-13** "Fill my missing days with Banking, 8h", "copy last week". Code expands the
+  request into entries, validates each, and shows one card listing them all; confirm writes them
+  all, one audit entry per entry. Likely a new version of the timesheet extraction prompt.
+- **UC-14** Microphone button in the chat box using the browser Web Speech API (no new
+  dependency); the transcript fills the input and the employee still presses send. Hidden when
+  the browser has no support.
+- **UC-15** Reply in the employee's language (Hindi first). New prompt versions for the answer
+  prompts; citations, figures and fixed replies stay as they are now. Golden cases in Hindi and a
+  full eval run before switching versions in `config/prompts.yaml`.
+- **UC-16** Thumbs up/down with an optional reason on each copilot answer, linked to its
+  trace. New collection and endpoint (Zod, RBAC, Supertest). Downvotes appear on the admin
+  Knowledge Gaps page; an admin can turn one into a draft golden-set case.
+- **UC-17** New intent: comment on, cancel or reopen one's own request. Code resolves which
+  request is meant and checks the allowed status transitions; confirm card before any change; the
+  change is audited and appears in the tracker.
+
 ## Checkpoints
 
 | Checkpoint         | Status                             | Notes                                                                                                                                                        |
@@ -2134,3 +2174,25 @@ passes its schema, 14-day window, references, enforced rules, no clash with demo
 `test/integration/demoReset.test.ts` on the LAN MongoDB (2/2: reset twice gives the same data,
 in well under 2 minutes; a demo-run conversation and ticket are cleared, seeded / historic /
 eval data kept).
+
+## W4-09 Performance and resilience — 2026-10-20 (built; measurement pending)
+
+- Already in place before this task: vector and keyword search in parallel (W1-11); P-1, P-2,
+  P-4 on the fast tier; provider retry with backoff and retry hints (W1-09); fallback chain
+  (ADR-018).
+- New: query-embedding reuse (`ai/llm/embeddingCache.ts`, wired into the API's live embedding);
+  whole-call budget `call.totalTimeoutMs` (75 s, `config/models.yaml`) bounding every node,
+  retries and backoff included; `policyFor` keeps a slower model's own budget; fake models can
+  now hang (`{ hang: true }`) to force a real provider timeout in tests.
+- `npm run latency`: 30 scripted turns against a running API → `evals/reports/latency.md`
+  (first word p50 / p90, whole turn p50 / p90, cost per turn vs NFR-1 / NFR-2).
+- **Owner decision (2026-10-15): build only, measure later.** The 30-turn run has not been done,
+  so NFR-1 / NFR-2 are not yet shown as met on the demo machine. Run it with the models the demo
+  will use (Pro on: paid quota; Pro off: local model, much slower).
+
+**Verification:** `retry.test.ts` (whole-call budget: a hung provider is abandoned after 2 of 6
+possible attempts; a retry-after hint that would overrun the budget is not waited out; retries
+within budget still succeed); `retrievalNodes.test.ts` (**forced provider timeout**: a hung model
+behind the real call policy → P-2 abandoned within the budget, the turn continues in search order
+with `RERANK_FALLBACK`); `embeddingCache.test.ts`; `evals/runner/latency.test.ts` (script,
+nearest-rank percentiles, targets, report).

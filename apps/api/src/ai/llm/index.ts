@@ -1,5 +1,6 @@
 export * from './chatModel';
 export * from './costTable';
+export * from './embeddingCache';
 export * from './embeddings';
 export * from './errors';
 export * from './fallback';
