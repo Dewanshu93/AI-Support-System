@@ -21,6 +21,20 @@ test('flow 1: Priya’s dashboard shows her week, tasks, pay with LOP, requests 
   await expect(week.getByRole('link')).toHaveCount(7);
   await expect(week.locator('[data-status="missing"]')).toHaveCount(1);
 
+  // UC-12: the same day is the one item needing her attention. She badged in that
+  // day, so it is a reminder, not a Loss of Pay risk.
+  const attention = page.getByTestId('attention-card');
+  await expect(attention.getByTestId('attention-item')).toHaveCount(1);
+  await expect(attention.getByTestId('attention-item')).toHaveAttribute(
+    'data-kind',
+    'timesheet_gap',
+  );
+  await expect(attention).toContainText('Nothing logged.');
+  await expect(attention.getByRole('link', { name: /Log with Copilot/ })).toHaveAttribute(
+    'href',
+    /\/chat\?q=Log%208%20hours/,
+  );
+
   await expect(page.getByText('PROJ-123')).toBeVisible();
   await expect(page.getByText(/Loss of Pay −\$400\.00/)).toBeVisible();
   await expect(

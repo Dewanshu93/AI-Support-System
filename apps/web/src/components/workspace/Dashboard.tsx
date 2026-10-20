@@ -1,8 +1,8 @@
 'use client';
 
 // Unified employee dashboard (Build Contract v2.0 flow 1): greeting with the
-// copilot, key numbers, the week's timesheet, tasks, payroll, requests and
-// notifications. Every figure comes from GET /api/dashboard.
+// copilot, "needs your attention" (UC-12), key numbers, the week's timesheet,
+// tasks, payroll, requests and notifications. Every figure comes from GET /api/dashboard.
 import type { DashboardResponse } from '@sd/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -18,6 +18,7 @@ import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { COPILOT_SUGGESTIONS, copilotHref } from '@/lib/copilot';
 import { dateSpan, fullDate, greeting, hours, money, relativeTime, shortDate } from '@/lib/format';
+import { AttentionCard } from './AttentionCard';
 import { NotificationIcon } from './NotificationIcon';
 import { RequestStepper } from './RequestStepper';
 import { REQUEST_TONE } from './styles';
@@ -46,6 +47,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6 pt-4">
       <Hero data={d} />
+      <AttentionCard items={d.attention} />
       <Stats data={d} />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="min-w-0 space-y-6 xl:col-span-2">
@@ -130,21 +132,6 @@ function Hero({ data }: { data: DashboardResponse }) {
           </div>
         </div>
       </div>
-      {data.timesheet.missingDays.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 bg-amber-50/60 px-6 py-2.5 text-sm text-amber-900 lg:px-7">
-          <Icon name="alert" className="h-4 w-4 text-amber-600" />
-          <span>
-            {data.timesheet.missingDays.length} working day
-            {data.timesheet.missingDays.length === 1 ? ' has' : 's have'} no hours logged.
-          </span>
-          <Link
-            href="/timesheets"
-            className="font-medium text-amber-900 underline underline-offset-2"
-          >
-            Review timesheet
-          </Link>
-        </div>
-      )}
     </section>
   );
 }

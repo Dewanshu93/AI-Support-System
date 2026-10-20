@@ -15,6 +15,7 @@ import {
 import { ObjectId } from 'mongodb';
 import type { ConfigFiles } from '../../config/schemas';
 import type { ProjectDoc } from '../../db/schemas';
+import { type AttentionInput, attentionItems } from '../../domain/attention';
 import type { PayrollFacts } from '../../domain/workspaceReplies';
 import {
   addDays,
@@ -24,6 +25,7 @@ import {
   holidayCalendar,
   isLateEntry,
   isoDate,
+  payPeriodFor,
   validateCells,
   weekStartOf,
 } from '../../domain/workday';
@@ -90,7 +92,40 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
         label,
       };
     });
-    return { days: list, entries };
+    return { days: list, entries, attendance };
+  }
+
+  /**
+   * "Needs your attention" (UC-12): timesheet gaps and Loss of Pay risks from
+   * the start of the previous pay period to yesterday (older days have been
+   * through payroll and show on payslips), plus requests waiting for the employee.
+   */
+  async function attention(
+    user: Who & Pick<AuthUser, 'employmentType'>,
+    waiting: AttentionInput['waitingRequests'],
+  ) {
+    const now = today();
+    const from = payPeriodFor(
+      addDays(payPeriodFor(now, user.country).start, -1),
+      user.country,
+    ).start;
+    const lopApplies = user.employmentType === 'full_time';
+    const [range, slips] = await Promise.all([
+      days(user, from, addDays(now, -1)),
+      lopApplies ? workspace.payslips(uid(user), 4) : Promise.resolve([]),
+    ]);
+    return attentionItems({
+      today: now,
+      days: range.days,
+      attendance: new Map(range.attendance.map((a) => [a.date, a.status])),
+      lopApplies,
+      deductedLopDates: new Set(
+        slips.flatMap((p) => p.deductions.filter((d) => d.code === 'lop').flatMap((d) => d.dates)),
+      ),
+      waitingRequests: waiting,
+      rules: workday.payroll,
+      holidays: holidaysFor(user),
+    });
   }
 
   /** The employee's projects, plus any project they already logged time against. */
@@ -327,6 +362,12 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
       ...ticketPage.items.filter((t) => !OPEN_TICKET.has(t.status)),
     ].slice(0, 5);
     const dueSoonLimit = addDays(now, 3);
+    const needsYou = await attention(
+      user,
+      activeTickets
+        .filter((t) => t.status === 'waiting_on_employee')
+        .map((t) => ({ id: t._id.toHexString(), humanId: t.humanId, summary: t.summary })),
+    );
 
     return {
       profile: {
@@ -371,6 +412,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
           ? { latest: payroll.items[0] ?? null, paidByAgency: payroll.paidByAgency }
           : null,
       notifications: { unread, items: recentNotifications.map(toNotification) },
+      attention: needsYou,
     };
   }
 

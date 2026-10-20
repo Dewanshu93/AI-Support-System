@@ -52,18 +52,19 @@
 
 ### Use Case 1 extensions (owner, 2026-10-20)
 
-Not yet in Build Contract v2.0: each task needs a dated amendment (section U) before it starts,
-and each new prompt or intent needs an ADR (CLAUDE.md "Do Not Build": LLM calls beyond ADR-015).
+Build Contract amendment A-1 (2026-10-20): owner approved, manager approval pending. Each new
+prompt or intent needs an ADR (CLAUDE.md "Do Not Build": LLM calls beyond ADR-015). Owner
+decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 v3 and one eval run.
 
-| Task  | Name                                                       | Status                      | Depends on   |
-| ----- | ---------------------------------------------------------- | --------------------------- | ------------ |
-| UC-11 | Leave management: balances, apply for leave by chat/form   | Planned (amendment pending) | UC-01, UC-05 |
-| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Planned (amendment pending) | UC-02, UC-03 |
-| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending) | UC-05        |
-| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending) | W2-09        |
-| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending) | UC-04, UC-09 |
-| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending) | W4-02        |
-| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending) | UC-08        |
+| Task  | Name                                                       | Status                        | Depends on   |
+| ----- | ---------------------------------------------------------- | ----------------------------- | ------------ |
+| UC-11 | Leave management: balances, apply for leave by chat/form   | Planned (amendment pending)   | UC-01, UC-05 |
+| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3) | UC-02, UC-03 |
+| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)   | UC-05        |
+| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)   | W2-09        |
+| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)   | UC-04, UC-09 |
+| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)   | W4-02        |
+| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)   | UC-08        |
 
 Scope notes (to be expanded into task cards when each task starts):
 
@@ -2196,3 +2197,26 @@ within budget still succeed); `retrievalNodes.test.ts` (**forced provider timeou
 behind the real call policy → P-2 abandoned within the budget, the turn continues in search order
 with `RERANK_FALLBACK`); `embeddingCache.test.ts`; `evals/runner/latency.test.ts` (script,
 nearest-rank percentiles, targets, report).
+
+## UC-12 Needs your attention — 2026-10-20
+
+**Delivered:** `domain/attention.ts` (payroll cutoff, Loss of Pay rule, ordered items; ADR-024),
+`payroll` block in `config/workday.yaml` (+ schema), `attention` on `GET /api/dashboard`
+(`AttentionItemSchema`, shared), `AttentionCard` on the dashboard (replaces the hero's "no hours
+logged" banner). Contract amendment A-1 (UC-11 – UC-17; owner approved, manager pending).
+
+**Owner decisions (2026-10-20):** panel only; "What should I do today?" joins the other new
+intents in one P-1 v3 with one eval run. No money amount on Loss of Pay risks (salary is not on
+the user). Amendment recorded as owner approved, manager pending.
+
+**Verification**
+
+| Check                           | Result                                                                                                                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attention.test.ts` (unit)      | Cutoff skips weekends and each country's holidays; LOP rule per attendance status; past cutoff → `lop_risk`; deducted days left out; urgency; cutoff day in time; order |
+| `workspace.test.ts` (Supertest) | Priya: one attended gap, no LOP warning; Tom (contractor): partial day + waiting request; clock at 16 Oct: two `lop_risk`, then urgent and normal gaps in order         |
+| `AttentionCard.test.tsx` (web)  | Wording and links per kind, urgent count, five shown then "Show 2 more", empty renders nothing                                                                          |
+| Playwright `workspace.spec.ts`  | 6/6; flow 1 now checks the attention card (one `timesheet_gap`, Copilot link)                                                                                           |
+| Eval                            | Not run: no prompt or graph change                                                                                                                                      |
+
+**Follow-ups:** a "leave expiring" item after UC-11; the copilot intent in P-1 v3.

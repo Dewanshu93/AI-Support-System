@@ -17,7 +17,8 @@ const config = loadConfig(VALID_ENV);
 const BANK = seedId('project:BANK').toHexString();
 const BRAND = seedId('project:BRAND').toHexString();
 
-async function setup(): Promise<TestContext> {
+/** `now` moves the clock past the seeded data (which ends the day before TODAY). */
+async function setup(now = TODAY): Promise<TestContext> {
   const users = seededUsers();
   const data = buildMockHrData({ users, today: TODAY, workday: config.workday });
   const requests = buildMockRequests({ users, today: TODAY, routing: config.routing });
@@ -31,7 +32,7 @@ async function setup(): Promise<TestContext> {
       ...data,
       notifications: [...data.notifications, ...requests.notifications],
     }),
-    clock: () => new Date(`${TODAY}T12:00:00Z`),
+    clock: () => new Date(`${now}T12:00:00Z`),
   });
 }
 
@@ -103,6 +104,18 @@ describe('GET /api/dashboard', () => {
     expect(d.requests.items[0].department).toBe('IT Access');
     expect(d.payroll.latest).toMatchObject({ payDate: '2026-09-30', lopAmount: 400 });
     expect(d.notifications.unread).toBeGreaterThanOrEqual(2);
+    // Tue 6 Oct was attended (badge-in) but has no hours: a reminder, not a Loss of Pay risk.
+    // The LOP day itself (11 Sep) is on a payslip already and outside the window.
+    expect(d.attention).toEqual([
+      {
+        kind: 'timesheet_gap',
+        severity: 'normal',
+        date: '2026-10-06',
+        hours: 0,
+        requiredHours: 8,
+        lopCutoff: null,
+      },
+    ]);
   });
 
   it('shows contractors as paid by their agency', async () => {
@@ -113,6 +126,45 @@ describe('GET /api/dashboard', () => {
       humanId: 'HR-9002',
       stage: 'Waiting for you',
     });
+    // Half a day on Wed 30 Sep, and the request waiting for Tom; never a Loss of Pay warning.
+    expect(res.body.attention).toEqual([
+      expect.objectContaining({
+        kind: 'timesheet_gap',
+        date: '2026-09-30',
+        hours: 4,
+        lopCutoff: null,
+      }),
+      {
+        kind: 'request_waiting',
+        severity: 'normal',
+        request: expect.objectContaining({ humanId: 'HR-9002' }),
+      },
+    ]);
+  });
+
+  it('flags Loss of Pay risks around the payroll cutoff, most urgent first', async () => {
+    // Nine days later, with nothing logged or recorded since 7 Oct.
+    const ctx = await setup('2026-10-16');
+    const res = await get(ctx, await loginCookie(ctx.app, PRIYA), '/api/dashboard');
+    expect(res.status).toBe(200);
+    expect(
+      res.body.attention.map((i: { kind: string; severity: string; date: string }) => [
+        i.kind,
+        i.severity,
+        i.date,
+      ]),
+    ).toEqual([
+      ['lop_risk', 'urgent', '2026-10-07'], // cutoff 14 Oct has passed
+      ['lop_risk', 'urgent', '2026-10-08'],
+      ['timesheet_gap', 'urgent', '2026-10-09'], // cutoff is today
+      ['timesheet_gap', 'urgent', '2026-10-12'],
+      ['timesheet_gap', 'urgent', '2026-10-13'],
+      ['timesheet_gap', 'normal', '2026-10-06'], // attended: reminder only
+      ['timesheet_gap', 'normal', '2026-10-14'],
+      ['timesheet_gap', 'normal', '2026-10-15'],
+    ]);
+    expect(res.body.attention[0]).toMatchObject({ cutoff: '2026-10-14' });
+    expect(res.body.attention[2]).toMatchObject({ lopCutoff: '2026-10-16' });
   });
 });
 

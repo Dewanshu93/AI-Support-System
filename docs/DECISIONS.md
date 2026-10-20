@@ -665,3 +665,28 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** progress is per case (`completedCases`), not per step. A run's process is
   not cancellable from the UI (stop the API to stop it; the run is then marked interrupted).
   Deviation: child process instead of in-process, for the reason above.
+
+## ADR-024 — "Needs your attention": payroll cutoff in code, panel only (UC-12)
+
+- **Status:** Accepted (UC-12, 2026-10-20; owner decisions on scope, amount and amendment)
+- **Context:** UC-12 warns employees before a day becomes Loss of Pay. The cutoff rule existed only
+  in the policy text (corpus `hr-loss-of-pay`: "5 working days after that day"; LOP when there is
+  no timesheet entry and no attendance record, or the employee was absent). Salary is not stored
+  on the user (only the seed has it). A copilot question "What should I do today?" needs a new
+  P-1 intent, hence a new prompt version and a full eval run.
+- **Decision:**
+  - The rule is code (`domain/attention.ts`) with its numbers in `config/workday.yaml`
+    (`payroll.cutoffWorkingDays: 5`, `payroll.urgentWithinWorkingDays: 2`). The cutoff is the
+    5th working day after the day, in the employee's holiday calendar; hours logged **on** the
+    cutoff day still count ("before the cutoff" read as "by the end of the cutoff day").
+  - A day with hours but under 8, or with an attendance record (present / remote), gets a
+    reminder only, never a Loss of Pay warning, matching the policy wording. Contractors never
+    get a Loss of Pay warning.
+  - Window: start of the previous pay period to yesterday. Days already deducted on a payslip are
+    left out (the payroll card and the payroll branch cover them).
+  - No amount is shown (owner decision): items give the day and the cutoff.
+  - Items are structured data on `GET /api/dashboard`; the web words them. No new endpoint.
+  - The copilot part is deferred to one P-1 v3 shared with the UC-11 – UC-17 intents (owner
+    decision), so the whole set gets one golden-set update and one eval run.
+- **Consequences:** the policy text and `config/workday.yaml` must change together if the cutoff
+  changes. The rule is a prototype reading of the policy; real payroll would own it.

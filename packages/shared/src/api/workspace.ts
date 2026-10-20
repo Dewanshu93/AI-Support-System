@@ -297,6 +297,40 @@ export const DashboardRequestSchema = z.object({
 });
 export type DashboardRequest = z.infer<typeof DashboardRequestSchema>;
 
+export const ATTENTION_SEVERITIES = ['urgent', 'normal'] as const;
+export const AttentionSeveritySchema = z.enum(ATTENTION_SEVERITIES);
+
+/**
+ * "Needs your attention" (UC-12): items computed by code from the employee's
+ * records, most urgent first. No model is involved.
+ */
+export const AttentionItemSchema = z.discriminatedUnion('kind', [
+  /** A past working day with fewer hours than required, before its payroll cutoff. */
+  z.object({
+    kind: z.literal('timesheet_gap'),
+    severity: AttentionSeveritySchema,
+    date: IsoDateSchema,
+    hours: z.number(),
+    requiredHours: z.number(),
+    /** Payroll cutoff when the day would become Loss of Pay as it stands; null when it would not. */
+    lopCutoff: IsoDateSchema.nullable(),
+  }),
+  /** A day past its payroll cutoff that would be treated as Loss of Pay and is not on a payslip yet. */
+  z.object({
+    kind: z.literal('lop_risk'),
+    severity: AttentionSeveritySchema,
+    date: IsoDateSchema,
+    cutoff: IsoDateSchema,
+  }),
+  /** A request whose agent is waiting for the employee's reply. */
+  z.object({
+    kind: z.literal('request_waiting'),
+    severity: AttentionSeveritySchema,
+    request: DashboardRequestSchema.pick({ id: true, humanId: true, summary: true }),
+  }),
+]);
+export type AttentionItem = z.infer<typeof AttentionItemSchema>;
+
 export const DashboardResponseSchema = z.object({
   profile: z.object({
     name: z.string(),
@@ -331,6 +365,7 @@ export const DashboardResponseSchema = z.object({
     unread: z.number().int(),
     items: z.array(NotificationSchema),
   }),
+  attention: z.array(AttentionItemSchema),
 });
 export type DashboardResponse = z.infer<typeof DashboardResponseSchema>;
 

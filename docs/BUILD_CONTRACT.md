@@ -241,4 +241,22 @@ as ADRs in `docs/DECISIONS.md`.
 
 ### Amendments
 
-_None._
+**A-1 (2026-10-20) — Use Case 1 extensions UC-11 – UC-17.** Status: approved by the owner;
+manager approval pending (as for v2.0 itself).
+
+- **Reason:** the MVP (UC-01 – UC-10) and the deferred v1.0 tasks are built; the owner chose the
+  next features for the employee portal.
+- **Added to scope (section B):**
+  1. Leave management: leave balances and applying for leave through the copilot or a form, with
+     a confirmation card (rule E.4) and audit (UC-11).
+  2. A "Needs your attention" panel on the dashboard, computed by code: timesheet gaps, Loss of
+     Pay risks around the payroll cutoff, requests waiting for the employee (UC-12, ADR-024).
+  3. Bulk timesheet actions: several entries in one confirmation card (UC-13).
+  4. Voice input in the copilot through the browser's speech recognition; the employee still
+     sends the text (UC-14).
+  5. Replies in the employee's language, Hindi first (UC-15).
+  6. Feedback (thumbs up/down) on copilot answers, shown to admins with the knowledge gaps (UC-16).
+  7. Managing one's own requests from chat: comment, cancel, reopen, each confirmed (UC-17).
+- **Unchanged:** sections E (AI rules), O (out of scope) and the hard gates. New intents share
+  one new version of the turn-analysis prompt, with golden cases and a full eval run before it
+  is switched on.

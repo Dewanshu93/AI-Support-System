@@ -10,6 +10,13 @@ timesheet:
   hourStep: 0.5
   # How far back an employee may log or change hours (late entries for LOP review).
   maxBackDays: 60
+# Payroll cutoff (corpus hr-loss-of-pay; UC-12, ADR-024): a working day with no timesheet and no
+# attendance record (or marked absent) at its cutoff is treated as Loss of Pay.
+payroll:
+  # The cutoff for a day is this many working days after it; hours logged on the cutoff day count.
+  cutoffWorkingDays: 5
+  # "Needs your attention" marks a Loss of Pay risk urgent when this few working days are left.
+  urgentWithinWorkingDays: 2
 holidays:
   US:
     - { date: '2026-01-01', name: "New Year's Day" }

@@ -1111,6 +1111,24 @@ inside the app:
   30 scripted turns to a running API and writes `evals/reports/latency.md` (p50 / p90 first word
   and whole turn, cost per turn, against NFR-1 / NFR-2).
 
+## Needs your attention (UC-12, ADR-024)
+
+- **Rules (`domain/attention.ts`, pure, no model):** `payrollCutoff` (the Nth working day after
+  a day, `config/workday.yaml` `payroll.cutoffWorkingDays` = 5; hours logged on that day count),
+  `wouldBeLop` (no hours and no attendance record, or marked absent; full-time only) and
+  `attentionItems`: `lop_risk` (past cutoff, would be LOP, not yet on a payslip), `timesheet_gap`
+  (past day under the required hours; `lopCutoff` set when it would be LOP, urgent with
+  ≤ `payroll.urgentWithinWorkingDays` working days left) and `request_waiting`
+  (`waiting_on_employee`). Order: urgent first, then kind, then oldest day.
+- **Window:** start of the previous pay period to yesterday; older days have been through payroll
+  and are handled by the payslip and the payroll copilot branch.
+- **API:** `attention` on `GET /api/dashboard` (`AttentionItemSchema` in
+  `packages/shared/src/api/workspace.ts`); no new endpoint.
+- **Web:** `components/workspace/AttentionCard.tsx` under the hero, five items then "Show more";
+  words and links per item (Copilot prompt, timesheet day, request). It replaces the hero's
+  "no hours logged" banner. The copilot question "What should I do today?" comes with P-1 v3
+  (owner decision: one prompt version for the UC-11 – UC-17 intents).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

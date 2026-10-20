@@ -416,6 +416,10 @@ export const WorkdaySchema = z
       hourStep: z.number().positive().max(1),
       maxBackDays: z.number().int().min(1).max(366),
     }),
+    payroll: z.strictObject({
+      cutoffWorkingDays: z.number().int().min(1).max(30),
+      urgentWithinWorkingDays: z.number().int().min(0).max(30),
+    }),
     holidays: z.strictObject({
       US: z.array(z.strictObject({ date: IsoDate, name: Label })),
       UK: z.array(z.strictObject({ date: IsoDate, name: Label })),
