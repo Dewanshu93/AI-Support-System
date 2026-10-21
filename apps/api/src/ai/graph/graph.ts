@@ -6,6 +6,8 @@
 //   timesheetAgent  — the employee's timesheet (status; log hours, confirmed by the employee)
 //   requestsAgent   — the employee's requests
 //   payrollAgent    — the employee's pay records explained with cited policy
+//   leaveAgent      — the employee's leave (balance; applying in UC-11c)
+//   briefingAgent   — "what should I do today?" from the attention items (UC-12)
 // Agents share the graph state and are compiled subgraphs, so their nodes stream
 // and trace like any other node. Wiring only; nodes live in ai/nodes, routing in edges.ts.
 import {
@@ -42,7 +44,12 @@ import {
   stubValidateCitations,
 } from '../nodes/stubs';
 import { payrollCompose } from '../nodes/payrollAgent';
-import { timesheetLog } from '../nodes/workspaceAgents';
+import {
+  createDailyBriefing,
+  createLeaveBalance,
+  leaveApply,
+  timesheetLog,
+} from '../nodes/workspaceAgents';
 import { type NodeFn, traced } from '../tracing/traced';
 import {
   AFTER_ANALYSIS,
@@ -55,6 +62,7 @@ import {
   AFTER_SLOT_FILL,
   BY_DECISION,
   KNOWLEDGE_START,
+  LEAVE_START,
   routeAfterAnalysis,
   routeAfterConfirmation,
   routeAfterKnowledge,
@@ -65,6 +73,7 @@ import {
   routeAfterSlotFill,
   routeByDecision,
   routeKnowledgeStart,
+  routeLeaveStart,
   routeTimesheetStart,
   TIMESHEET_START,
 } from './edges';
@@ -89,6 +98,9 @@ export const DEFAULT_NODES = {
   buildDraft: stubBuildDraft,
   timesheetStatus: stubTimesheetStatus,
   timesheetLog,
+  leaveBalance: createLeaveBalance({}),
+  leaveApply,
+  dailyBriefing: createDailyBriefing({}),
   requestStatus: stubRequestStatus,
   payrollRecords: stubPayrollRecords,
   payrollExplain: stubPayrollExplain,
@@ -116,6 +128,8 @@ export const AGENTS = {
   escalationAgent: ['slotFill', 'clarifyForTicket', 'buildDraft'],
   timesheetAgent: ['timesheetStatus', 'timesheetLog'],
   requestsAgent: ['requestStatus'],
+  leaveAgent: ['leaveBalance', 'leaveApply'],
+  briefingAgent: ['dailyBriefing'],
   // Reuses the knowledge agent's retrieval, rerank and citation check.
   payrollAgent: [
     'payrollRecords',
@@ -195,6 +209,20 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
     .addEdge('requestStatus', END)
     .compile({ name: 'requestsAgent' });
 
+  const leaveAgent = new StateGraph(GraphState)
+    .addNode('leaveBalance', node('leaveBalance'))
+    .addNode('leaveApply', node('leaveApply'))
+    .addConditionalEdges(START, routeLeaveStart, [...LEAVE_START])
+    .addEdge('leaveBalance', END)
+    .addEdge('leaveApply', END)
+    .compile({ name: 'leaveAgent' });
+
+  const briefingAgent = new StateGraph(GraphState)
+    .addNode('dailyBriefing', node('dailyBriefing'))
+    .addEdge(START, 'dailyBriefing')
+    .addEdge('dailyBriefing', END)
+    .compile({ name: 'briefingAgent' });
+
   return (
     new StateGraph(GraphState)
       .addNode('loadContext', node('loadContext'))
@@ -205,6 +233,8 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
       .addNode('timesheetAgent', timesheetAgent)
       .addNode('requestsAgent', requestsAgent)
       .addNode('payrollAgent', payrollAgent)
+      .addNode('leaveAgent', leaveAgent)
+      .addNode('briefingAgent', briefingAgent)
       .addNode('sensitiveHandoff', node('sensitiveHandoff'))
       .addNode('persist', node('persist'))
       .addNode('awaitConfirmation', node('awaitConfirmation'))
@@ -221,6 +251,8 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
       .addEdge('timesheetAgent', 'persist')
       .addEdge('requestsAgent', 'persist')
       .addEdge('payrollAgent', 'persist')
+      .addEdge('leaveAgent', 'persist')
+      .addEdge('briefingAgent', 'persist')
       .addEdge('sensitiveHandoff', 'persist')
       .addConditionalEdges('persist', routeAfterPersist, [...AFTER_PERSIST])
       .addConditionalEdges('awaitConfirmation', routeAfterConfirmation, [...AFTER_CONFIRMATION])

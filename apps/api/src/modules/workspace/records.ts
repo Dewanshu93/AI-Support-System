@@ -4,13 +4,17 @@ import { ObjectId } from 'mongodb';
 import type { WorkspaceRecords } from '../../ai/nodes/workspaceAgents';
 import type { ConfigFiles } from '../../config/schemas';
 import type { TicketsRepository } from '../tickets/repository';
+import type { LeaveService } from './leaveService';
 import type { WorkspaceService } from './service';
 
 export function createWorkspaceRecords(deps: {
   service: WorkspaceService;
   tickets: Pick<TicketsRepository, 'listForRequester'>;
   routing: ConfigFiles['routing'];
+  /** Leave balances for the leave agent (UC-11); without it the agent says records are unavailable. */
+  leave?: Pick<LeaveService, 'overview'>;
 }): WorkspaceRecords {
+  const { leave } = deps;
   const queueLabel = (id: string) => deps.routing.queues.find((q) => q.id === id)?.label ?? id;
   return {
     today: deps.service.today,
@@ -41,6 +45,8 @@ export function createWorkspaceRecords(deps: {
     },
     days: (who, from, to) => deps.service.days(who, from, to),
     payroll: (who) => deps.service.payrollFacts(who),
+    attention: (who) => deps.service.needsAttention(who),
+    ...(leave && { leave: (who: Parameters<LeaveService['overview']>[0]) => leave.overview(who) }),
     async requests(userId) {
       const page = await deps.tickets.listForRequester(new ObjectId(userId), { limit: 50 });
       return page.items.map((t) => ({

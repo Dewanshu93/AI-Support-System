@@ -411,6 +411,11 @@ graph TD;
 	payrollAgent_payrollExplain(payrollExplain)
 	payrollAgent_validateCitations(validateCitations)
 	payrollAgent_payrollCompose(payrollCompose)
+	leaveAgent___start__(<p>__start__</p>)
+	leaveAgent_leaveBalance(leaveBalance)
+	leaveAgent_leaveApply(leaveApply)
+	leaveAgent___end__(<p>__end__</p>)
+	briefingAgent(briefingAgent)
 	sensitiveHandoff(sensitiveHandoff)
 	persist(persist)
 	awaitConfirmation(awaitConfirmation)
@@ -422,8 +427,10 @@ graph TD;
 	__start__ --> loadContext;
 	agentSummary --> __end__;
 	applyAction --> __end__;
+	briefingAgent --> persist;
 	createTicket --> sendEmail;
 	escalationAgent___end__ --> persist;
+	leaveAgent___end__ --> persist;
 	loadContext --> precheck;
 	payrollAgent_payrollCompose --> persist;
 	requestsAgent --> persist;
@@ -437,6 +444,8 @@ graph TD;
 	analyzeTurn -.-> timesheetAgent___start__;
 	analyzeTurn -.-> requestsAgent;
 	analyzeTurn -.-> payrollAgent_payrollRecords;
+	analyzeTurn -.-> leaveAgent___start__;
+	analyzeTurn -.-> briefingAgent;
 	analyzeTurn -.-> knowledgeAgent_retrieve;
 	knowledgeAgent___end__ -.-> sensitiveHandoff;
 	knowledgeAgent___end__ -.-> escalationAgent_slotFill;
@@ -477,6 +486,12 @@ graph TD;
 	payrollAgent_payrollRecords -.-> payrollAgent_retrieve;
 	payrollAgent_payrollExplain -.-> payrollAgent_validateCitations;
 	payrollAgent_payrollExplain -.-> payrollAgent_payrollCompose;
+	end
+	subgraph leaveAgent
+	leaveAgent_leaveApply --> leaveAgent___end__;
+	leaveAgent_leaveBalance --> leaveAgent___end__;
+	leaveAgent___start__ -.-> leaveAgent_leaveApply;
+	leaveAgent___start__ -.-> leaveAgent_leaveBalance;
 	end
 	classDef default fill:#f2f0ff,line-height:1.2;
 	classDef first fill-opacity:0;
@@ -1150,6 +1165,26 @@ inside the app:
   1 October).
 - **Seed:** approved annual leave for Ravi (his two attendance leave days) and Priya, a pending
   casual day for Priya (Hana's list), a sick day for Olivia.
+
+## Copilot: leave balance and daily briefing (UC-11b)
+
+- **P-1 v3** (`ai/prompts/turn_analysis/v3.md`, not yet active: `config/prompts.yaml` stays on 2
+  until the UC-11c eval run) adds workspace intents `leave_balance`, `leave_apply`,
+  `daily_briefing`, `request_manage` (`WORKSPACE_INTENTS` in `ai/schemas/turnAnalysis.ts`). The
+  output schema already accepts them under v2; the code backstop
+  (`domain/workspaceIntentRules.ts`) infers `leave_apply`, `leave_balance` and `daily_briefing`
+  when the model gives no workspace intent.
+- **Routing (`edges.ts`):** `leave_*` → `leaveAgent` (`routeLeaveStart`: `leaveApply` /
+  `leaveBalance`), `daily_briefing` → `briefingAgent`, `request_manage` → `requestsAgent` (the
+  request list until UC-17). `leave_balance` and `daily_briefing` are answer-only: with
+  `request_action` / `talk_to_human` the knowledge agent escalates.
+- **Nodes (`ai/nodes/workspaceAgents.ts`, no LLM):** `leaveBalance` (`records.leave` → the leave
+  overview), `dailyBriefing` (`records.attention` → the dashboard's attention items),
+  `leaveApply` (placeholder pointing to the Leave page until UC-11c). Replies are built in
+  `domain/workspaceReplies.ts` (`leaveBalanceReply`, `dailyBriefingReply`); reason codes
+  `RECORDS_LEAVE`, `RECORDS_BRIEFING`, `LEAVE_ACTION_PENDING`.
+- **Records:** `createWorkspaceRecords({ …, leave })` takes the leave service (server, eval
+  runner, chat test helper); `WorkspaceService.needsAttention` gives the attention items alone.
 
 ## Runtime
 

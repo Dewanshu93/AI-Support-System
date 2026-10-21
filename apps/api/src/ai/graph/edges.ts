@@ -20,7 +20,12 @@ export function routeAfterPrecheck(state: State): (typeof AFTER_PRECHECK)[number
  * LOP" was read as request_status + request_action), the knowledge agent's
  * decision rules escalate instead (action_required / user_requested).
  */
-const ANSWER_ONLY_INTENTS = new Set(['request_status', 'payroll_explain']);
+const ANSWER_ONLY_INTENTS = new Set([
+  'request_status',
+  'payroll_explain',
+  'leave_balance',
+  'daily_briefing',
+]);
 const wantsAction = (state: State) =>
   state.analysis?.intent === 'request_action' || state.analysis?.intent === 'talk_to_human';
 
@@ -31,6 +36,8 @@ export const AFTER_ANALYSIS = [
   'timesheetAgent',
   'requestsAgent',
   'payrollAgent',
+  'leaveAgent',
+  'briefingAgent',
   'knowledgeAgent',
 ] as const;
 export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number] {
@@ -44,10 +51,17 @@ export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number
     case 'timesheet_log':
     case 'timesheet_status':
       return 'timesheetAgent';
+    // Until UC-17 builds the request actions, a change request gets the request list.
     case 'request_status':
+    case 'request_manage':
       return 'requestsAgent';
     case 'payroll_explain':
       return 'payrollAgent';
+    case 'leave_balance':
+    case 'leave_apply':
+      return 'leaveAgent';
+    case 'daily_briefing':
+      return 'briefingAgent';
     default:
       return 'knowledgeAgent';
   }
@@ -128,6 +142,13 @@ export function routeAfterSlotFill(state: State): (typeof AFTER_SLOT_FILL)[numbe
 export const TIMESHEET_START = ['timesheetLog', 'timesheetStatus'] as const;
 export function routeTimesheetStart(state: State): (typeof TIMESHEET_START)[number] {
   return workspaceIntentOf(state.analysis) === 'timesheet_log' ? 'timesheetLog' : 'timesheetStatus';
+}
+
+// --- leaveAgent (UC-11: balance from records; applying is confirmed by the employee) ---
+
+export const LEAVE_START = ['leaveApply', 'leaveBalance'] as const;
+export function routeLeaveStart(state: State): (typeof LEAVE_START)[number] {
+  return workspaceIntentOf(state.analysis) === 'leave_apply' ? 'leaveApply' : 'leaveBalance';
 }
 
 // --- payrollAgent (records + cited policy) -------------------------------------------

@@ -56,6 +56,7 @@ import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/promp
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
+import { createLeaveService } from './modules/workspace/leaveService';
 import { createWorkspaceRecords } from './modules/workspace/records';
 import { mongoWorkspaceRepository } from './modules/workspace/repository';
 import { createWorkspaceService } from './modules/workspace/service';
@@ -148,6 +149,13 @@ async function main() {
     }),
     tickets,
     routing: config.routing,
+    leave: createLeaveService({
+      workspace,
+      users,
+      workday: config.workday,
+      approvalQueue: config.routing.routes.leave ?? 'hr_general',
+      clock: clock ?? (() => new Date()),
+    }),
   });
 
   // Graph checkpoints (ADR-007): thread_id = conversation ID.

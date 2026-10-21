@@ -28,6 +28,8 @@ import { createSendEmail, type SendEmailDeps } from '../nodes/sendEmail';
 import { createSensitiveHandoff } from '../nodes/sensitiveHandoff';
 import { createValidateCitations } from '../nodes/validateCitations';
 import {
+  createDailyBriefing,
+  createLeaveBalance,
   createRequestStatus,
   createTimesheetStatus,
   type WorkspaceRecords,
@@ -152,6 +154,8 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         isEval: deps.isEval,
       }),
       requestStatus: createRequestStatus({ records: deps.records }),
+      leaveBalance: createLeaveBalance({ records: deps.records }),
+      dailyBriefing: createDailyBriefing({ records: deps.records }),
       payrollRecords: createPayrollRecords({ records: deps.records }),
       payrollExplain: createPayrollExplain(llm),
       persist: createPersist({

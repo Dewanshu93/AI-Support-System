@@ -11,6 +11,7 @@ import {
   routeAfterSlotFill,
   routeByDecision,
   routeKnowledgeStart,
+  routeLeaveStart,
   routeTimesheetStart,
 } from './edges';
 import { EMPTY_TICKET_FLOW, EMPTY_TRACE, type State, traceReducer } from './state';
@@ -95,6 +96,11 @@ describe('intent router (UC-04)', () => {
     ['timesheet_status', 'timesheetAgent'],
     ['request_status', 'requestsAgent'],
     ['payroll_explain', 'payrollAgent'],
+    // P-1 v3 (UC-11, UC-12; request_manage lists requests until UC-17).
+    ['leave_balance', 'leaveAgent'],
+    ['leave_apply', 'leaveAgent'],
+    ['daily_briefing', 'briefingAgent'],
+    ['request_manage', 'requestsAgent'],
     ['none', 'knowledgeAgent'],
   ])('workspaceIntent %s → %s', (intent, agent) => {
     expect(routeAfterAnalysis(withIntent(intent))).toBe(agent);
@@ -114,6 +120,8 @@ describe('intent router (UC-04)', () => {
       ['request_status', 'talk_to_human'],
       ['payroll_explain', 'request_action'],
       ['payroll_explain', 'talk_to_human'],
+      ['leave_balance', 'talk_to_human'],
+      ['daily_briefing', 'request_action'],
     ])('%s + %s → knowledgeAgent (its decision rules escalate)', (workspaceIntent, intent) => {
       expect(routeAfterAnalysis(analysed(workspaceIntent, intent))).toBe('knowledgeAgent');
     });
@@ -124,6 +132,8 @@ describe('intent router (UC-04)', () => {
       ['payroll_explain', 'follow_up', 'payrollAgent'],
       // Logging hours is an action the copilot itself performs (after confirmation).
       ['timesheet_log', 'request_action', 'timesheetAgent'],
+      // Booking leave likewise.
+      ['leave_apply', 'request_action', 'leaveAgent'],
     ])('%s + %s → %s', (workspaceIntent, intent, agent) => {
       expect(routeAfterAnalysis(analysed(workspaceIntent, intent))).toBe(agent);
     });
@@ -152,6 +162,11 @@ describe('intent router (UC-04)', () => {
   it('the timesheet agent logs or reports by intent', () => {
     expect(routeTimesheetStart(withIntent('timesheet_log'))).toBe('timesheetLog');
     expect(routeTimesheetStart(withIntent('timesheet_status'))).toBe('timesheetStatus');
+  });
+
+  it('the leave agent books or reports by intent', () => {
+    expect(routeLeaveStart(withIntent('leave_apply'))).toBe('leaveApply');
+    expect(routeLeaveStart(withIntent('leave_balance'))).toBe('leaveBalance');
   });
 });
 

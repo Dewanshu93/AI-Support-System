@@ -267,6 +267,21 @@ describe('agent subgraphs (UC-04)', () => {
     expect(path).toEqual([...START_PATH, 'requestStatus', 'persist']);
   });
 
+  it('leave_balance → leaveAgent → leaveBalance; leave_apply → leaveApply writes nothing (UC-11b)', async () => {
+    const balance = await run(withIntent('leave_balance'));
+    expect(balance.path).toEqual([...START_PATH, 'leaveBalance', 'persist']);
+    const apply = await run(withIntent('leave_apply'));
+    expect(apply.path).toEqual([...START_PATH, 'leaveApply', 'persist']);
+    expect(apply.state.output?.text).toContain('Open Leave');
+    expect(apply.state.decision?.reasonCode).toBe('LEAVE_ACTION_PENDING');
+  });
+
+  it('daily_briefing → briefingAgent → dailyBriefing → persist, no retrieval (UC-12)', async () => {
+    const { state, path } = await run(withIntent('daily_briefing'));
+    expect(path).toEqual([...START_PATH, 'dailyBriefing', 'persist']);
+    expect(state.retrieval).toBeNull();
+  });
+
   it('payroll_explain → payrollAgent: records, policy search, explanation, check, compose (UC-06)', async () => {
     const { state, path } = await run(withIntent('payroll_explain'));
     expect(path).toEqual([

@@ -11,7 +11,13 @@ import { loadPromptRegistry } from '../../src/ai/prompts/registry';
 import type { RetrievalResult } from '../../src/ai/retrieval/retrieve';
 import { loadConfig } from '../../src/config';
 import type { ChunkDoc } from '../../src/db/schemas';
-import { buildTestApp, loginCookie, seededUsers, type TestContext } from './app';
+import {
+  buildTestApp,
+  loginCookie,
+  memoryUsersRepository,
+  seededUsers,
+  type TestContext,
+} from './app';
 import { VALID_ENV } from './config';
 import { type MemoryConversations, memoryConversationsRepository } from './conversations';
 import {
@@ -22,6 +28,7 @@ import {
 } from './tickets';
 import { type MemoryWorkspace, memoryWorkspaceRepository } from './workspace';
 import { buildMockHrData } from '../../src/modules/workspace/seed';
+import { createLeaveService } from '../../src/modules/workspace/leaveService';
 import { createWorkspaceRecords } from '../../src/modules/workspace/records';
 import { createWorkspaceService } from '../../src/modules/workspace/service';
 
@@ -149,6 +156,13 @@ export function buildChatTestApp(
     }),
     tickets,
     routing: config.routing,
+    leave: createLeaveService({
+      workspace,
+      users: memoryUsersRepository(users),
+      workday: config.workday,
+      approvalQueue: 'hr_general',
+      clock,
+    }),
   });
   const queue: FakeReply[] = [...(options.replies ?? [])];
   // One fake model whose replies are drawn from a shared, appendable queue.

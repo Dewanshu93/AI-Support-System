@@ -13,8 +13,9 @@ export const TURN_INTENTS = [
 ] as const;
 
 /**
- * What the employee wants from their own workspace records (UC-04, P-1 v2).
- * Code routes on it to an agent subgraph; "none" keeps the policy and ticket flow.
+ * What the employee wants from their own workspace records (UC-04, P-1 v2; the
+ * UC-11 – UC-17 values from P-1 v3). Code routes on it to an agent subgraph;
+ * "none" keeps the policy and ticket flow.
  */
 export const WORKSPACE_INTENTS = [
   'none',
@@ -22,6 +23,11 @@ export const WORKSPACE_INTENTS = [
   'timesheet_status',
   'payroll_explain',
   'request_status',
+  // P-1 v3 (amendment A-1).
+  'leave_balance',
+  'leave_apply',
+  'daily_briefing',
+  'request_manage',
 ] as const;
 export type WorkspaceIntent = (typeof WORKSPACE_INTENTS)[number];
 

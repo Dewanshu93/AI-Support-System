@@ -12,6 +12,13 @@ describe('inferWorkspaceIntent (backstop when P-1 gives no workspace intent)', (
     ['Which days am I missing on my timesheet?', 'timesheet_status'],
     ['Show my pending requests', 'request_status'],
     ['What is the status of my ticket?', 'request_status'],
+    // UC-11 / UC-12.
+    ['How many casual leaves do I have?', 'leave_balance'],
+    ['how much annual leave is left for me', 'leave_balance'],
+    ['Apply leave for Oct 24-25', 'leave_apply'],
+    ['I need a day off tomorrow', 'leave_apply'],
+    ['What should I do today?', 'daily_briefing'],
+    ['Is there anything that needs my attention?', 'daily_briefing'],
   ])('%s → %s', (message, intent) => {
     expect(inferWorkspaceIntent(message)).toBe(intent);
   });
@@ -22,6 +29,11 @@ describe('inferWorkspaceIntent (backstop when P-1 gives no workspace intent)', (
     'How is loss of pay calculated?',
     'What is the timesheet policy?',
     'How many days of annual leave do employees get?',
+    'What is the casual leave policy?',
+    // The entitlement is policy; what is left is the balance.
+    'How many vacation days do I get?',
+    'How do I apply for leave?',
+    'Can I take leave next month?',
     'My laptop will not turn on',
     'I cannot access the VPN',
   ])('%s → no records agent', (message) => {

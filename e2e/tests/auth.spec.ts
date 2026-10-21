@@ -7,7 +7,7 @@ const PERSONAS = [
   {
     name: 'Priya Shah',
     home: '/dashboard',
-    nav: ['Dashboard', 'Copilot', 'Timesheets', 'My work', 'Payroll', 'Requests'],
+    nav: ['Dashboard', 'Copilot', 'Timesheets', 'Leave', 'My work', 'Payroll', 'Requests'],
     badges: ['Employee', 'US', 'Full-time'],
     pages: [
       '/dashboard',
@@ -23,21 +23,21 @@ const PERSONAS = [
   {
     name: 'Tom Clarke',
     home: '/dashboard',
-    nav: ['Dashboard', 'Copilot', 'Timesheets', 'My work', 'Payroll', 'Requests'],
+    nav: ['Dashboard', 'Copilot', 'Timesheets', 'Leave', 'My work', 'Payroll', 'Requests'],
     badges: ['Employee', 'UK', 'Contractor'],
     pages: ['/dashboard', '/payroll'],
   },
   {
     name: 'Sam Patel',
     home: '/agent/queue',
-    nav: ['Queue'],
+    nav: ['Queue', 'Leave approvals'],
     badges: ['Agent', 'US', 'Full-time'],
     pages: ['/agent/queue', '/agent/tickets/abc'],
   },
   {
     name: 'Hana Kim',
     home: '/agent/queue',
-    nav: ['Queue'],
+    nav: ['Queue', 'Leave approvals'],
     badges: ['Agent', 'UK', 'Full-time'],
     pages: ['/agent/queue'],
   },

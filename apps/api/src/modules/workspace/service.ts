@@ -353,6 +353,17 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     };
   }
 
+  /** The attention items on their own (the copilot's "what should I do today?", UC-12). */
+  async function needsAttention(user: Who & Pick<AuthUser, 'employmentType'>) {
+    const page = await tickets.listForRequester(uid(user), { limit: 50 });
+    return attention(
+      user,
+      page.items
+        .filter((t) => t.status === 'waiting_on_employee')
+        .map((t) => ({ id: t._id.toHexString(), humanId: t.humanId, summary: t.summary })),
+    );
+  }
+
   async function dashboard(user: AuthUser): Promise<DashboardResponse> {
     const now = today();
     const thisWeek = weekStartOf(now);
@@ -456,6 +467,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
       unreadCount: await workspace.unreadNotificationCount(uid(user)),
     }),
     dashboard,
+    needsAttention,
   };
 }
 export type WorkspaceService = ReturnType<typeof createWorkspaceService>;

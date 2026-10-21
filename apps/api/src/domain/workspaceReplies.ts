@@ -395,3 +395,115 @@ export function payrollReply(f: PayrollFacts, explanation: string | null): strin
     payrollNextSteps(f),
   ].join('\n');
 }
+
+// --- leave (UC-11) and "what should I do today?" (UC-12) -------------------------------
+
+/** The parts of the leave overview (GET /api/leave) the balance reply needs. */
+export interface LeaveFacts {
+  eligible: boolean;
+  year: number;
+  balances: {
+    type: string;
+    label: string;
+    entitlement: number;
+    used: number;
+    pending: number;
+    available: number;
+  }[];
+  requests: {
+    type: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  }[];
+}
+
+export const LEAVE_NOT_ELIGIBLE_REPLY =
+  'As a contractor you do not have company leave balances. Agree time off with your manager and your agency at least 5 business days ahead.';
+
+const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+const span = (r: { startDate: string; endDate: string }) =>
+  r.startDate === r.endDate ? label(r.startDate) : `${label(r.startDate)} – ${label(r.endDate)}`;
+
+/** Balances and upcoming leave, every figure from the leave records. */
+export function leaveBalanceReply(f: LeaveFacts, today: string): string {
+  if (!f.eligible) return LEAVE_NOT_ELIGIBLE_REPLY;
+  const lines = [
+    `Your leave for ${f.year}:`,
+    ...f.balances.map(
+      (b) =>
+        `• ${b.label}: ${days(b.available)} left of ${b.entitlement}` +
+        (b.used > 0 || b.pending > 0
+          ? ` (${b.used} used${b.pending > 0 ? `, ${b.pending} waiting for approval` : ''})`
+          : ''),
+    ),
+  ];
+  const typeLabel = (type: string) => f.balances.find((b) => b.type === type)?.label ?? type;
+  const upcoming = f.requests
+    .filter((r) => r.endDate >= today && (r.status === 'pending' || r.status === 'approved'))
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  if (upcoming.length > 0) {
+    lines.push(
+      'Coming up:',
+      ...upcoming.map(
+        (r) =>
+          `• ${typeLabel(r.type)}, ${span(r)} (${days(r.days)}): ${r.status === 'pending' ? 'waiting for approval' : 'approved'}`,
+      ),
+    );
+  }
+  lines.push('You can request leave on the Leave page.');
+  return lines.join('\n');
+}
+
+/** Until the leave action is built (UC-11c): point to the form, change nothing. */
+export const LEAVE_APPLY_PENDING_REPLY =
+  'I cannot book leave from the chat yet. Open Leave in the menu to request it; your balance and the dates are checked there straight away.';
+
+/** One "needs your attention" item (the dashboard's `attention`), as the reply needs it. */
+export type BriefingItem =
+  | { kind: 'lop_risk'; severity: string; date: string; cutoff: string }
+  | {
+      kind: 'timesheet_gap';
+      severity: string;
+      date: string;
+      hours: number;
+      requiredHours: number;
+      lopCutoff: string | null;
+    }
+  | {
+      kind: 'leave_expiring';
+      severity: string;
+      available: number;
+      carryOverDays: number;
+      expiresOn: string;
+    }
+  | { kind: 'request_waiting'; severity: string; request: { humanId: string; summary: string } };
+
+const briefingLine = (item: BriefingItem): string => {
+  const urgent = item.severity === 'urgent' ? 'Urgent: ' : '';
+  switch (item.kind) {
+    case 'lop_risk':
+      return `• ${urgent}${label(item.date)} passed its payroll cutoff (${label(item.cutoff)}) with no timesheet or attendance record and may be deducted as Loss of Pay. Log the hours and ask Payroll for a review.`;
+    case 'timesheet_gap':
+      return item.lopCutoff
+        ? `• ${urgent}Log your hours for ${label(item.date)} by ${label(item.lopCutoff)} (payroll cutoff), or it counts as Loss of Pay.`
+        : `• ${urgent}Log your hours for ${label(item.date)}: ${item.hours === 0 ? 'nothing logged' : `${h(item.hours)} of ${h(item.requiredHours)}`}.`;
+    case 'leave_expiring':
+      return `• You have ${days(item.available)} of annual leave left; only ${days(item.carryOverDays)} carry over after ${label(item.expiresOn)}.`;
+    case 'request_waiting':
+      return `• ${item.request.humanId} (${item.request.summary}) is waiting for your reply.`;
+  }
+};
+
+/** "What should I do today?": the dashboard's attention items, most urgent first. */
+export function dailyBriefingReply(items: BriefingItem[]): string {
+  if (items.length === 0) {
+    return 'Nothing needs your attention right now: your timesheet is up to date and no request is waiting for you.';
+  }
+  return [
+    `${items.length === 1 ? 'One thing needs' : `${items.length} things need`} your attention:`,
+    ...items.map(briefingLine),
+    'The same list is on your dashboard.',
+  ].join('\n');
+}

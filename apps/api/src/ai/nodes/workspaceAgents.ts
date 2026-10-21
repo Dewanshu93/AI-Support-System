@@ -3,6 +3,11 @@
 // (Build Contract v2.0, rule E.2). The timesheet log action arrives in UC-05.
 import type { Country, IsoDate, TimesheetDay } from '@sd/shared';
 import {
+  type BriefingItem,
+  dailyBriefingReply,
+  LEAVE_APPLY_PENDING_REPLY,
+  leaveBalanceReply,
+  type LeaveFacts,
   type PayrollFacts,
   type RequestSummary,
   requestStatusReply,
@@ -40,12 +45,14 @@ export interface WorkspaceRecords {
   days(who: { id: string; country: Country }, from: IsoDate, to: IsoDate): Promise<TimesheetDay[]>;
   requests(userId: string): Promise<RequestSummary[]>;
   /** Payslips, Loss of Pay days and their attendance/timesheet records (UC-06). */
-  payroll(who: {
-    id: string;
-    country: Country;
-    employmentType: 'full_time' | 'contractor';
-  }): Promise<PayrollFacts>;
+  payroll(who: Employee): Promise<PayrollFacts>;
+  /** Leave balances and requests (UC-11); absent where leave is not wired (older tests). */
+  leave?(who: Employee): Promise<LeaveFacts>;
+  /** The dashboard's "needs your attention" items, most urgent first (UC-12). */
+  attention?(who: Employee): Promise<BriefingItem[]>;
 }
+
+type Employee = { id: string; country: Country; employmentType: 'full_time' | 'contractor' };
 
 export interface WorkspaceAgentDeps {
   /** Absent in graphs built without workspace data (older tests, eval runner). */
@@ -103,6 +110,54 @@ export function createTimesheetStatus({ records }: WorkspaceAgentDeps) {
 /** Placeholder until UC-05: never writes, points to the timesheet page. */
 export function timesheetLog(_state: State): StateUpdate {
   return reply(TIMESHEET_LOG_PENDING_REPLY, 'TIMESHEET_ACTION_PENDING');
+}
+
+const employeeOf = (state: State): Employee | null =>
+  state.profile
+    ? {
+        id: state.input.userId,
+        country: state.profile.country,
+        employmentType: state.profile.employmentType,
+      }
+    : null;
+
+/** "How many casual leaves do I have?" (UC-11): balances and upcoming leave, from records. */
+export function createLeaveBalance({ records }: WorkspaceAgentDeps) {
+  return async function leaveBalance(state: State): Promise<StateUpdate> {
+    const who = employeeOf(state);
+    if (!records?.leave || !who) return reply(RECORDS_UNAVAILABLE, 'RECORDS_UNAVAILABLE');
+    const facts = await records.leave(who);
+    return {
+      ...reply(leaveBalanceReply(facts, records.today()), 'RECORDS_LEAVE'),
+      trace: {
+        outputs: {
+          records: {
+            kind: 'leave',
+            eligible: facts.eligible,
+            available: facts.balances.map((b) => [b.type, b.available]),
+          },
+        },
+      },
+    };
+  };
+}
+
+/** Placeholder until UC-11c: never writes, points to the Leave page. */
+export function leaveApply(_state: State): StateUpdate {
+  return reply(LEAVE_APPLY_PENDING_REPLY, 'LEAVE_ACTION_PENDING');
+}
+
+/** "What should I do today?" (UC-12): the dashboard's attention items, in words. */
+export function createDailyBriefing({ records }: WorkspaceAgentDeps) {
+  return async function dailyBriefing(state: State): Promise<StateUpdate> {
+    const who = employeeOf(state);
+    if (!records?.attention || !who) return reply(RECORDS_UNAVAILABLE, 'RECORDS_UNAVAILABLE');
+    const items = await records.attention(who);
+    return {
+      ...reply(dailyBriefingReply(items), 'RECORDS_BRIEFING'),
+      trace: { outputs: { records: { kind: 'attention', items: items.map((i) => i.kind) } } },
+    };
+  };
 }
 
 export function createRequestStatus({ records }: WorkspaceAgentDeps) {

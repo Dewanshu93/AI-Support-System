@@ -412,3 +412,38 @@ describe('P-1 v2: workspace intent (UC-04)', () => {
     expect(update.trace).toMatchObject({ flags: [ANALYSIS_FALLBACK] });
   });
 });
+
+describe('P-1 v3: leave, daily briefing and request changes (UC-11b, amendment A-1)', () => {
+  const v3 = loadPromptRegistry({ ...config.prompts.active, turn_analysis: 3 });
+
+  it('renders with the same variables and describes every new workspace intent', async () => {
+    const { prompt, messages } = await v3.render('turn_analysis', {
+      taxonomy: formatTaxonomy(config.taxonomy),
+      profile: 'country: US',
+      history: '(none)',
+      message: 'How many casual leaves do I have?',
+    });
+    expect(prompt.version).toBe(3);
+    const system = String(messages[0]!.content);
+    for (const intent of ['leave_balance', 'leave_apply', 'daily_briefing', 'request_manage']) {
+      expect(system).toContain(`${intent}:`);
+    }
+  });
+
+  it('a v3 analysis with a new workspace intent validates', async () => {
+    const node = createAnalyzeTurn({
+      prompts: v3,
+      chatFor: () =>
+        fakeChatHandle([JSON.stringify({ ...VALID, workspaceIntent: 'leave_balance' })]),
+      taxonomy: config.taxonomy,
+      policy,
+      costs: config.models.costs,
+    });
+    const update = await node({
+      input: input('How many casual leaves do I have?'),
+      profile: null,
+      history: [],
+    } as unknown as State);
+    expect((update.analysis as TurnAnalysis).workspaceIntent).toBe('leave_balance');
+  });
+});

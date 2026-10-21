@@ -17,6 +17,7 @@ import { mongoConversationsRepository } from '../../apps/api/src/modules/convers
 import { mongoDocumentsRepository } from '../../apps/api/src/modules/documents/repository';
 import { mongoTicketsRepository } from '../../apps/api/src/modules/tickets/repository';
 import { mongoUsersRepository } from '../../apps/api/src/modules/users/repository';
+import { createLeaveService } from '../../apps/api/src/modules/workspace/leaveService';
 import { createWorkspaceRecords } from '../../apps/api/src/modules/workspace/records';
 import { mongoWorkspaceRepository } from '../../apps/api/src/modules/workspace/repository';
 import { createWorkspaceService } from '../../apps/api/src/modules/workspace/service';
@@ -64,16 +65,26 @@ export async function runFullCli(
   const chatModels = models.describe;
   const promptVersions = { ...config.prompts.active, ...options.promptOverrides };
 
+  const workspace = mongoWorkspaceRepository(collections);
+  const clock = clockFor(config.env.DEMO_TODAY) ?? (() => new Date());
   const records = createWorkspaceRecords({
     service: createWorkspaceService({
-      workspace: mongoWorkspaceRepository(collections),
+      workspace,
       tickets,
       workday: config.workday,
       routing: config.routing,
-      clock: clockFor(config.env.DEMO_TODAY) ?? (() => new Date()),
+      clock,
     }),
     tickets,
     routing: config.routing,
+    // Read-only: the leave agent only reads the overview (UC-11b).
+    leave: createLeaveService({
+      workspace,
+      users: mongoUsersRepository(collections.users),
+      workday: config.workday,
+      approvalQueue: config.routing.routes.leave ?? 'hr_general',
+      clock,
+    }),
   });
 
   const graph = buildTurnGraph({

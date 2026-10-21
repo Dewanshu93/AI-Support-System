@@ -56,15 +56,15 @@ Build Contract amendment A-1 (2026-10-20): owner approved, manager approval pend
 prompt or intent needs an ADR (CLAUDE.md "Do Not Build": LLM calls beyond ADR-015). Owner
 decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 v3 and one eval run.
 
-| Task  | Name                                                       | Status                                           | Depends on   |
-| ----- | ---------------------------------------------------------- | ------------------------------------------------ | ------------ |
-| UC-11 | Leave management: balances, apply for leave by chat/form   | 11a done (form, HR approval); 11b/c copilot next | UC-01, UC-05 |
-| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                    | UC-02, UC-03 |
-| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)                      | UC-05        |
-| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                      | W2-09        |
-| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                      | UC-04, UC-09 |
-| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                      | W4-02        |
-| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)                      | UC-08        |
+| Task  | Name                                                       | Status                                               | Depends on   |
+| ----- | ---------------------------------------------------------- | ---------------------------------------------------- | ------------ |
+| UC-11 | Leave management: balances, apply for leave by chat/form   | 11a, 11b done; 11c (apply by chat, P-1 v3 eval) next | UC-01, UC-05 |
+| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                        | UC-02, UC-03 |
+| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)                          | UC-05        |
+| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                          | W2-09        |
+| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                          | UC-04, UC-09 |
+| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                          | W4-02        |
+| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)                          | UC-08        |
 
 Scope notes (to be expanded into task cards when each task starts):
 
@@ -2246,5 +2246,32 @@ notice, no carry-over), as for the W1-07 corpus.
 | `attention.test.ts`             | `leave_expiring` from the reminder date, only beyond the carry-over                                                                                                                                                                                                                          |
 | Web (`LeavePage.test.tsx`)      | Balances, form options, requests with status and cancel; contractor message; HR row with balance after approval                                                                                                                                                                              |
 | Route policy table, role matrix | Updated for the five endpoints; matrix green                                                                                                                                                                                                                                                 |
-| Playwright `leave.spec.ts`      | See the task report                                                                                                                                                                                                                                                                          |
+| Playwright `leave.spec.ts`      | 1/1 (form → pending → HR approves → approved; overlap error), with `workspace.spec.ts` 6/6                                                                                                                                                                                                   |
 | Eval                            | Not run: no prompt or graph change. `HR-CLR-001` ("How much leave do I have?" → CLARIFY) changes with the balance intent in UC-11b                                                                                                                                                           |
+
+## UC-11b Copilot: leave balance, daily briefing, P-1 v3 draft — 2026-10-21
+
+**Delivered:** P-1 v3 (`turn_analysis/v3.md`; intents `leave_balance`, `leave_apply`,
+`daily_briefing`, `request_manage`), `leaveAgent` (`leaveBalance`; `leaveApply` placeholder) and
+`briefingAgent` (`dailyBriefing`) subgraphs, routing, code backstop rules, records
+(`leave`, `attention`), reply builders, regenerated topology in ARCHITECTURE.md. No new LLM call:
+both answers are code from records after P-1.
+
+**Not switched on:** `config/prompts.yaml` keeps `turn_analysis: 2`. P-1 v3 is switched with a full
+eval run in UC-11c (owner decision: one P-1 v3, one eval run). Until then the live copilot reaches
+the new agents only when the model leaves the workspace intent out (code backstop) or picks a new
+value the shared output schema now allows; v2's prompt text, hash and the E2E replays are
+unchanged (recordings are keyed by prompt text).
+
+**Verification**
+
+| Check                                                | Result                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `edges.test.ts`, `graph.test.ts`                     | New intents route to `leaveAgent` / `briefingAgent` / `requestsAgent`; answer-only rule; leave start route; paths; topology                                                                                 |
+| `workspaceIntentRules.test.ts`                       | Balance, apply and briefing phrasings; policy questions ("How do I apply for leave?", "Can I take leave next month?") stay null                                                                             |
+| `workspaceReplies.leave.test.ts`                     | Balance reply with upcoming leave only; every briefing kind with urgent marks; empty briefing                                                                                                               |
+| `copilotLeave.test.ts` (Supertest, fake P-1)         | Priya's exact balance and briefing replies, P-1 the only model call; contractor; apply writes nothing                                                                                                       |
+| `turnUnderstanding.test.ts`                          | v3 renders with the same variables and names every new intent; a v3 analysis validates                                                                                                                      |
+| Retrieval eval (2026-10-21, after `hr-casual-leave`) | recall@5 100% all modes (54/54), leakage 0; report `evals/reports/2026-10-21-retrieval-6e22e038.md`                                                                                                         |
+| Playwright (full, replay)                            | 36/38. `auth.spec.ts` nav lists updated for Leave (10/10). Two `chat.spec.ts` Priya tests fail: casual-leave chunks now in her top results change the P-2 prompt, so the recordings miss; being re-recorded |
+| Eval                                                 | Not run (v3 not active); planned for UC-11c                                                                                                                                                                 |
