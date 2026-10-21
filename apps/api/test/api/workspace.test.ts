@@ -115,6 +115,14 @@ describe('GET /api/dashboard', () => {
         requiredHours: 8,
         lopCutoff: null,
       },
+      // UC-11: 12 of 15 annual days left in October; only 5 carry over.
+      {
+        kind: 'leave_expiring',
+        severity: 'normal',
+        available: 12,
+        carryOverDays: 5,
+        expiresOn: '2026-12-31',
+      },
     ]);
   });
 
@@ -162,6 +170,7 @@ describe('GET /api/dashboard', () => {
       ['timesheet_gap', 'normal', '2026-10-06'], // attended: reminder only
       ['timesheet_gap', 'normal', '2026-10-14'],
       ['timesheet_gap', 'normal', '2026-10-15'],
+      ['leave_expiring', 'normal', undefined],
     ]);
     expect(res.body.attention[0]).toMatchObject({ cutoff: '2026-10-14' });
     expect(res.body.attention[2]).toMatchObject({ lopCutoff: '2026-10-16' });

@@ -16,6 +16,7 @@ import { ObjectId } from 'mongodb';
 import type { ConfigFiles } from '../../config/schemas';
 import type { ProjectDoc } from '../../db/schemas';
 import { type AttentionInput, attentionItems } from '../../domain/attention';
+import { leaveBalances, leaveYearOf } from '../../domain/leave';
 import type { PayrollFacts } from '../../domain/workspaceReplies';
 import {
   addDays,
@@ -110,11 +111,22 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
       user.country,
     ).start;
     const lopApplies = user.employmentType === 'full_time';
-    const [range, slips] = await Promise.all([
+    const [range, slips, leave] = await Promise.all([
       days(user, from, addDays(now, -1)),
       lopApplies ? workspace.payslips(uid(user), 4) : Promise.resolve([]),
+      lopApplies ? workspace.leaveRequests(uid(user), `${now.slice(0, 4)}-01-01`) : [],
     ]);
+    const annual = leaveBalances(workday.leave, user.country, leaveYearOf(now), leave).find(
+      (b) => b.type === 'annual',
+    )!;
     return attentionItems({
+      annualLeave: lopApplies
+        ? {
+            available: annual.available,
+            carryOverDays: workday.leave.carryOverDays,
+            reminderFrom: workday.leave.expiryReminderFrom,
+          }
+        : null,
       today: now,
       days: range.days,
       attendance: new Map(range.attendance.map((a) => [a.date, a.status])),

@@ -63,7 +63,14 @@ export const DEDUCTION_CODES = [
 export type DeductionCode = (typeof DEDUCTION_CODES)[number];
 export const DeductionCodeSchema = z.enum(DEDUCTION_CODES);
 
-export const NOTIFICATION_KINDS = ['payroll', 'timesheet', 'request', 'task', 'system'] as const;
+export const NOTIFICATION_KINDS = [
+  'payroll',
+  'timesheet',
+  'request',
+  'task',
+  'leave',
+  'system',
+] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const NotificationKindSchema = z.enum(NOTIFICATION_KINDS);
 
@@ -321,6 +328,15 @@ export const AttentionItemSchema = z.discriminatedUnion('kind', [
     severity: AttentionSeveritySchema,
     date: IsoDateSchema,
     cutoff: IsoDateSchema,
+  }),
+  /** Annual leave left this year beyond what carries over (UC-11). */
+  z.object({
+    kind: z.literal('leave_expiring'),
+    severity: AttentionSeveritySchema,
+    available: z.number(),
+    carryOverDays: z.number(),
+    /** Last day of the leave year. */
+    expiresOn: IsoDateSchema,
   }),
   /** A request whose agent is waiting for the employee's reply. */
   z.object({

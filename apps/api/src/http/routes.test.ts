@@ -87,6 +87,12 @@ describe('route policy table', () => {
       ['GET', '/api/payslips/:id', ['employee']],
       ['GET', '/api/notifications', ['employee']],
       ['POST', '/api/notifications/read', ['employee']],
+      // Leave (UC-11, ADR-025): approval by agents of the leave queue (checked in the service).
+      ['GET', '/api/leave', ['employee']],
+      ['POST', '/api/leave/requests', ['employee']],
+      ['POST', '/api/leave/requests/:id/cancel', ['employee']],
+      ['GET', '/api/agent/leave', ['agent']],
+      ['POST', '/api/agent/leave/:id/decision', ['agent']],
       // Copilot actions (UC-05).
       ['POST', '/api/conversations/:id/action/confirm', ['employee']],
       ['POST', '/api/conversations/:id/action/cancel', ['employee']],

@@ -1,4 +1,4 @@
-// "Needs your attention" (UC-12, ADR-024): what the employee should act on,
+// "Needs your attention" (UC-12, ADR-024; leave UC-11): what the employee should act on,
 // computed from their own records. Pure, no I/O and no model (Build Contract
 // v2.0, rule E.2). The Loss of Pay rule follows corpus hr-loss-of-pay and
 // hr-timesheet-policy: a working day with no timesheet and no attendance
@@ -40,12 +40,20 @@ export interface AttentionInput {
   waitingRequests: readonly { id: string; humanId: string; summary: string }[];
   rules: PayrollCutoffRules;
   holidays: HolidayCalendar;
+  /** Annual leave left this year (UC-11); null when leave does not apply. */
+  annualLeave?: {
+    available: number;
+    carryOverDays: number;
+    /** First day of the year (MM-DD) the reminder shows. */
+    reminderFrom: string;
+  } | null;
 }
 
 const KIND_ORDER: Record<AttentionItem['kind'], number> = {
   lop_risk: 0,
   timesheet_gap: 1,
   request_waiting: 2,
+  leave_expiring: 3,
 };
 const dateOf = (item: AttentionItem) => ('date' in item ? item.date : '');
 
@@ -82,6 +90,18 @@ export function attentionItems(input: AttentionInput): AttentionItem[] {
 
   for (const request of input.waitingRequests) {
     items.push({ kind: 'request_waiting', severity: 'normal', request });
+  }
+
+  // Unused annual leave beyond the carry-over is lost at the end of the year.
+  const leave = input.annualLeave;
+  if (leave && today.slice(5) >= leave.reminderFrom && leave.available > leave.carryOverDays) {
+    items.push({
+      kind: 'leave_expiring',
+      severity: 'normal',
+      available: leave.available,
+      carryOverDays: leave.carryOverDays,
+      expiresOn: `${today.slice(0, 4)}-12-31`,
+    });
   }
 
   return items.sort(

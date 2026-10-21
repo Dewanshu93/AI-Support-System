@@ -104,6 +104,11 @@ export const REGULAR_INDEXES: Record<CollectionKey, IndexSpec[]> = {
     { name: 'requesterId_createdAt', key: { requesterId: 1, createdAt: -1 } },
     { name: 'deliveryStatus_createdAt', key: { 'delivery.status': 1, createdAt: -1 } },
   ],
+  leaveRequests: [
+    { name: 'userId_startDate', key: { userId: 1, startDate: -1 } },
+    // HR approval list: oldest waiting first.
+    { name: 'status_createdAt', key: { status: 1, createdAt: 1 } },
+  ],
 };
 
 /** Creates any collection that does not exist yet. */

@@ -4,6 +4,9 @@ import { ObjectId } from 'mongodb';
 import { validateForWrite } from '../../src/db/collections';
 import {
   type AttendanceDoc,
+  AttendanceSchema,
+  type LeaveRequestDoc,
+  LeaveRequestSchema,
   type NotificationDoc,
   NotificationSchema,
   type PayslipDoc,
@@ -26,6 +29,7 @@ const emptyData = (): MockHrData => ({
   attendance: [],
   payslips: [],
   notifications: [],
+  leaveRequests: [],
 });
 
 export function memoryWorkspaceRepository(initial: Partial<MockHrData> = {}): MemoryWorkspace {
@@ -112,6 +116,48 @@ export function memoryWorkspaceRepository(initial: Partial<MockHrData> = {}): Me
     },
     async insertNotification(doc: NotificationDoc) {
       data.notifications.push(validateForWrite('notifications', NotificationSchema, doc));
+    },
+    async setLeaveAttendance(userId, dates, note) {
+      for (const date of dates) {
+        const doc = validateForWrite('attendance', AttendanceSchema, {
+          _id: new ObjectId(),
+          userId,
+          date,
+          status: 'leave',
+          note,
+        });
+        const index = data.attendance.findIndex((a) => a.userId.equals(userId) && a.date === date);
+        if (index >= 0) data.attendance[index] = { ...doc, _id: data.attendance[index]!._id };
+        else data.attendance.push(doc);
+      }
+    },
+    async clearLeaveAttendance(userId, dates) {
+      data.attendance = data.attendance.filter(
+        (a) => !(a.userId.equals(userId) && a.status === 'leave' && dates.includes(a.date)),
+      );
+    },
+    leaveRequests: async (userId, from) =>
+      data.leaveRequests
+        .filter((r) => r.userId.equals(userId) && r.endDate >= from)
+        .sort((a, b) => b.startDate.localeCompare(a.startDate)),
+    leaveRequestById: async (id) => data.leaveRequests.find((r) => r._id.equals(id)) ?? null,
+    leaveRequestsByStatus: async (status, limit) =>
+      data.leaveRequests
+        .filter((r) => r.status === status)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .slice(0, limit),
+    async insertLeaveRequest(doc: LeaveRequestDoc) {
+      data.leaveRequests.push(validateForWrite('leave_requests', LeaveRequestSchema, doc));
+    },
+    async updateLeaveRequest(id, from, set) {
+      const index = data.leaveRequests.findIndex((r) => r._id.equals(id) && r.status === from);
+      if (index < 0) return null;
+      const doc = validateForWrite('leave_requests', LeaveRequestSchema, {
+        ...data.leaveRequests[index],
+        ...set,
+      });
+      data.leaveRequests[index] = doc;
+      return doc;
     },
   };
 }

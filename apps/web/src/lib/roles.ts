@@ -24,11 +24,15 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: '/dashboard', label: 'Dashboard', icon: 'home' },
     { href: '/chat', label: 'Copilot', icon: 'sparkles' },
     { href: '/timesheets', label: 'Timesheets', icon: 'clock' },
+    { href: '/leave', label: 'Leave', icon: 'calendar' },
     { href: '/tasks', label: 'My work', icon: 'checklist' },
     { href: '/payroll', label: 'Payroll', icon: 'wallet' },
     { href: '/tickets', label: 'Requests', icon: 'inbox' },
   ],
-  agent: [{ href: '/agent/queue', label: 'Queue', icon: 'inbox' }],
+  agent: [
+    { href: '/agent/queue', label: 'Queue', icon: 'inbox' },
+    { href: '/agent/leave', label: 'Leave approvals', icon: 'calendar' },
+  ],
   admin: [
     { href: '/admin', label: 'Overview', icon: 'grid' },
     { href: '/admin/gaps', label: 'Knowledge gaps', icon: 'search' },

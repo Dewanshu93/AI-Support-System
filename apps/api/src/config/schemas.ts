@@ -1,4 +1,4 @@
-import { DOMAINS, PRIORITIES } from '@sd/shared';
+import { DOMAINS, LEAVE_TYPES, type LeaveType, PRIORITIES } from '@sd/shared';
 import { z } from 'zod';
 
 // One Zod schema per config/*.yaml file. Objects are strict so a typo in a
@@ -407,6 +407,18 @@ const IsoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD')
   .refine((d) => !Number.isNaN(Date.parse(`${d}T00:00:00Z`)), 'is not a real date');
 
+const PerCountry = <T extends z.ZodType>(value: T) => z.strictObject({ US: value, UK: value });
+const Days = z.number().int().min(0).max(366);
+const LeaveTypeRules = z.strictObject({
+  label: Label,
+  entitlement: PerCountry(Days),
+  needsApproval: z.boolean(),
+  maxConsecutiveDays: z.number().int().min(1).max(366).optional(),
+  maxBackDays: Days.optional(),
+  notice: PerCountry(z.strictObject({ overDays: Days, workingDays: Days })).optional(),
+  certificateAfterDays: PerCountry(Days).optional(),
+});
+
 export const WorkdaySchema = z
   .strictObject({
     version: Version,
@@ -419,6 +431,18 @@ export const WorkdaySchema = z
     payroll: z.strictObject({
       cutoffWorkingDays: z.number().int().min(1).max(30),
       urgentWithinWorkingDays: z.number().int().min(0).max(30),
+    }),
+    leave: z.strictObject({
+      types: z.strictObject(
+        Object.fromEntries(LEAVE_TYPES.map((t) => [t, LeaveTypeRules])) as Record<
+          LeaveType,
+          typeof LeaveTypeRules
+        >,
+      ),
+      carryOverDays: z.number().int().min(0).max(30),
+      expiryReminderFrom: z
+        .string()
+        .regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'must be MM-DD'),
     }),
     holidays: z.strictObject({
       US: z.array(z.strictObject({ date: IsoDate, name: Label })),

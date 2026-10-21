@@ -89,6 +89,7 @@ extension 5555.
 | `hr-annual-leave-uk` | Annual Leave (UK) | HR | 2.0 | active | 2026-01-01 | UK | full-time | standard |
 | `hr-annual-leave-us` | Annual Leave (US) | HR | 2.1 | active | 2026-01-01 | US | full-time | standard |
 | `hr-attendance-policy` | Attendance | HR | 1.0 | active | 2026-01-01 | US, UK | full-time | standard |
+| `hr-casual-leave` | Casual Leave | HR | 1.0 | active | 2026-01-01 | US, UK | full-time | standard |
 | `hr-code-of-conduct` | Code of Conduct | HR | 3.1 | active | 2025-05-01 | US, UK | full-time, contractor | standard |
 | `hr-contractor-time-off` | Time Off for Contractors | HR | 1.1 | active | 2025-06-01 | US, UK | contractor | standard |
 | `hr-expenses-policy` | Business Travel and Expenses | HR | 4.2 | active | 2025-10-01 | US, UK | full-time | standard |

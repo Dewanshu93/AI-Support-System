@@ -21,13 +21,13 @@ test('flow 1: Priya’s dashboard shows her week, tasks, pay with LOP, requests 
   await expect(week.getByRole('link')).toHaveCount(7);
   await expect(week.locator('[data-status="missing"]')).toHaveCount(1);
 
-  // UC-12: the same day is the one item needing her attention. She badged in that
-  // day, so it is a reminder, not a Loss of Pay risk.
+  // UC-12: the same day needs her attention. She badged in that day, so it is a
+  // reminder, not a Loss of Pay risk. UC-11: unused annual leave is the other item.
   const attention = page.getByTestId('attention-card');
-  await expect(attention.getByTestId('attention-item')).toHaveCount(1);
-  await expect(attention.getByTestId('attention-item')).toHaveAttribute(
-    'data-kind',
-    'timesheet_gap',
+  await expect(attention.locator('[data-kind="timesheet_gap"]')).toHaveCount(1);
+  await expect(attention.locator('[data-kind="lop_risk"]')).toHaveCount(0);
+  await expect(attention.locator('[data-kind="leave_expiring"]')).toContainText(
+    'days of annual leave left this year',
   );
   await expect(attention).toContainText('Nothing logged.');
   await expect(attention.getByRole('link', { name: /Log with Copilot/ })).toHaveAttribute(

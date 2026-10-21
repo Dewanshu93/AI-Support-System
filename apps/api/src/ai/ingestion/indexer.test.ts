@@ -42,7 +42,7 @@ describe('ingestSources', () => {
     const first = await ingestSources(corpus, { documents, embedder });
     expect(first.failed).toEqual([]);
     expect(first.indexed).toHaveLength(corpus.length);
-    expect(first.stats.documents).toBe(38);
+    expect(first.stats.documents).toBe(39); // + hr-casual-leave (UC-11)
     expect(first.stats.chunks).toBeGreaterThan(35);
     expect(first.stats.maxTokens).toBeLessThanOrEqual(500);
 

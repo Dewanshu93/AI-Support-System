@@ -1,11 +1,14 @@
 // Employee workspace data access (UC-01): the mock task tracker (projects,
 // tasks), timesheets, attendance, payslips and in-app notifications. Every
 // query is scoped to one employee; writes are validated against db/schemas.
-import type { IsoDate, TaskStatus } from '@sd/shared';
+import type { IsoDate, LeaveStatus, TaskStatus } from '@sd/shared';
 import { type Collection, ObjectId } from 'mongodb';
 import { validateForWrite } from '../../db/collections';
 import {
   type AttendanceDoc,
+  AttendanceSchema,
+  type LeaveRequestDoc,
+  LeaveRequestSchema,
   type NotificationDoc,
   NotificationSchema,
   type PayslipDoc,
@@ -54,6 +57,24 @@ export interface WorkspaceRepository {
   /** Marks the employee's notifications read (all unread when `ids` is omitted). */
   markNotificationsRead(userId: ObjectId, ids: ObjectId[] | undefined, now: Date): Promise<number>;
   insertNotification(doc: NotificationDoc): Promise<void>;
+  /** Approved leave marks its days as `leave` (UC-11): replaces the day's attendance record. */
+  setLeaveAttendance(userId: ObjectId, dates: IsoDate[], note: string): Promise<void>;
+  /** Removes `leave` attendance records for the given days (an approved leave cancelled). */
+  clearLeaveAttendance(userId: ObjectId, dates: IsoDate[]): Promise<void>;
+  /** The employee's leave requests ending on or after `from`, newest start first. */
+  leaveRequests(userId: ObjectId, from: IsoDate): Promise<LeaveRequestDoc[]>;
+  /** Any employee's request (HR approval); null when it does not exist. */
+  leaveRequestById(id: ObjectId): Promise<LeaveRequestDoc | null>;
+  /** Requests with a status, oldest first (HR approval list). */
+  leaveRequestsByStatus(status: LeaveStatus, limit: number): Promise<LeaveRequestDoc[]>;
+  insertLeaveRequest(doc: LeaveRequestDoc): Promise<void>;
+  /** Changes a request only while it still has `from` status; null when it did not. */
+  updateLeaveRequest(
+    id: ObjectId,
+    from: LeaveStatus,
+    set: Pick<LeaveRequestDoc, 'status' | 'updatedAt'> &
+      Partial<Pick<LeaveRequestDoc, 'decidedBy' | 'decidedAt' | 'decisionNote'>>,
+  ): Promise<LeaveRequestDoc | null>;
 }
 
 /** Board order: work in progress first, done last. */
@@ -80,8 +101,10 @@ export function mongoWorkspaceRepository(collections: {
   attendance: Collection<AttendanceDoc>;
   payslips: Collection<PayslipDoc>;
   notifications: Collection<NotificationDoc>;
+  leaveRequests: Collection<LeaveRequestDoc>;
 }): WorkspaceRepository {
-  const { projects, tasks, timesheetEntries, attendance, payslips, notifications } = collections;
+  const { projects, tasks, timesheetEntries, attendance, payslips, notifications, leaveRequests } =
+    collections;
   return {
     projectsForMember: (userId) =>
       projects.find({ memberIds: userId, active: true }).sort({ name: 1 }).toArray(),
@@ -142,6 +165,49 @@ export function mongoWorkspaceRepository(collections: {
     },
     async insertNotification(doc) {
       await notifications.insertOne(validateForWrite('notifications', NotificationSchema, doc));
+    },
+    async setLeaveAttendance(userId, dates, note) {
+      if (dates.length === 0) return;
+      await attendance.bulkWrite(
+        dates.map((date) => {
+          const doc = validateForWrite('attendance', AttendanceSchema, {
+            _id: new ObjectId(),
+            userId,
+            date,
+            status: 'leave',
+            note,
+          });
+          const { _id, ...fields } = doc;
+          return {
+            updateOne: {
+              filter: { userId, date },
+              update: { $set: fields, $setOnInsert: { _id } },
+              upsert: true,
+            },
+          };
+        }),
+      );
+    },
+    async clearLeaveAttendance(userId, dates) {
+      await attendance.deleteMany({ userId, date: { $in: dates }, status: 'leave' });
+    },
+    leaveRequests: (userId, from) =>
+      leaveRequests
+        .find({ userId, endDate: { $gte: from } })
+        .sort({ startDate: -1, _id: -1 })
+        .toArray(),
+    leaveRequestById: (id) => leaveRequests.findOne({ _id: id }),
+    leaveRequestsByStatus: (status, limit) =>
+      leaveRequests.find({ status }).sort({ createdAt: 1, _id: 1 }).limit(limit).toArray(),
+    async insertLeaveRequest(doc) {
+      await leaveRequests.insertOne(validateForWrite('leave_requests', LeaveRequestSchema, doc));
+    },
+    async updateLeaveRequest(id, from, set) {
+      return leaveRequests.findOneAndUpdate(
+        { _id: id, status: from },
+        { $set: set },
+        { returnDocument: 'after' },
+      );
     },
   };
 }

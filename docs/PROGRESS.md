@@ -56,15 +56,15 @@ Build Contract amendment A-1 (2026-10-20): owner approved, manager approval pend
 prompt or intent needs an ADR (CLAUDE.md "Do Not Build": LLM calls beyond ADR-015). Owner
 decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 v3 and one eval run.
 
-| Task  | Name                                                       | Status                        | Depends on   |
-| ----- | ---------------------------------------------------------- | ----------------------------- | ------------ |
-| UC-11 | Leave management: balances, apply for leave by chat/form   | Planned (amendment pending)   | UC-01, UC-05 |
-| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3) | UC-02, UC-03 |
-| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)   | UC-05        |
-| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)   | W2-09        |
-| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)   | UC-04, UC-09 |
-| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)   | W4-02        |
-| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)   | UC-08        |
+| Task  | Name                                                       | Status                                           | Depends on   |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------ | ------------ |
+| UC-11 | Leave management: balances, apply for leave by chat/form   | 11a done (form, HR approval); 11b/c copilot next | UC-01, UC-05 |
+| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                    | UC-02, UC-03 |
+| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)                      | UC-05        |
+| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                      | W2-09        |
+| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                      | UC-04, UC-09 |
+| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                      | W4-02        |
+| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)                      | UC-08        |
 
 Scope notes (to be expanded into task cards when each task starts):
 
@@ -2219,4 +2219,32 @@ the user). Amendment recorded as owner approved, manager pending.
 | Playwright `workspace.spec.ts`  | 6/6; flow 1 now checks the attention card (one `timesheet_gap`, Copilot link)                                                                                           |
 | Eval                            | Not run: no prompt or graph change                                                                                                                                      |
 
-**Follow-ups:** a "leave expiring" item after UC-11; the copilot intent in P-1 v3.
+**Follow-ups:** a "leave expiring" item after UC-11 (done in UC-11a); the copilot intent in P-1 v3.
+
+## UC-11a Leave: balances, form and HR approval — 2026-10-20
+
+**Delivered:** `domain/leave.ts` (balances, `checkLeave`, cancel rule), `leave` block in
+`config/workday.yaml` (+ schema), `leave_requests` collection (schema, indexes, repository,
+in-memory helper, seed), `modules/workspace/leaveService.ts` + `leaveRoutes.ts` (five endpoints,
+audited, in-app notifications `kind: leave`), contracts `packages/shared/src/api/leave.ts`, pages
+`/leave` and `/agent/leave`, nav items, `leave_expiring` attention item, synthetic policy
+`corpus/hr/hr-casual-leave.md` (ingested: 39 documents, 186 chunks). ADR-025.
+
+**Owner decisions (2026-10-20):** annual + sick + casual (casual needs its own policy); annual and
+casual wait for the HR agent, who approves for the manager; sick leave is recorded at once; built
+in three slices (11a no LLM, 11b balance answer + P-1 v3 draft, 11c apply action + eval).
+
+**Pending owner review:** the casual leave numbers (6 days a year, 2 at a time, 1 working day's
+notice, no carry-over), as for the W1-07 corpus.
+
+**Verification**
+
+| Check                           | Result                                                                                                                                                                                                                                                                                       |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `leave.test.ts` (unit)          | Balances per year/country; working days and holidays; notice and doctor's-note warnings; contractors, past, cross-year, too long, overlap, over balance                                                                                                                                      |
+| `leave.test.ts` (Supertest)     | Access (employee-only / agents; IT agent sees nothing, 404 on decide); balances; apply → pending + notification + audit; sick → attendance leave, no longer a missing day; overlap 400; cancel (404 for others, 409 twice / started); approve, reject needs a note, 409 on a second decision |
+| `attention.test.ts`             | `leave_expiring` from the reminder date, only beyond the carry-over                                                                                                                                                                                                                          |
+| Web (`LeavePage.test.tsx`)      | Balances, form options, requests with status and cancel; contractor message; HR row with balance after approval                                                                                                                                                                              |
+| Route policy table, role matrix | Updated for the five endpoints; matrix green                                                                                                                                                                                                                                                 |
+| Playwright `leave.spec.ts`      | See the task report                                                                                                                                                                                                                                                                          |
+| Eval                            | Not run: no prompt or graph change. `HR-CLR-001` ("How much leave do I have?" → CLARIFY) changes with the balance intent in UC-11b                                                                                                                                                           |

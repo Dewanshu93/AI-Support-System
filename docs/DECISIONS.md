@@ -690,3 +690,38 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     decision), so the whole set gets one golden-set update and one eval run.
 - **Consequences:** the policy text and `config/workday.yaml` must change together if the cutoff
   changes. The rule is a prototype reading of the policy; real payroll would own it.
+
+## ADR-025 — Leave: three types, HR agent approves for the manager, attendance as the record (UC-11a)
+
+- **Status:** Accepted (UC-11a, 2026-10-20; owner decisions on types, approval and slicing)
+- **Context:** amendment A-1 adds leave balances and applications. The corpus defines annual and
+  sick leave (US/UK) but no "casual" leave; the owner asked for annual + sick + casual. Leave is
+  approved by the employee's manager in the policies, but the demo has no manager persona.
+- **Decision:**
+  - **Types:** annual, sick and casual, with numbers in `config/workday.yaml` (`leave`) that match
+    the policies. A new synthetic policy `corpus/hr/hr-casual-leave.md` (6 days a year, at most 2
+    at a time, 1 working day's notice, no carry-over, full-time only; numbers pending owner
+    review like W1-07) keeps copilot answers grounded. Parental leave stays an HR request.
+    Seniority steps and US monthly accrual are not modelled (full allowance from 1 January).
+  - **Approval:** annual and casual requests are `pending` until an agent of the leave queue
+    (`routing.routes.leave` = `hr_general`, Hana) approves or declines (a reason is required to
+    decline); she stands in for the manager. Sick leave is recorded as approved at once ("tell
+    your manager", not "ask").
+  - **Rules in code** (`domain/leave.ts`): working days in the employee's holiday calendar; same
+    and current calendar year; contractors cannot book; annual/casual not in the past, sick only
+    today or up to 30 days back; per-type maximum length; no overlap with pending/approved leave;
+    balance = entitlement − approved − pending, and a request beyond it is refused (the policy
+    makes such days Loss of Pay; the prototype does not create them). Notice periods and the
+    doctor's-note rule are warnings, not blocks.
+  - **Attendance is the record of leave:** approval writes `attendance` `leave` for each day
+    (replacing that day's record) and cancelling approved leave removes them, so timesheet
+    statuses, Loss of Pay and "Needs your attention" honour leave with no change to their code.
+  - **Storage:** `leave_requests` with the covered working days stored on the request
+    (`dates`). Status changes are guarded on the current status (no double decisions). The
+    service lives in `modules/workspace` (mock HR system) behind the same repository.
+  - Every write is audited (`leave.apply`, `leave.cancel`, `leave.decide`) and the employee gets
+    an in-app notification (`kind: leave`).
+- **Consequences:** a new collection, five endpoints, two pages and a nav item each for employees
+  and agents. An agent outside the leave queue (the IT agent) sees an empty list and gets 404 on a
+  decision, as with ticket queues (W3-05).
+  The copilot parts (balance answer, apply action) come in UC-11b/c with P-1 v3.

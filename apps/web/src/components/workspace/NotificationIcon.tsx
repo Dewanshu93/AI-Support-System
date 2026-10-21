@@ -6,6 +6,7 @@ const STYLE: Record<NotificationKind, { icon: IconName; className: string }> = {
   timesheet: { icon: 'clock', className: 'bg-amber-50 text-amber-600' },
   request: { icon: 'inbox', className: 'bg-sky-50 text-sky-600' },
   task: { icon: 'checklist', className: 'bg-violet-50 text-violet-600' },
+  leave: { icon: 'calendar', className: 'bg-emerald-50 text-emerald-600' },
   system: { icon: 'info', className: 'bg-slate-100 text-slate-600' },
 };
 

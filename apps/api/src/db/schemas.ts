@@ -13,6 +13,9 @@ import {
   EmailSubjectSchema,
   IsoDateSchema,
   NotificationKindSchema,
+  LeaveSourceSchema,
+  LeaveStatusSchema,
+  LeaveTypeSchema,
   TaskPrioritySchema,
   TaskStatusSchema,
   TimesheetSourceSchema,
@@ -532,6 +535,34 @@ export const NotificationSchema = z.object({
   createdAt: z.date(),
 });
 export type NotificationDoc = z.infer<typeof NotificationSchema>;
+
+/**
+ * One leave request (UC-11, ADR-025). `dates` are the working days it covers,
+ * counted by code; approval is by an HR agent (sick leave is recorded as approved).
+ */
+export const LeaveRequestSchema = z
+  .object({
+    _id: zObjectId,
+    userId: zObjectId,
+    type: LeaveTypeSchema,
+    startDate: DayString,
+    endDate: DayString,
+    dates: z.array(DayString).min(1),
+    reason: nullable(z.string().max(200)),
+    status: LeaveStatusSchema,
+    source: LeaveSourceSchema,
+    decidedBy: nullable(zObjectId),
+    decidedAt: nullable(z.date()),
+    decisionNote: nullable(z.string().max(500)),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+  .refine((r) => r.startDate <= r.endDate, { path: ['endDate'], message: 'before start' })
+  .refine((r) => r.dates.every((d) => d >= r.startDate && d <= r.endDate), {
+    path: ['dates'],
+    message: 'dates must lie between startDate and endDate',
+  });
+export type LeaveRequestDoc = z.infer<typeof LeaveRequestSchema>;
 
 // --- email_outbox (UC-07, ADR-017) -------------------------------------------
 

@@ -53,6 +53,19 @@ describe('attentionText', () => {
     expect(t.actions.map((a) => a.label)).toEqual(['Log manually']);
   });
 
+  it('reminds about annual leave that will not carry over', () => {
+    const t = attentionText({
+      kind: 'leave_expiring',
+      severity: 'normal',
+      available: 12,
+      carryOverDays: 5,
+      expiresOn: '2026-12-31',
+    });
+    expect(t.title).toBe('12 days of annual leave left this year');
+    expect(t.detail).toBe('Only 5 days carry over; the rest is lost after Thu 31 Dec.');
+    expect(t.actions).toEqual([{ label: 'Book leave', href: '/leave' }]);
+  });
+
   it('links a waiting request', () => {
     const t = attentionText(ITEMS[3]!);
     expect(t.title).toBe('HR-9002 is waiting for your reply');

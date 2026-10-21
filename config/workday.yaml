@@ -17,6 +17,42 @@ payroll:
   cutoffWorkingDays: 5
   # "Needs your attention" marks a Loss of Pay risk urgent when this few working days are left.
   urgentWithinWorkingDays: 2
+# Leave types employees book themselves (UC-11, ADR-025). Numbers must match the leave policies
+# in corpus/hr (annual leave US/UK, sick leave US/UK, casual leave). The leave year is the
+# calendar year; seniority steps (US 20 days, UK 27 days after 5 years) are not modelled.
+leave:
+  types:
+    annual:
+      label: Annual leave
+      entitlement: { US: 15, UK: 25 }
+      needsApproval: true
+      # Longer leave needs the department head: raise an HR request instead.
+      maxConsecutiveDays: 15
+      # More than `overDays` working days → at least `workingDays` working days' notice.
+      notice:
+        US: { overDays: 3, workingDays: 10 }
+        UK: { overDays: 4, workingDays: 20 }
+    sick:
+      label: Sick leave
+      entitlement: { US: 10, UK: 20 }
+      # Recorded, not approved: the manager is told on the day.
+      needsApproval: false
+      # Recorded for today or up to this many days back, never ahead.
+      maxBackDays: 30
+      # A doctor's note is needed after this many consecutive days.
+      certificateAfterDays: { US: 3, UK: 7 }
+    casual:
+      label: Casual leave
+      entitlement: { US: 6, UK: 6 }
+      needsApproval: true
+      maxConsecutiveDays: 2
+      notice:
+        US: { overDays: 0, workingDays: 1 }
+        UK: { overDays: 0, workingDays: 1 }
+  # Unused annual leave that carries into the next year (corpus annual leave policies).
+  carryOverDays: 5
+  # "Needs your attention" reminds about unused annual leave from this day of the year (MM-DD).
+  expiryReminderFrom: '10-01'
 holidays:
   US:
     - { date: '2026-01-01', name: "New Year's Day" }

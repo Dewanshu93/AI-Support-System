@@ -17,6 +17,8 @@ import {
   type ConversationDoc,
   type EmailOutboxDoc,
   ConversationSchema,
+  type LeaveRequestDoc,
+  LeaveRequestSchema,
   type MessageDoc,
   MessageSchema,
   type NotificationDoc,
@@ -44,6 +46,7 @@ import {
   isWorkingDay,
   payDateFor,
   payPeriodFor,
+  weekStartOf,
   workingDays,
 } from '../../domain/workday';
 
@@ -58,6 +61,7 @@ export interface MockHrData {
   attendance: AttendanceDoc[];
   payslips: PayslipDoc[];
   notifications: NotificationDoc[];
+  leaveRequests: LeaveRequestDoc[];
 }
 
 export interface MockRequests {
@@ -74,6 +78,8 @@ const TOM = 'tom.clarke@example.com';
 const OLIVIA = 'olivia.bennett@example.com';
 const MARCUS = 'marcus.lee@example.com';
 const RAVI = 'ravi.iyer@example.com';
+/** HR agent who approves leave in the demo (ADR-025). */
+const HANA = 'hana.kim@example.com';
 
 const PROJECTS = [
   {
@@ -481,6 +487,69 @@ export function buildMockHrData({ users, today, workday }: MockHrOptions): MockH
     });
   }
 
+  // Leave (UC-11): Ravi's two leave days last month are approved annual leave; Priya took three
+  // days before the timesheet history starts and has one casual day waiting for HR; Olivia was
+  // off sick for a day. Annual and casual leave are approved by the HR agent (ADR-025).
+  const hana = byEmail.get(HANA)?._id ?? null;
+  const leaveRequests: LeaveRequestDoc[] = [];
+  const leave = (
+    email: string,
+    key: string,
+    r: Pick<LeaveRequestDoc, 'type' | 'dates' | 'status' | 'reason'> & { decided: boolean },
+  ) => {
+    if (r.dates.length === 0) return;
+    const createdAt = at(addDays(r.dates[0]!, r.status === 'pending' ? -8 : -15), 10);
+    leaveRequests.push({
+      _id: seedId(`leave:${email}:${key}`),
+      userId: user(email)._id,
+      type: r.type,
+      startDate: r.dates[0]!,
+      endDate: r.dates.at(-1)!,
+      dates: r.dates,
+      reason: r.reason,
+      status: r.status,
+      source: 'seed',
+      decidedBy: r.decided ? hana : null,
+      decidedAt: r.decided || r.status === 'approved' ? at(addDays(r.dates[0]!, -14), 11) : null,
+      decisionNote: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+  };
+  const beforeHistory = weekStartOf(addDays(from, -35));
+  leave(RAVI, 'annual-1', {
+    type: 'annual',
+    dates: [...raviLeave].sort(),
+    status: 'approved',
+    reason: 'Family visit',
+    decided: true,
+  });
+  leave(PRIYA, 'annual-1', {
+    type: 'annual',
+    dates: workingDays(beforeHistory, addDays(beforeHistory, 2), usHolidays),
+    status: 'approved',
+    reason: 'Summer break',
+    decided: true,
+  });
+  leave(PRIYA, 'casual-1', {
+    type: 'casual',
+    dates: workingDays(addDays(today, 7), addDays(today, 14), usHolidays).slice(0, 1),
+    status: 'pending',
+    reason: 'Moving house',
+    decided: false,
+  });
+  leave(OLIVIA, 'sick-1', {
+    type: 'sick',
+    dates: workingDays(
+      addDays(beforeHistory, -14),
+      addDays(beforeHistory, -10),
+      holidayCalendar(workday.holidays.UK),
+    ).slice(0, 1),
+    status: 'approved',
+    reason: null,
+    decided: false,
+  });
+
   return {
     projects,
     tasks,
@@ -488,6 +557,7 @@ export function buildMockHrData({ users, today, workday }: MockHrOptions): MockH
     attendance,
     payslips,
     notifications,
+    leaveRequests,
     scenario: { lopUser: PRIYA, lopDay, lopAmount, missingThisWeek: priyaMissing },
   };
 }
@@ -718,6 +788,7 @@ export interface MockHrCollections {
   attendance: Collection<AttendanceDoc>;
   payslips: Collection<PayslipDoc>;
   notifications: Collection<NotificationDoc>;
+  leaveRequests: Collection<LeaveRequestDoc>;
   conversations: Collection<ConversationDoc>;
   messages: Collection<MessageDoc>;
   tickets: Collection<TicketDoc>;
@@ -803,6 +874,10 @@ export async function seedMockHr(
     c.notifications,
     check('notifications', NotificationSchema, [...data.notifications, ...requests.notifications]),
   );
+  await replaceFor(
+    c.leaveRequests,
+    check('leave_requests', LeaveRequestSchema, data.leaveRequests),
+  );
   await upsertAll(
     c.conversations,
     check('conversations', ConversationSchema, requests.conversations),
@@ -818,6 +893,7 @@ export async function seedMockHr(
     attendance: data.attendance.length,
     payslips: data.payslips.length,
     notifications: data.notifications.length + requests.notifications.length,
+    leaveRequests: data.leaveRequests.length,
     requests: requests.tickets.length,
   };
 }

@@ -1129,6 +1129,28 @@ inside the app:
   "no hours logged" banner. The copilot question "What should I do today?" comes with P-1 v3
   (owner decision: one prompt version for the UC-11 – UC-17 intents).
 
+## Leave (UC-11a, ADR-025)
+
+- **Rules (`domain/leave.ts`, pure):** `leaveBalances` (entitlement − approved − pending, per
+  calendar year), `checkLeave` (working days in the holiday calendar; blocking problems per field
+  and non-blocking warnings: notice periods, doctor's note) and `canCancelLeave`. Numbers in
+  `config/workday.yaml` `leave` (types annual / sick / casual, carry-over, reminder date); policy
+  text in `corpus/hr` (annual, sick, `hr-casual-leave`).
+- **Storage:** `leave_requests` (`dates` = covered working days; status pending / approved /
+  rejected / cancelled; updates guarded on the current status). Approved leave writes `attendance`
+  `leave` for its days, so timesheet statuses and Loss of Pay honour it; cancelling removes them.
+- **Service and routes (`modules/workspace/leaveService.ts`, `leaveRoutes.ts`):** employee
+  `GET /api/leave`, `POST /api/leave/requests`, `POST /api/leave/requests/:id/cancel`; agents of
+  the leave queue (`routing.routes.leave`) `GET /api/agent/leave?status=`,
+  `POST /api/agent/leave/:id/decision`. Audited (`leave.apply` / `cancel` / `decide`); the
+  employee is notified (`kind: leave`). Contracts: `packages/shared/src/api/leave.ts`.
+- **Web:** `/leave` (`components/workspace/LeavePage.tsx`: balances, form with server errors per
+  field, requests with cancel) and `/agent/leave` (`components/agent/AgentLeave.tsx`). The
+  dashboard's attention card adds `leave_expiring` (annual leave beyond the carry-over, from
+  1 October).
+- **Seed:** approved annual leave for Ravi (his two attendance leave days) and Priya, a pending
+  casual day for Priya (Hana's list), a sick day for Olivia.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

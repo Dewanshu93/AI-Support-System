@@ -34,6 +34,28 @@ function input(over: Partial<AttentionInput> = {}): AttentionInput {
   };
 }
 
+describe('leave expiring', () => {
+  const annualLeave = { available: 12, carryOverDays: 5, reminderFrom: '10-01' };
+
+  it('reminds about annual leave beyond the carry-over from the reminder date', () => {
+    expect(attentionItems(input({ annualLeave }))).toEqual([
+      {
+        kind: 'leave_expiring',
+        severity: 'normal',
+        available: 12,
+        carryOverDays: 5,
+        expiresOn: '2026-12-31',
+      },
+    ]);
+  });
+
+  it('stays quiet before the reminder date, within the carry-over, or without leave', () => {
+    expect(attentionItems(input({ annualLeave, today: '2026-09-30' }))).toEqual([]);
+    expect(attentionItems(input({ annualLeave: { ...annualLeave, available: 5 } }))).toEqual([]);
+    expect(attentionItems(input({ annualLeave: null }))).toEqual([]);
+  });
+});
+
 describe('payrollCutoff', () => {
   it('is the fifth working day after the day', () => {
     expect(payrollCutoff('2026-10-12', 5, US)).toBe('2026-10-19'); // Mon → next Mon
@@ -151,7 +173,11 @@ describe('attentionItems', () => {
       }),
     );
     expect(
-      items.map((i) => [i.kind, i.severity, 'date' in i ? i.date : i.request.humanId]),
+      items.map((i) => [
+        i.kind,
+        i.severity,
+        'date' in i ? i.date : 'request' in i ? i.request.humanId : null,
+      ]),
     ).toEqual([
       ['lop_risk', 'urgent', '2026-10-12'],
       ['timesheet_gap', 'urgent', '2026-10-14'],

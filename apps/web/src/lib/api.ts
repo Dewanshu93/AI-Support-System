@@ -53,6 +53,13 @@ import {
   type TimesheetSaveRequest,
   TimesheetSaveResponseSchema,
   TimesheetWeekResponseSchema,
+  type AgentLeaveDecisionRequest,
+  AgentLeaveDecisionResponseSchema,
+  AgentLeaveListResponseSchema,
+  type LeaveApplyRequest,
+  LeaveApplyResponseSchema,
+  LeaveOverviewResponseSchema,
+  type LeaveStatus,
 } from '@sd/shared';
 import type { z } from 'zod';
 
@@ -372,4 +379,21 @@ export const api = {
       method: 'POST',
       body: ids ? { ids } : {},
     }))!,
+
+  // Leave (UC-11).
+  leave: async () => (await apiRequest('/leave', LeaveOverviewResponseSchema))!,
+  applyLeave: async (body: LeaveApplyRequest) =>
+    (await apiRequest('/leave/requests', LeaveApplyResponseSchema, { method: 'POST', body }))!,
+  cancelLeave: async (id: string) =>
+    (await apiRequest(`/leave/requests/${id}/cancel`, LeaveOverviewResponseSchema, {
+      method: 'POST',
+      body: {},
+    }))!,
+  agentLeave: async (status: LeaveStatus = 'pending') =>
+    (await apiRequest(`/agent/leave?status=${status}`, AgentLeaveListResponseSchema))!,
+  decideLeave: async (id: string, body: AgentLeaveDecisionRequest) =>
+    (await apiRequest(`/agent/leave/${id}/decision`, AgentLeaveDecisionResponseSchema, {
+      method: 'POST',
+      body,
+    }))!.request,
 };

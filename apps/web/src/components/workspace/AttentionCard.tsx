@@ -72,6 +72,13 @@ export function attentionText(item: AttentionItem): AttentionText {
             : [manual],
       };
     }
+    case 'leave_expiring':
+      return {
+        key: 'leave-expiring',
+        title: `${item.available} days of annual leave left this year`,
+        detail: `Only ${item.carryOverDays} days carry over; the rest is lost after ${shortDate(item.expiresOn)}.`,
+        actions: [{ label: 'Book leave', href: '/leave' }],
+      };
     case 'request_waiting':
       return {
         key: `req:${item.request.id}`,
