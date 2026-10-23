@@ -18,10 +18,15 @@ function startServer(extraEnv: Record<string, string>) {
       ...extraEnv,
     },
     encoding: 'utf8',
-    // Loading LangChain under tsx takes ~10 s alone, longer when Jest runs suites in parallel.
-    timeout: 90_000,
+    // Loading LangChain under tsx takes ~10 s alone, and minutes on a loaded machine while
+    // Jest runs other suites in parallel; a kill here would read as a wrong exit code.
+    timeout: SPAWN_TIMEOUT_MS,
   });
 }
+
+const SPAWN_TIMEOUT_MS = 240_000;
+// spawnSync blocks the test, so Jest's own timeout must outlast the child's.
+jest.setTimeout(SPAWN_TIMEOUT_MS + 30_000);
 
 describe('server startup', () => {
   it('exits 1 with a readable message when env vars are missing', () => {
