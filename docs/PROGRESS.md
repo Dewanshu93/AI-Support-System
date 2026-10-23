@@ -60,7 +60,7 @@ decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------ | ------------ |
 | UC-11 | Leave management: balances, apply for leave by chat/form   | Built (11a–c); P-1 v3 eval + E2E re-record pending a quality model | UC-01, UC-05 |
 | UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                                      | UC-02, UC-03 |
-| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)                                        | UC-05        |
+| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Built; P-10 v2 eval with the P-1 v3 run                            | UC-05        |
 | UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                                        | W2-09        |
 | UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                                        | UC-04, UC-09 |
 | UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                                        | W4-02        |
@@ -2305,3 +2305,20 @@ OpenRouter quality 402 (credit). Flow 1 now accepts a cited ANSWER or PARTIAL (o
 |                                            | Range counts working days; missing type lists balances; unreadable date quoted back; overlap refused; sick for a past day recorded + attendance; contractor; invalid output → fallback |
 | `ActionCard.test.tsx`                      | Leave body: dates, days, balance after, approval, warnings, button text; sick "recorded at once"                                                                                       |
 | `golden:validate`, eval runner tests       | Valid, 107 cases; runner tests 81/81                                                                                                                                                   |
+
+## UC-13 Bulk timesheet actions — 2026-10-23
+
+**Delivered:** P-10 `timesheet_extract` v2 (optional `bulk`: `missing_days` / `copy_last_week`;
+v1 stays active), `domain/timesheetBulk.ts`, bulk branch in `timesheetLog` (same rules and card),
+`records.entries`, golden `WS-TSL-007` – `009` (110 cases). ADR-027.
+
+**Defaults (owner can change):** "missing days" = this and last week's gaps, filled up to the
+required hours unless hours are given; "copy last week" = this week's empty working days up to
+today, same weekday's entries.
+
+**Verification:** `timesheetBulk.test.ts` (fill up to required / given hours, nothing to fill;
+copy every project, skips days with hours, non-working, future and empty source days);
+`copilotBulkTimesheet.test.ts` (fake models: Priya's gap filled, Tom's partial day completed,
+missing project asks, Ravi nothing to fill, copy last week proposes and confirm saves every
+entry with one audit, v1 output unchanged, v2 renders with both kinds); `copilotAction.test.ts`
+unchanged and green. Eval pending with P-1 v3.

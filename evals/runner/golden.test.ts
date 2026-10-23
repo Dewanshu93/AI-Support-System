@@ -22,7 +22,7 @@ describe('golden.v1.jsonl', () => {
 
   it('matches the section 8 composition', () => {
     expect(goldenComposition(cases)).toMatchObject({
-      total: 107,
+      total: 110,
       byCategory: {
         answerable: 35,
         partial: 10,
@@ -31,7 +31,7 @@ describe('golden.v1.jsonl', () => {
         sensitive: 8,
         out_of_scope: 5,
         // UC-09: employee-records copilot cases.
-        timesheet_log: 6,
+        timesheet_log: 9,
         timesheet_status: 3,
         payroll: 5,
         request_status: 3,
@@ -199,7 +199,7 @@ describe('composition and parsing', () => {
     const problems = findCompositionProblems(cases.filter((c) => c.category !== 'sensitive'));
     expect(problems).toEqual(
       expect.arrayContaining([
-        'total cases: 99, section 8 expects 107',
+        'total cases: 102, section 8 expects 110',
         'sensitive cases: 0, section 8 expects 8',
       ]),
     );

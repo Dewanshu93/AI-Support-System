@@ -1200,6 +1200,16 @@ inside the app:
   days, balance after, approval, warnings).
 - Golden set: 107 cases (`WS-LBL` 3, `WS-LAP` 5, `WS-BRF` 2).
 
+## Copilot: bulk timesheet requests (UC-13, ADR-027)
+
+- P-10 `timesheet_extract` v2 (not active until the P-1 v3 eval) may return no entries and a
+  `bulk` request (`missing_days` with project and hours, or `copy_last_week`).
+- `timesheetLog` expands it with `domain/timesheetBulk.ts` (`fillMissingDays` over this and last
+  week's day statuses; `copyLastWeek` from `records.entries` of last week into this week's empty
+  days up to today), then the same `previewTimesheet` rules and confirmation card as single
+  entries. Missing project → CLARIFY; nothing to do → `TIMESHEET_BULK_NOTHING`.
+- Golden set: 110 cases (`WS-TSL-007` – `009`).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

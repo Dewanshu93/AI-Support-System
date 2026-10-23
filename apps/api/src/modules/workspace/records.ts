@@ -58,6 +58,7 @@ export function createWorkspaceRecords(deps: {
       return { saved: result.saved };
     },
     days: (who, from, to) => deps.service.days(who, from, to),
+    entries: (who, from, to) => deps.service.entries(who, from, to),
     payroll: (who) => deps.service.payrollFacts(who),
     attention: (who) => deps.service.needsAttention(who),
     ...leaveRecords,

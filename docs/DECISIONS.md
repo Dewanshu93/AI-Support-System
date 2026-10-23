@@ -754,3 +754,24 @@ Format: context · decision · alternatives · consequences. Numbering follows t
 - **Consequences:** live booking by chat depends on P-1 v3 (or the code backstop) picking
   `leave_apply`; until the eval run switches v3 on, v2 rarely does. The eval never confirms
   (`applyLeave` refuses in eval runs, like `saveTimesheet`).
+
+## ADR-027 — Bulk timesheet requests: P-10 v2 names the kind, code picks the days (UC-13)
+
+- **Status:** Accepted (UC-13, 2026-10-23; amendment A-1)
+- **Context:** "Fill my missing days with Banking" or "copy last week" name no day. Asking the
+  model to list the days would let it invent dates or hours, against rule E.2.
+- **Decision:**
+  - **P-10 `timesheet_extract` v2** adds an optional `bulk` field: `kind` (`none`,
+    `missing_days`, `copy_last_week`), plus project and hours for `missing_days`. The model never
+    names days for a bulk request. v1 output (no `bulk`) still validates; the schema accepts
+    either entries or a bulk request.
+  - Code expands it (`domain/timesheetBulk.ts`): **missing days** = missing or partial past
+    working days of this week and last (the window of "Which days am I missing?"), each with the
+    given hours or what is left of the required hours; **copy last week** = this week's empty
+    working days up to today take last week's entries for the same weekday (days with hours,
+    weekends, holidays, leave and empty source days are skipped). The result goes through the same
+    timesheet rules and the same confirmation card; nothing to fill gives a code reply.
+  - v2 joins the P-1 v3 eval run before it is switched on in `config/prompts.yaml` (v1 stays
+    active). Golden set: `WS-TSL-007` – `009`.
+- **Consequences:** one confirm saves every entry, audited as one `timesheet.save` with every
+  change listed. Wider windows (a whole month) are out of scope: the employee names days instead.

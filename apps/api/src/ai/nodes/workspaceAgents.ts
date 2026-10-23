@@ -43,6 +43,8 @@ export interface WorkspaceRecords {
     source: 'copilot',
   ): Promise<{ saved: number }>;
   days(who: { id: string; country: Country }, from: IsoDate, to: IsoDate): Promise<TimesheetDay[]>;
+  /** Stored timesheet cells in a range ("copy last week", UC-13). */
+  entries?(who: { id: string }, from: IsoDate, to: IsoDate): Promise<ProposedCell[]>;
   requests(userId: string): Promise<RequestSummary[]>;
   /** Payslips, Loss of Pay days and their attendance/timesheet records (UC-06). */
   payroll(who: Employee): Promise<PayrollFacts>;

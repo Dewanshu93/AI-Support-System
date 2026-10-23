@@ -154,6 +154,13 @@ export function timesheetAppliedReply(entries: ProposedEntry[]): string {
   return `Saved to your timesheet: ${saved}.${late}`;
 }
 
+/** A bulk request (UC-13) that covers no day: nothing to propose. */
+export function bulkNothingReply(kind: 'missing_days' | 'copy_last_week'): string {
+  return kind === 'missing_days'
+    ? 'Nothing to fill: every past working day this week and last week already has its hours.'
+    : 'Nothing to copy: this week has no empty working day up to today, or last week had no hours on those days.';
+}
+
 export const TIMESHEET_EXTRACTION_FAILED_REPLY =
   'I could not read that timesheet request. Try something like "Log 8 hours for the Banking Module yesterday", or use the Timesheets page.';
 

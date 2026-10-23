@@ -443,6 +443,13 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     today,
     /** Day statuses for a range (the copilot timesheet agent uses this too). */
     days: async (user: Who, from: IsoDate, to: IsoDate) => (await days(user, from, to)).days,
+    /** Stored cells in a range (the copilot's "copy last week", UC-13). */
+    entries: async (user: Pick<Who, 'id'>, from: IsoDate, to: IsoDate) =>
+      (await workspace.timesheetEntries(uid(user), from, to)).map((e) => ({
+        date: e.date,
+        projectId: e.projectId.toHexString(),
+        hours: e.hours,
+      })),
     week,
     previewCells,
     saveCells,

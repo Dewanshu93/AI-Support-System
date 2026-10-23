@@ -8,7 +8,9 @@
 import type { ActionResult, TimesheetAction } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { resolveDateText } from '../../domain/dateText';
+import { copyLastWeek, fillMissingDays } from '../../domain/timesheetBulk';
 import {
+  bulkNothingReply,
   leaveAppliedReply,
   type ProposedEntry,
   TIMESHEET_EXTRACTION_FAILED_REPLY,
@@ -92,6 +94,54 @@ export function createTimesheetLog(deps: TimesheetLogDeps) {
       );
     }
 
+    // Bulk requests (UC-13, P-10 v2): code picks the days; the model named none.
+    const bulk = data.entries.length === 0 ? data.bulk : undefined;
+    if (bulk && bulk.kind !== 'none') {
+      const monday = weekStart(today);
+      let bulkCells: ProposedCell[];
+      if (bulk.kind === 'missing_days') {
+        const project =
+          bulk.projectCode && bulk.projectCode !== UNKNOWN_PROJECT
+            ? byCode.get(bulk.projectCode)
+            : undefined;
+        if (!project) {
+          return reply(
+            timesheetMissingReply({
+              date: false,
+              unreadableDate: null,
+              project: true,
+              hours: false,
+              projectNames: projects.map((p) => p.name),
+            }),
+            decision('CLARIFY', 'TIMESHEET_DETAILS_MISSING'),
+            traced({ extracted: data }),
+          );
+        }
+        const days = await records.days(who, shiftDays(monday, -7), today);
+        bulkCells = fillMissingDays(days, project.id, bulk.hours ?? null);
+      } else {
+        if (!records.entries) {
+          return reply(
+            TIMESHEET_EXTRACTION_FAILED_REPLY,
+            decision('CLARIFY', 'RECORDS_UNAVAILABLE'),
+          );
+        }
+        const [thisWeek, lastWeek] = await Promise.all([
+          records.days(who, monday, today),
+          records.entries(who, shiftDays(monday, -7), shiftDays(monday, -1)),
+        ]);
+        bulkCells = copyLastWeek(thisWeek, lastWeek);
+      }
+      if (bulkCells.length === 0) {
+        return reply(
+          bulkNothingReply(bulk.kind),
+          decision('ANSWER', 'TIMESHEET_BULK_NOTHING'),
+          traced({ extracted: data, cells: [] }),
+        );
+      }
+      return propose(bulkCells, { extracted: data, bulk: bulk.kind });
+    }
+
     // Code turns the extraction into cells: dates resolved, projects mapped.
     const cells: ProposedCell[] = [];
     let missingDate = false;
@@ -123,40 +173,51 @@ export function createTimesheetLog(deps: TimesheetLogDeps) {
       );
     }
 
-    // Same rules as the timesheet form, checked by code before anything is proposed.
-    const preview = await records.previewTimesheet(who, cells);
-    if (preview.problems.length > 0) {
-      return reply(
-        timesheetProblemsReply(preview.problems),
-        decision('CLARIFY', 'TIMESHEET_RULES'),
-        traced({ extracted: data.entries, cells, problems: preview.problems }),
-      );
-    }
+    return propose(cells, { extracted: data.entries, cells });
 
-    const entries: ProposedEntry[] = preview.entries.map((e) => ({
-      ...e,
-      projectName: projects.find((p) => p.id === e.projectId)!.name,
-    }));
-    const action: TimesheetAction = {
-      kind: 'timesheet_log',
-      entries: preview.entries.map((e) => {
-        const project = projects.find((p) => p.id === e.projectId)!;
-        return { ...e, projectName: project.name, projectColor: project.color };
-      }),
-    };
-    return {
-      ...reply(timesheetConfirmReply(entries), decision('ANSWER', 'TIMESHEET_ACTION_PROPOSED')),
-      output: {
-        text: timesheetConfirmReply(entries),
-        citations: [],
-        uncovered: [],
-        withdrawn: false,
-        action,
-      },
-      ...traced({ extracted: data.entries, cells }),
-    };
+    /** Same rules as the timesheet form, checked by code before anything is proposed. */
+    async function propose(proposed: ProposedCell[], outputs: Record<string, unknown>) {
+      const preview = await records!.previewTimesheet(who, proposed);
+      if (preview.problems.length > 0) {
+        return reply(
+          timesheetProblemsReply(preview.problems),
+          decision('CLARIFY', 'TIMESHEET_RULES'),
+          traced({ ...outputs, cells: proposed, problems: preview.problems }),
+        );
+      }
+
+      const entries: ProposedEntry[] = preview.entries.map((e) => ({
+        ...e,
+        projectName: projects.find((p) => p.id === e.projectId)!.name,
+      }));
+      const action: TimesheetAction = {
+        kind: 'timesheet_log',
+        entries: preview.entries.map((e) => {
+          const project = projects.find((p) => p.id === e.projectId)!;
+          return { ...e, projectName: project.name, projectColor: project.color };
+        }),
+      };
+      return {
+        ...reply(timesheetConfirmReply(entries), decision('ANSWER', 'TIMESHEET_ACTION_PROPOSED')),
+        output: {
+          text: timesheetConfirmReply(entries),
+          citations: [],
+          uncovered: [],
+          withdrawn: false,
+          action,
+        },
+        ...traced({ ...outputs, cells: proposed }),
+      };
+    }
   };
 }
+
+const DAY_MS = 86_400_000;
+const shiftDays = (iso: string, n: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+/** Monday of the week containing `iso`. */
+const weekStart = (iso: string) =>
+  shiftDays(iso, -((new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7));
 
 export interface ApplyActionDeps {
   records?: WorkspaceRecords;

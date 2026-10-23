@@ -35,7 +35,7 @@ export const GOLDEN_FILE = path.join(
 
 /** Section 8 composition, plus the workspace cases (UC-09; UC-11/UC-12, amendment A-1). */
 export const COMPOSITION = {
-  total: 107,
+  total: 110,
   byCategory: {
     answerable: 35,
     partial: 10,
@@ -43,7 +43,7 @@ export const COMPOSITION = {
     escalate: 12,
     sensitive: 8,
     out_of_scope: 5,
-    timesheet_log: 6,
+    timesheet_log: 9,
     timesheet_status: 3,
     payroll: 5,
     request_status: 3,
