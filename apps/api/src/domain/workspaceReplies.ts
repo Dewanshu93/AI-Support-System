@@ -460,6 +460,76 @@ export function leaveBalanceReply(f: LeaveFacts, today: string): string {
 export const LEAVE_APPLY_PENDING_REPLY =
   'I cannot book leave from the chat yet. Open Leave in the menu to request it; your balance and the dates are checked there straight away.';
 
+// --- leave action (UC-11c) ---------------------------------------------------------------
+
+/** What the copilot still needs before it can propose a leave request. */
+export interface LeaveMissing {
+  type: boolean;
+  date: boolean;
+  /** A date phrase code could not read, quoted back to the employee. */
+  unreadableDate: string | null;
+  /** "Annual leave (12 left)", offered when the type is missing. */
+  typeOptions: string[];
+}
+
+export function leaveMissingReply(m: LeaveMissing): string {
+  const asks: string[] = [];
+  if (m.type) asks.push(`Which kind of leave? You can book: ${m.typeOptions.join(', ')}.`);
+  if (m.unreadableDate) {
+    asks.push(
+      `I could not tell which day "${m.unreadableDate}" is. Please give the date, for example "26 October" or "next Monday".`,
+    );
+  } else if (m.date) {
+    asks.push('Which day or days?');
+  }
+  return ['I need a little more to book your leave.', ...asks].join('\n');
+}
+
+/** Rule problems found by code (the same rules as the Leave page). */
+export function leaveProblemsReply(problems: { message: string }[]): string {
+  return [
+    'I cannot book that as asked:',
+    ...problems.map((p) => `• ${p.message}`),
+    'Tell me what to change, or use the Leave page.',
+  ].join('\n');
+}
+
+/** The proposed request, as the confirmation card shows it. */
+export interface ProposedLeave {
+  typeLabel: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  availableAfter: number;
+  needsApproval: boolean;
+  warnings: string[];
+}
+
+const leaveLine = (l: ProposedLeave) => `${l.typeLabel}, ${span(l)} (${days(l.days)})`;
+
+/** Shown with the confirmation card; nothing is sent yet. */
+export function leaveConfirmReply(l: ProposedLeave): string {
+  return [
+    `Please confirm this leave request. Nothing is ${l.needsApproval ? 'sent' : 'recorded'} until you confirm.`,
+    `• ${leaveLine(l)}`,
+    `• ${l.typeLabel} left after this: ${days(l.availableAfter)}`,
+    l.needsApproval
+      ? '• HR approves it for your manager; you will be notified.'
+      : '• Sick leave is recorded at once; tell your manager as well.',
+    ...l.warnings.map((w) => `Note: ${w}`),
+  ].join('\n');
+}
+
+/** Recorded in the conversation after the employee confirmed. */
+export function leaveAppliedReply(l: ProposedLeave): string {
+  return l.needsApproval
+    ? `Sent for approval: ${leaveLine(l)}. You will be notified when HR decides; you can follow it on the Leave page.`
+    : `Recorded: ${leaveLine(l)}.`;
+}
+
+export const LEAVE_EXTRACTION_FAILED_REPLY =
+  'I could not read that leave request. Try something like "Casual leave on 26 October" or "Annual leave from Oct 26 to Oct 28", or use the Leave page.';
+
 /** One "needs your attention" item (the dashboard's `attention`), as the reply needs it. */
 export type BriefingItem =
   | { kind: 'lop_risk'; severity: string; date: string; cutoff: string }

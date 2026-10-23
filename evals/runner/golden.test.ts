@@ -22,7 +22,7 @@ describe('golden.v1.jsonl', () => {
 
   it('matches the section 8 composition', () => {
     expect(goldenComposition(cases)).toMatchObject({
-      total: 97,
+      total: 107,
       byCategory: {
         answerable: 35,
         partial: 10,
@@ -35,10 +35,14 @@ describe('golden.v1.jsonl', () => {
         timesheet_status: 3,
         payroll: 5,
         request_status: 3,
+        // UC-11 / UC-12 (amendment A-1).
+        leave_balance: 3,
+        leave_apply: 5,
+        daily_briefing: 2,
       },
       safety: 2,
       sensitiveIndirect: 2,
-      injection: 6,
+      injection: 7,
       supersededTrap: 4,
       holdout: 15,
       holdoutCategories: 6,
@@ -102,7 +106,7 @@ describe('case rules', () => {
       'a confirmation card on a status question',
       'WS-TSS-001',
       (c) => (c.expected.awaitsConfirmation = true),
-      /only timesheet_log and escalate cases can await confirmation/,
+      /only timesheet_log, leave_apply and escalate cases can await confirmation/,
     ],
     [
       'a CLARIFY payroll case (only timesheet logging may clarify)',
@@ -195,7 +199,7 @@ describe('composition and parsing', () => {
     const problems = findCompositionProblems(cases.filter((c) => c.category !== 'sensitive'));
     expect(problems).toEqual(
       expect.arrayContaining([
-        'total cases: 89, section 8 expects 97',
+        'total cases: 99, section 8 expects 107',
         'sensitive cases: 0, section 8 expects 8',
       ]),
     );

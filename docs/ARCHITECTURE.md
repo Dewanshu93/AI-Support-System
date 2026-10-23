@@ -1186,6 +1186,20 @@ inside the app:
 - **Records:** `createWorkspaceRecords({ …, leave })` takes the leave service (server, eval
   runner, chat test helper); `WorkspaceService.needsAttention` gives the attention items alone.
 
+## Copilot: booking leave (UC-11c, ADR-026)
+
+- `leaveApply` (`ai/nodes/leaveAction.ts`): P-12 `leave_extract` (type + date phrases) → code
+  resolves dates (`domain/dateText.ts`: `ahead` for leave, back for sick; `resolveRangeEnd`) →
+  missing details / unreadable date / `records.checkLeave` problems → CLARIFY
+  (`LEAVE_DETAILS_MISSING`, `LEAVE_RULES`), contractors `LEAVE_NOT_ELIGIBLE` (no model call) →
+  otherwise `output.action` = `leave_apply` (`LEAVE_ACTION_PROPOSED`).
+- Actions: `CopilotActionSchema` (`packages/shared/src/api/actions.ts`) = `timesheet_log` |
+  `leave_apply`. `applyAction` books leave via `records.applyLeave` (`LeaveService.apply`, source
+  `copilot`); confirm audits `leave.apply` (or `timesheet.save`); cancel says "Leave request
+  cancelled. Nothing was booked." The chat `ActionCard` renders a leave body (dates, working
+  days, balance after, approval, warnings).
+- Golden set: 107 cases (`WS-LBL` 3, `WS-LAP` 5, `WS-BRF` 2).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

@@ -13,3 +13,4 @@ active:
   gap_cluster_label: 1 # P-8 (W4-02)
   timesheet_extract: 1 # P-10 (UC-05, ADR-015)
   payroll_explain: 1 # P-11 (UC-06, ADR-015)
+  leave_extract: 1 # P-12 (UC-11c, ADR-026; eval with P-1 v3)

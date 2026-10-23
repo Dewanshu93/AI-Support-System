@@ -56,15 +56,15 @@ Build Contract amendment A-1 (2026-10-20): owner approved, manager approval pend
 prompt or intent needs an ADR (CLAUDE.md "Do Not Build": LLM calls beyond ADR-015). Owner
 decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 v3 and one eval run.
 
-| Task  | Name                                                       | Status                                               | Depends on   |
-| ----- | ---------------------------------------------------------- | ---------------------------------------------------- | ------------ |
-| UC-11 | Leave management: balances, apply for leave by chat/form   | 11a, 11b done; 11c (apply by chat, P-1 v3 eval) next | UC-01, UC-05 |
-| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                        | UC-02, UC-03 |
-| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)                          | UC-05        |
-| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                          | W2-09        |
-| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                          | UC-04, UC-09 |
-| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                          | W4-02        |
-| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)                          | UC-08        |
+| Task  | Name                                                       | Status                                                             | Depends on   |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------------------------ | ------------ |
+| UC-11 | Leave management: balances, apply for leave by chat/form   | Built (11a–c); P-1 v3 eval + E2E re-record pending a quality model | UC-01, UC-05 |
+| UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                                      | UC-02, UC-03 |
+| UC-13 | Bulk timesheet actions (several entries, one confirm card) | Planned (amendment pending)                                        | UC-05        |
+| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                                        | W2-09        |
+| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                                        | UC-04, UC-09 |
+| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                                        | W4-02        |
+| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)                                        | UC-08        |
 
 Scope notes (to be expanded into task cards when each task starts):
 
@@ -2275,3 +2275,33 @@ unchanged (recordings are keyed by prompt text).
 | Retrieval eval (2026-10-21, after `hr-casual-leave`) | recall@5 100% all modes (54/54), leakage 0; report `evals/reports/2026-10-21-retrieval-6e22e038.md`                                                                                                         |
 | Playwright (full, replay)                            | 36/38. `auth.spec.ts` nav lists updated for Leave (10/10). Two `chat.spec.ts` Priya tests fail: casual-leave chunks now in her top results change the P-2 prompt, so the recordings miss; being re-recorded |
 | Eval                                                 | Not run (v3 not active); planned for UC-11c                                                                                                                                                                 |
+
+## UC-11c Copilot: booking leave by chat — 2026-10-23
+
+**Delivered:** P-12 `leave_extract` v1 (fast tier; listed in `config/prompts.yaml`), schema
+`LeaveExtraction`, `leaveApply` node (code resolves dates ahead / back for sick, ranges, rules via
+`checkLeave`; contractors without a model call), `CopilotActionSchema` union (state, SSE,
+`pendingAction`), `applyAction` books through `LeaveService.apply`, audit `leave.apply`
+(`triggeredBy: copilot`), leave cancel text, chat `ActionCard` leave body, eval runner refuses
+leave writes, golden set 107 (`WS-LBL` ×3, `WS-LAP` ×5, `WS-BRF` ×2; `HR-CLR-001` new question).
+ADR-026.
+
+**E2E chat recordings (from UC-11a):** the two Priya `chat.spec.ts` tests are still failing in
+replay. Root cause found: re-recording ran with Priya's Pro switch off, so the local model answered
+and P-2 was skipped, while replay always follows the Pro path (2026-10-13 rule). Re-recording with
+Pro on (temporarily, restored to off) was blocked by the providers: Gemini quality 503 / timeout,
+OpenRouter quality 402 (credit). Flow 1 now accepts a cited ANSWER or PARTIAL (owner decision,
+2026-10-21; uncommitted until the recordings exist). Fixture reverted, nothing stale committed.
+
+**Pending (needs a quality model):** the full eval with P-1 v3 and P-12 (then switch
+`turn_analysis: 3`), re-recording the two chat tests and the new chat flows.
+
+**Verification**
+
+| Check                                      | Result                                                                                                                                                                                 |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dateText.ahead.test.ts`                   | Forward weekdays, tomorrow, next/this coming, "last" still back, bare range end in the start month, invalid day; timesheet default unchanged                                           |
+| `copilotLeaveAction.test.ts` (fake models) | Exact proposal, nothing booked, 409 while waiting; confirm → pending request + audit + notification, idempotent; cancel; other employee 404; stale confirm books nothing               |
+|                                            | Range counts working days; missing type lists balances; unreadable date quoted back; overlap refused; sick for a past day recorded + attendance; contractor; invalid output → fallback |
+| `ActionCard.test.tsx`                      | Leave body: dates, days, balance after, approval, warnings, button text; sick "recorded at once"                                                                                       |
+| `golden:validate`, eval runner tests       | Valid, 107 cases; runner tests 81/81                                                                                                                                                   |

@@ -8,6 +8,7 @@ export const STAGE_FOR_NODE: Record<string, ChatStage> = {
   answer: 'writing',
   payrollExplain: 'writing',
   timesheetLog: 'writing',
+  leaveApply: 'writing',
   clarify: 'writing',
   slotFill: 'preparing_ticket',
 };

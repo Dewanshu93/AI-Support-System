@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { DecisionSchema } from '../enums';
 import { CitationDtoSchema } from './conversations';
 import { TicketDraftSchema } from './tickets';
-import { TimesheetActionSchema } from './workspace';
+import { CopilotActionSchema } from './actions';
 
 export const CHAT_STAGES = ['analyzing', 'searching', 'writing', 'preparing_ticket'] as const;
 export type ChatStage = (typeof CHAT_STAGES)[number];
@@ -36,7 +36,7 @@ export const ChatEventSchema = z.discriminatedUnion('type', [
   /** A copilot action waiting for the employee's confirmation (UC-05). */
   z.object({
     type: z.literal('action_draft'),
-    data: z.object({ action: TimesheetActionSchema }),
+    data: z.object({ action: CopilotActionSchema }),
   }),
   z.object({
     type: z.literal('handoff'),

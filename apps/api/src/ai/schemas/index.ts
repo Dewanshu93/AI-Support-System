@@ -8,6 +8,7 @@ import type { SchemaContext } from './common';
 import { AgentDraftReplySchema } from './draftReply';
 import { GapClusterLabelSchema } from './gapClusterLabel';
 import { GroundedAnswerTrailerSchema } from './groundedAnswer';
+import { LeaveExtractionSchema } from './leaveExtraction';
 import { PayrollExplanationSchema } from './payrollExplanation';
 import { RerankAssessmentSchema } from './rerank';
 import { slotFillSchema } from './slotFill';
@@ -20,6 +21,7 @@ export * from './common';
 export * from './draftReply';
 export * from './gapClusterLabel';
 export * from './groundedAnswer';
+export * from './leaveExtraction';
 export * from './payrollExplanation';
 export * from './rerank';
 export * from './slotFill';
@@ -36,6 +38,7 @@ export const OUTPUT_SCHEMAS = {
   // Project codes are per employee: the node builds the strict schema per call.
   TimesheetExtraction: () => timesheetExtractionSchema([]),
   PayrollExplanation: () => PayrollExplanationSchema,
+  LeaveExtraction: () => LeaveExtractionSchema,
   AgentSummary: () => AgentSummaryResultSchema,
   AgentDraftReply: () => AgentDraftReplySchema,
   GapClusterLabel: () => GapClusterLabelSchema,

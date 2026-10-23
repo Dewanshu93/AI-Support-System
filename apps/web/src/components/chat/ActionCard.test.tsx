@@ -1,5 +1,5 @@
-// What the employee sees before confirming a copilot timesheet action (UC-05).
-import type { TimesheetAction } from '@sd/shared';
+// What the employee sees before confirming a copilot action (UC-05, UC-11c).
+import type { CopilotAction, LeaveAction, TimesheetAction } from '@sd/shared';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ActionCard } from './ActionCard';
 
@@ -29,7 +29,7 @@ const ACTION: TimesheetAction = {
   ],
 };
 
-const render = (action = ACTION) =>
+const render = (action: CopilotAction = ACTION) =>
   renderToStaticMarkup(<ActionCard conversationId="c" action={action} onDone={() => undefined} />);
 
 describe('ActionCard', () => {
@@ -60,5 +60,39 @@ describe('ActionCard', () => {
     const html = render({ ...ACTION, entries: [ACTION.entries[1]!] });
     expect(html).not.toContain('Late entry');
     expect(html).toContain('Confirm timesheet entry');
+  });
+});
+
+// UC-11c: a leave request proposed by the copilot.
+describe('ActionCard (leave)', () => {
+  const LEAVE: LeaveAction = {
+    kind: 'leave_apply',
+    type: 'annual',
+    typeLabel: 'Annual leave',
+    startDate: '2026-10-23',
+    endDate: '2026-10-27',
+    days: 3,
+    availableAfter: 9,
+    needsApproval: true,
+    warnings: ["Annual leave of more than 3 working days needs 10 working days' notice."],
+  };
+
+  it('shows the dates, working days, balance after and who approves, with any warning', () => {
+    const html = render(LEAVE);
+    expect(html).toContain('data-kind="leave_apply"');
+    expect(html).toContain('Confirm annual leave');
+    expect(html).toContain('Fri 23 Oct – Tue 27 Oct');
+    expect(html).toContain('9 days');
+    expect(html).toContain('HR approves for your manager');
+    expect(html).toContain('needs 10 working days');
+    expect(html).toContain('Nothing is sent until you confirm.');
+    expect(html).toContain('Confirm and send');
+    expect(html).not.toContain('action-entry');
+  });
+
+  it('says sick leave is recorded at once', () => {
+    const html = render({ ...LEAVE, type: 'sick', typeLabel: 'Sick leave', needsApproval: false });
+    expect(html).toContain('Recorded at once');
+    expect(html).toContain('Confirm and record');
   });
 });

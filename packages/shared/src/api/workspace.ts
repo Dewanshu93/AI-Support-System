@@ -418,6 +418,8 @@ export const ActionResultSchema = z.object({
   status: z.enum(['applied', 'cancelled', 'failed']),
   message: z.string(),
   saved: z.number().int(),
+  /** The record the action created (a leave request, UC-11c), for the audit entry. */
+  recordId: z.string().optional(),
 });
 export type ActionResult = z.infer<typeof ActionResultSchema>;
 export const ActionConfirmResponseSchema = z.object({ result: ActionResultSchema });

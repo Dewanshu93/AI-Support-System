@@ -6,7 +6,7 @@ import { Annotation } from '@langchain/langgraph';
 import type {
   AccessLevel,
   ActionResult,
-  TimesheetAction,
+  CopilotAction,
   Country,
   Decision,
   Domain,
@@ -174,8 +174,8 @@ export interface Output {
   ticketId?: string;
   /** The escalation email recorded by sendEmail after confirm (UC-07). */
   emailId?: string;
-  /** A copilot action waiting for confirmation (UC-05); nothing is saved before confirm. */
-  action?: TimesheetAction;
+  /** A copilot action waiting for confirmation (UC-05, UC-11c); nothing is saved before confirm. */
+  action?: CopilotAction;
   /** Set by applyAction after the employee confirmed. */
   actionResult?: ActionResult;
 }

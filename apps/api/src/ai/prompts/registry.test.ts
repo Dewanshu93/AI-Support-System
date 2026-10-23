@@ -159,6 +159,7 @@ describe('committed prompts', () => {
     ticket_slot_fill: ['analysis', 'conversation', 'fieldSchemas', 'profile', 'taxonomy'],
     timesheet_extract: ['history', 'message', 'projects', 'today'],
     payroll_explain: ['question', 'records', 'sources'],
+    leave_extract: ['history', 'message', 'today', 'types'],
     agent_ticket_summary: ['articles', 'conversation', 'ticket'],
     agent_draft_reply: ['brief', 'sources', 'ticket', 'tone'],
     gap_cluster_label: ['questions'],

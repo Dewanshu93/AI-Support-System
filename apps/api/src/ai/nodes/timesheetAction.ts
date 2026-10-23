@@ -3,12 +3,13 @@
 //     the dates, maps project codes, checks every timesheet rule and either asks
 //     for what is missing or proposes the exact entries. Nothing is written.
 //   applyAction — code, graph-owned tool node: runs only after the employee
-//     confirmed the proposed entries (awaitConfirmation) and saves them through
-//     the same service as the timesheet form.
+//     confirmed the proposed action (awaitConfirmation) and saves it through the
+//     same service as the form: timesheet entries, or a leave request (UC-11c).
 import type { ActionResult, TimesheetAction } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { resolveDateText } from '../../domain/dateText';
 import {
+  leaveAppliedReply,
   type ProposedEntry,
   TIMESHEET_EXTRACTION_FAILED_REPLY,
   timesheetAppliedReply,
@@ -175,20 +176,47 @@ export function createApplyAction(deps: ApplyActionDeps) {
     const action = state.output?.action;
     if (!action) throw new Error('applyAction: no action to apply');
     if (!deps.records || !state.profile) throw new Error('applyAction: records unavailable');
-    const who = { id: state.input.userId, country: state.profile.country };
-    const cells = action.entries.map(({ date, projectId, hours }) => ({ date, projectId, hours }));
+    const who = {
+      id: state.input.userId,
+      country: state.profile.country,
+      employmentType: state.profile.employmentType,
+    };
+    const issuesOf = (err: unknown) =>
+      (err as { details?: { issues?: { message: string }[] } }).details?.issues
+        ?.map((i) => i.message)
+        .join('; ');
 
     let result: ActionResult;
-    try {
-      const { saved } = await deps.records.saveTimesheet(who, cells, 'copilot');
-      result = { status: 'applied', message: timesheetAppliedReply(action.entries), saved };
-    } catch (err) {
-      const issues = (err as { details?: { issues?: { message: string }[] } }).details?.issues;
-      result = {
-        status: 'failed',
-        message: `Nothing was saved: ${issues?.map((i) => i.message).join('; ') ?? 'the timesheet could not be updated'}. Please check the Timesheets page.`,
-        saved: 0,
-      };
+    if (action.kind === 'leave_apply') {
+      // UC-11c: books the leave exactly as shown, through the Leave page's service.
+      if (!deps.records.applyLeave) throw new Error('applyAction: leave records unavailable');
+      const { type, startDate, endDate } = action;
+      try {
+        const { id } = await deps.records.applyLeave(who, { type, startDate, endDate }, 'copilot');
+        result = { status: 'applied', message: leaveAppliedReply(action), saved: 1, recordId: id };
+      } catch (err) {
+        result = {
+          status: 'failed',
+          message: `Nothing was booked: ${issuesOf(err) ?? 'the leave request could not be made'}. Please check the Leave page.`,
+          saved: 0,
+        };
+      }
+    } else {
+      const cells = action.entries.map(({ date, projectId, hours }) => ({
+        date,
+        projectId,
+        hours,
+      }));
+      try {
+        const { saved } = await deps.records.saveTimesheet(who, cells, 'copilot');
+        result = { status: 'applied', message: timesheetAppliedReply(action.entries), saved };
+      } catch (err) {
+        result = {
+          status: 'failed',
+          message: `Nothing was saved: ${issuesOf(err) ?? 'the timesheet could not be updated'}. Please check the Timesheets page.`,
+          saved: 0,
+        };
+      }
     }
     await deps.conversations.insertMessage({
       _id: new ObjectId(),

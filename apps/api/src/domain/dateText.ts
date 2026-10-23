@@ -45,13 +45,22 @@ function calendarDate(year: number, month: number, day: number): DateResolution 
 }
 
 /**
- * Supported: ISO dates; today, yesterday, the day before yesterday; a weekday
- * ("Monday", "on Friday": the most recent one, today included; "last Friday":
- * the most recent one before today); "11 September", "September 11", "11th
- * Sep 2026", "Sep 11, 2026". A date without a year is in the current year.
- * Anything else (e.g. "11/09", ambiguous between US and UK) is unrecognised.
+ * Supported: ISO dates; today, yesterday, the day before yesterday, tomorrow,
+ * the day after tomorrow; a weekday ("Monday", "on Friday"); "11 September",
+ * "September 11", "11th Sep 2026", "Sep 11, 2026". A date without a year is in
+ * the current year. Anything else (e.g. "11/09", ambiguous between US and UK)
+ * is unrecognised.
+ *
+ * A bare weekday looks back by default (timesheets: "Monday" is the most recent
+ * one, today included; "last Friday" the most recent before today). With
+ * `ahead` (leave, UC-11c) it looks forward: "Monday" is the next one, today
+ * included; "next Friday" the next one after today.
  */
-export function resolveDateText(text: string, today: IsoDate): DateResolution {
+export function resolveDateText(
+  text: string,
+  today: IsoDate,
+  { ahead = false }: { ahead?: boolean } = {},
+): DateResolution {
   const t = text
     .trim()
     .toLowerCase()
@@ -69,15 +78,25 @@ export function resolveDateText(text: string, today: IsoDate): DateResolution {
   if (t === 'the day before yesterday' || t === 'day before yesterday') {
     return { date: addDays(today, -2) };
   }
+  if (t === 'tomorrow') return { date: addDays(today, 1) };
+  if (t === 'the day after tomorrow' || t === 'day after tomorrow') {
+    return { date: addDays(today, 2) };
+  }
 
-  const weekday = /^(last |this )?([a-z]+)$/.exec(t);
+  const weekday = /^(last |this |next |coming |this coming )?([a-z]+)$/.exec(t);
   if (weekday) {
     const target = weekdayIndex(weekday[2]!);
     if (target >= 0) {
       const current = new Date(toTime(today)).getUTCDay();
-      let back = (current - target + 7) % 7;
-      if (weekday[1] === 'last ' && back === 0) back = 7;
-      return { date: addDays(today, -back) };
+      const prefix = weekday[1]?.trim();
+      if (prefix === 'last' || (!ahead && prefix !== 'next' && prefix !== 'coming')) {
+        let back = (current - target + 7) % 7;
+        if (prefix === 'last' && back === 0) back = 7;
+        return { date: addDays(today, -back) };
+      }
+      let forward = (target - current + 7) % 7;
+      if (prefix === 'next' && forward === 0) forward = 7;
+      return { date: addDays(today, forward) };
     }
   }
 
@@ -97,4 +116,21 @@ export function resolveDateText(text: string, today: IsoDate): DateResolution {
     }
   }
   return { error: 'unrecognised' };
+}
+
+/**
+ * The end of a range ("Oct 24-25" → start "Oct 24", end "25"): a bare day number
+ * takes the start's month and year; anything else resolves like a start date.
+ */
+export function resolveRangeEnd(
+  text: string,
+  start: IsoDate,
+  today: IsoDate,
+  options: { ahead?: boolean } = {},
+): DateResolution {
+  const bare = /^\s*(\d{1,2})(?:st|nd|rd|th)?\s*$/.exec(text);
+  if (bare) {
+    return calendarDate(Number(start.slice(0, 4)), Number(start.slice(5, 7)) - 1, Number(bare[1]));
+  }
+  return resolveDateText(text, today, options);
 }

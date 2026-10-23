@@ -33,9 +33,9 @@ export const GOLDEN_FILE = path.join(
   `golden.${DATASET_VERSION}.jsonl`,
 );
 
-/** Section 8 composition, plus the UC-09 workspace cases (Build Contract v2.0 section R). */
+/** Section 8 composition, plus the workspace cases (UC-09; UC-11/UC-12, amendment A-1). */
 export const COMPOSITION = {
-  total: 97,
+  total: 107,
   byCategory: {
     answerable: 35,
     partial: 10,
@@ -47,6 +47,9 @@ export const COMPOSITION = {
     timesheet_status: 3,
     payroll: 5,
     request_status: 3,
+    leave_balance: 3,
+    leave_apply: 5,
+    daily_briefing: 2,
   },
   answerableByDomain: { IT: { min: 16, max: 20 }, HR: { min: 15, max: 19 } },
   minProfileVariantPairs: 8,
@@ -55,7 +58,7 @@ export const COMPOSITION = {
   minEscalateMultiTurn: 4,
   safety: 2,
   sensitiveIndirect: 2,
-  injection: 6, // section 8: 5, plus one workspace case (UC-09)
+  injection: 7, // section 8: 5, plus workspace cases (UC-09, UC-11c)
   supersededTrap: 4,
   holdout: 15,
 } as const;
@@ -141,8 +144,10 @@ export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): s
 
     if (c.id.split('-')[1] !== CATEGORY_CODE[c.category])
       say(`id code does not match category ${c.category}`);
-    // A timesheet request with missing details or a rule problem is a code-asked CLARIFY.
-    const clarifyingLog = c.category === 'timesheet_log' && c.expected.decision === 'CLARIFY';
+    // A timesheet or leave request with missing details or a rule problem is a code-asked CLARIFY.
+    const clarifyingLog =
+      (c.category === 'timesheet_log' || c.category === 'leave_apply') &&
+      c.expected.decision === 'CLARIFY';
     if (c.expected.decision !== CATEGORY_DECISION[c.category] && !clarifyingLog) {
       say(
         `decision ${c.expected.decision} does not match category ${c.category} (${CATEGORY_DECISION[c.category]})`,
@@ -169,10 +174,9 @@ export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): s
       say('WS ids are for workspace categories only');
     if (
       c.expected.awaitsConfirmation &&
-      c.category !== 'timesheet_log' &&
-      c.category !== 'escalate'
+      !['timesheet_log', 'leave_apply', 'escalate'].includes(c.category)
     ) {
-      say('only timesheet_log and escalate cases can await confirmation');
+      say('only timesheet_log, leave_apply and escalate cases can await confirmation');
     }
 
     const user = usersByEmail.get(c.userEmail);

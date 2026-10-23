@@ -2,7 +2,7 @@
 // (playbook sections 4 and 5). One running turn per conversation (409); a
 // conversation whose ticket draft awaits confirmation takes no new turns (409).
 // If the client disconnects, the graph still completes and persists.
-import type { AuthUser, ChatEvent, TicketDraft, TimesheetAction } from '@sd/shared';
+import type { AuthUser, ChatEvent, CopilotAction, TicketDraft } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { threadConfig } from '../../ai/graph/checkpointer';
 import type { SupportGraph } from '../../ai/graph/graph';
@@ -28,11 +28,11 @@ export interface TurnRequest {
   forceEscalate: boolean;
 }
 
-/** The copilot action awaiting confirmation (UC-05), if the graph is paused on one. */
+/** The copilot action awaiting confirmation (UC-05, UC-11c), if the graph is paused on one. */
 export async function pendingAction(
   graph: SupportGraph,
   conversationId: string,
-): Promise<TimesheetAction | undefined> {
+): Promise<CopilotAction | undefined> {
   const snapshot = await graph.getState(threadConfig(conversationId));
   if (!snapshot.next.includes('awaitConfirmation')) return undefined;
   return (snapshot.values as State).output?.action ?? undefined;
@@ -69,7 +69,7 @@ export function createTurnRunner(deps: TurnRunnerDeps) {
         throw new AppError('CONFLICT', 'A ticket draft is waiting for your confirmation');
       }
       if (await pendingAction(deps.graph, conversationId)) {
-        throw new AppError('CONFLICT', 'A timesheet entry is waiting for your confirmation');
+        throw new AppError('CONFLICT', 'A proposed action is waiting for your confirmation');
       }
       const userMessage: MessageDoc = {
         _id: new ObjectId(),

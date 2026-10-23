@@ -65,15 +65,7 @@ describe('leave balance by chat (UC-11b)', () => {
     expect(text).toContain('As a contractor you do not have company leave balances');
   });
 
-  it('does not book leave from the chat yet, and writes nothing', async () => {
-    const ctx = buildChatTestApp();
-    const before = ctx.workspace.data.leaveRequests.length;
-    ctx.script([intent('leave_apply')]);
-    const { done, text } = await ask(ctx, PRIYA, 'Apply casual leave for Oct 26');
-    expect(done).toMatchObject({ data: { reasonCode: 'LEAVE_ACTION_PENDING' } });
-    expect(text).toContain('Open Leave in the menu');
-    expect(ctx.workspace.data.leaveRequests).toHaveLength(before);
-  });
+  // Booking leave by chat (UC-11c): copilotLeaveAction.test.ts.
 });
 
 describe('"What should I do today?" (UC-12)', () => {

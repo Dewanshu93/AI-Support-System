@@ -1,9 +1,9 @@
-// Copilot action confirmation (UC-05, Build Contract v2.0 flow 3 and rule E.4).
+// Copilot action confirmation (UC-05, UC-11c; Build Contract v2.0 flow 3 and rule E.4).
 // Nothing is written before confirm: confirm resumes the graph paused in
 // awaitConfirmation, and applyAction saves the exact entries shown. Confirm is
 // idempotent: a second confirm returns the first result.
 import { Command } from '@langchain/langgraph';
-import type { ActionResult, AuthUser, TimesheetAction } from '@sd/shared';
+import type { ActionResult, AuthUser, CopilotAction } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import { threadConfig } from '../../ai/graph/checkpointer';
 import type { SupportGraph } from '../../ai/graph/graph';
@@ -22,6 +22,10 @@ export interface ActionServiceDeps {
 }
 
 export const ACTION_CANCELLED_TEXT = 'Timesheet entry cancelled. Nothing was saved.';
+export const LEAVE_CANCELLED_TEXT = 'Leave request cancelled. Nothing was booked.';
+
+const cancelledText = (action: CopilotAction | undefined) =>
+  action?.kind === 'leave_apply' ? LEAVE_CANCELLED_TEXT : ACTION_CANCELLED_TEXT;
 
 export function createActionService(deps: ActionServiceDeps) {
   const now = deps.now ?? (() => new Date());
@@ -31,7 +35,7 @@ export function createActionService(deps: ActionServiceDeps) {
     const output = (snapshot.values as State | undefined)?.output;
     return {
       waiting: snapshot.next.includes('awaitConfirmation') && !!output?.action,
-      action: output?.action as TimesheetAction | undefined,
+      action: output?.action,
       result: output?.actionResult,
     };
   }
@@ -40,7 +44,7 @@ export function createActionService(deps: ActionServiceDeps) {
     async confirm(
       id: string,
       user: AuthUser,
-    ): Promise<{ action: TimesheetAction; result: ActionResult; applied: boolean }> {
+    ): Promise<{ action: CopilotAction; result: ActionResult; applied: boolean }> {
       await deps.getOwned(id, user);
       return deps.exclusive(id, async () => {
         const before = await paused(id);
@@ -49,7 +53,7 @@ export function createActionService(deps: ActionServiceDeps) {
           if (before.action && before.result) {
             return { action: before.action, result: before.result, applied: false };
           }
-          throw new AppError('NOT_FOUND', 'There is no timesheet entry to confirm');
+          throw new AppError('NOT_FOUND', 'There is nothing to confirm');
         }
         await deps.graph.invoke(new Command({ resume: { action: 'confirm' } }), threadConfig(id));
         const after = await paused(id);
@@ -61,15 +65,16 @@ export function createActionService(deps: ActionServiceDeps) {
     async cancel(id: string, user: AuthUser): Promise<ConversationDoc> {
       await deps.getOwned(id, user);
       return deps.exclusive(id, async () => {
-        if (!(await paused(id)).waiting) {
-          throw new AppError('NOT_FOUND', 'There is no timesheet entry to cancel');
+        const before = await paused(id);
+        if (!before.waiting) {
+          throw new AppError('NOT_FOUND', 'There is nothing to cancel');
         }
         await deps.graph.invoke(new Command({ resume: { action: 'cancel' } }), threadConfig(id));
         await deps.conversations.insertMessage({
           _id: new ObjectId(),
           conversationId: new ObjectId(id),
           role: 'system_event',
-          content: ACTION_CANCELLED_TEXT,
+          content: cancelledText(before.action),
           decision: null,
           reasonCode: null,
           citations: [],

@@ -1,6 +1,7 @@
 // Public entry point of @sd/shared: enums, error envelope and API contracts
 // imported by both web and api.
 
+export * from './api/actions';
 export * from './api/agent';
 export * from './api/auth';
 export * from './api/chat-events';

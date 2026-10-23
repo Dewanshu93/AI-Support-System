@@ -252,7 +252,8 @@ export function stubApplyAction(state: State): StateUpdate {
       actionResult: {
         status: 'applied',
         message: 'Stub saved.',
-        saved: state.output?.action?.entries.length ?? 0,
+        saved:
+          state.output?.action?.kind === 'timesheet_log' ? state.output.action.entries.length : 1,
       },
     },
   };

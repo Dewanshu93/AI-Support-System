@@ -725,3 +725,32 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   and agents. An agent outside the leave queue (the IT agent) sees an empty list and gets 404 on a
   decision, as with ticket queues (W3-05).
   The copilot parts (balance answer, apply action) come in UC-11b/c with P-1 v3.
+
+## ADR-026 — Booking leave by chat: P-12 leave_extract, one action union, eval with P-1 v3 (UC-11c)
+
+- **Status:** Accepted (UC-11c, 2026-10-23; amendment A-1, owner decisions on slicing and one eval run)
+- **Context:** "Apply leave for Oct 24-25" needs the leave type and dates read from free text,
+  which code cannot do reliably; CLAUDE.md allows no LLM call beyond the approved prompts without
+  an ADR. The UC-05 confirmation plumbing (state, SSE, pending action, confirm/cancel, audit, card)
+  only knew timesheet entries.
+- **Decision:**
+  - New prompt **P-12 `leave_extract`** (fast tier, temperature 0). The model only picks a type
+    from the config ids (or "unknown") and copies the first and last day phrases; it never
+    calculates dates, counts days or sees balances. Output schema `LeaveExtraction`.
+  - Code does the rest: `resolveDateText(…, { ahead })` reads leave dates forward ("Friday",
+    "next Monday", "tomorrow"), except sick leave, which looks back; `resolveRangeEnd` reads a
+    bare end day ("Oct 24-25") in the start month. Missing type or dates, an unreadable date or a
+    rule problem (`checkLeave`, the Leave page's rules) gives a code-written CLARIFY; contractors get
+    the fixed reply with no model call. Otherwise a `leave_apply` action is proposed.
+  - **One action union** `CopilotActionSchema` (`timesheet_log` | `leave_apply`) in
+    `packages/shared/src/api/actions.ts` for state, the `action_draft` event and `pendingAction`;
+    `applyAction` books leave through the same `LeaveService.apply` as the form, so a rule that
+    fails at confirm time (e.g. the day was booked meanwhile) books nothing. Audit `leave.apply`
+    with `triggeredBy: copilot, approvedBy: employee` and the request id (`ActionResult.recordId`).
+  - `config/prompts.yaml` lists `leave_extract: 1` so the branch runs; its eval and recordings
+    come with the P-1 v3 switch (one run for UC-11 – UC-17, owner decision). Golden set: ten
+    workspace cases (`WS-LBL`, `WS-LAP`, `WS-BRF`); `HR-CLR-001`'s question moved to `WS-LBL-001`
+    and the clarify slot got a new vague question.
+- **Consequences:** live booking by chat depends on P-1 v3 (or the code backstop) picking
+  `leave_apply`; until the eval run switches v3 on, v2 rarely does. The eval never confirms
+  (`applyLeave` refuses in eval runs, like `saveTimesheet`).

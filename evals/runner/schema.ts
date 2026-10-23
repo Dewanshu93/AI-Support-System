@@ -21,6 +21,10 @@ export const WORKSPACE_CATEGORIES = [
   'timesheet_status',
   'payroll',
   'request_status',
+  // P-1 v3 (amendment A-1): UC-11 leave, UC-12 daily briefing.
+  'leave_balance',
+  'leave_apply',
+  'daily_briefing',
 ] as const;
 export const CASE_CATEGORIES = [...KNOWLEDGE_CATEGORIES, ...WORKSPACE_CATEGORIES] as const;
 export type CaseCategory = (typeof CASE_CATEGORIES)[number];
@@ -44,6 +48,9 @@ export const CATEGORY_DECISION = {
   timesheet_status: 'ANSWER',
   payroll: 'ANSWER',
   request_status: 'ANSWER',
+  leave_balance: 'ANSWER',
+  leave_apply: 'ANSWER',
+  daily_briefing: 'ANSWER',
 } as const satisfies Record<CaseCategory, z.infer<typeof DecisionSchema>>;
 
 export const CATEGORY_CODE = {
@@ -57,6 +64,9 @@ export const CATEGORY_CODE = {
   timesheet_status: 'TSS',
   payroll: 'PAY',
   request_status: 'REQ',
+  leave_balance: 'LBL',
+  leave_apply: 'LAP',
+  daily_briefing: 'BRF',
 } as const satisfies Record<CaseCategory, string>;
 
 /** The P-1 workspace intent that routes each workspace category to its agent. */
@@ -65,6 +75,9 @@ export const CATEGORY_INTENT = {
   timesheet_status: 'timesheet_status',
   payroll: 'payroll_explain',
   request_status: 'request_status',
+  leave_balance: 'leave_balance',
+  leave_apply: 'leave_apply',
+  daily_briefing: 'daily_briefing',
 } as const satisfies Record<WorkspaceCategory, WorkspaceIntent>;
 
 /**
@@ -97,7 +110,7 @@ export const GoldenCaseSchema = z.strictObject({
   id: z
     .string()
     .regex(
-      /^((IT|HR|GEN)-(ANS|PAR|CLR|ESC|SEN|OOS)|WS-(TSL|TSS|PAY|REQ))-\d{3}$/,
+      /^((IT|HR|GEN)-(ANS|PAR|CLR|ESC|SEN|OOS)|WS-(TSL|TSS|PAY|REQ|LBL|LAP|BRF))-\d{3}$/,
       'must look like HR-ANS-007 or WS-TSL-001',
     ),
   category: z.enum(CASE_CATEGORIES),
@@ -115,7 +128,7 @@ export const GoldenCaseSchema = z.strictObject({
     acceptableDecisions: z.array(DecisionSchema).min(1).optional(),
     /** The P-1 workspace intent; required for workspace categories, "none" elsewhere when given. */
     workspaceIntent: z.enum(WORKSPACE_INTENTS).optional(),
-    /** A timesheet entry or ticket draft must be waiting for the employee's confirmation. */
+    /** A timesheet entry, leave request or ticket draft must be waiting for the employee's confirmation. */
     awaitsConfirmation: z.boolean().optional(),
     /** At least one must be in the top 5 retrieved and cited. */
     docSlugs: z.array(DocRef),

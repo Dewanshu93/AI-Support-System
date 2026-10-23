@@ -1,17 +1,18 @@
 // Leave service (UC-11, ADR-025): balances, applying for and cancelling leave,
 // and HR approval. Every rule is in domain/leave.ts; this layer loads records,
 // writes the request, keeps attendance in step and notifies the employee. The
-// form uses it now and the copilot action (UC-11c) will after confirmation.
-import type {
-  AgentLeaveRequest,
-  AuthUser,
-  Country,
-  IsoDate,
-  LeaveApplyRequest,
-  LeaveOverviewResponse,
-  LeaveRequest,
-  LeaveSource,
-  LeaveStatus,
+// form uses it, and the copilot action (UC-11c) after the employee confirms.
+import {
+  type AgentLeaveRequest,
+  type AuthUser,
+  type Country,
+  type IsoDate,
+  LEAVE_TYPES,
+  type LeaveApplyRequest,
+  type LeaveOverviewResponse,
+  type LeaveRequest,
+  type LeaveSource,
+  type LeaveStatus,
 } from '@sd/shared';
 import { ObjectId } from 'mongodb';
 import type { ConfigFiles } from '../../config/schemas';
@@ -262,6 +263,14 @@ export function createLeaveService(deps: LeaveServiceDeps) {
     return toAgentDto(updated);
   }
 
-  return { today, overview, check, apply, cancel, listForApprover, decide, toDto };
+  /** The bookable leave types, in config order. */
+  const types = () =>
+    LEAVE_TYPES.map((type) => ({
+      type,
+      label: rules.types[type].label,
+      needsApproval: rules.types[type].needsApproval,
+    }));
+
+  return { today, types, overview, check, apply, cancel, listForApprover, decide, toDto };
 }
 export type LeaveService = ReturnType<typeof createLeaveService>;

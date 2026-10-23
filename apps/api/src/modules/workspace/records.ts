@@ -11,10 +11,24 @@ export function createWorkspaceRecords(deps: {
   service: WorkspaceService;
   tickets: Pick<TicketsRepository, 'listForRequester'>;
   routing: ConfigFiles['routing'];
-  /** Leave balances for the leave agent (UC-11); without it the agent says records are unavailable. */
-  leave?: Pick<LeaveService, 'overview'>;
+  /** Leave for the leave agent (UC-11); without it the agent says records are unavailable. */
+  leave?: Pick<LeaveService, 'overview' | 'types' | 'check' | 'apply'>;
 }): WorkspaceRecords {
   const { leave } = deps;
+  const leaveRecords: Partial<WorkspaceRecords> = leave
+    ? {
+        leave: (who) => leave.overview(who),
+        leaveTypes: () => leave.types(),
+        async checkLeave(who, application) {
+          const { dates, problems, warnings, availableAfter } = await leave.check(who, application);
+          return { dates, problems, warnings, availableAfter };
+        },
+        async applyLeave(who, application, source) {
+          const { doc } = await leave.apply(who, application, source);
+          return { id: doc._id.toHexString(), status: doc.status };
+        },
+      }
+    : {};
   const queueLabel = (id: string) => deps.routing.queues.find((q) => q.id === id)?.label ?? id;
   return {
     today: deps.service.today,
@@ -46,7 +60,7 @@ export function createWorkspaceRecords(deps: {
     days: (who, from, to) => deps.service.days(who, from, to),
     payroll: (who) => deps.service.payrollFacts(who),
     attention: (who) => deps.service.needsAttention(who),
-    ...(leave && { leave: (who: Parameters<LeaveService['overview']>[0]) => leave.overview(who) }),
+    ...leaveRecords,
     async requests(userId) {
       const page = await deps.tickets.listForRequester(new ObjectId(userId), { limit: 50 });
       return page.items.map((t) => ({
