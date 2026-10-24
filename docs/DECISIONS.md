@@ -802,3 +802,24 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     `WS-RMG-001` – `003`.
 - **Consequences:** agents see the employee's comment as a public reply and the withdrawal as a
   status change; they get no notification (in-app notifications are for employees only).
+
+## ADR-029 — Answer feedback loop: reasons, the admin list, golden drafts in the browser (UC-16)
+
+- **Status:** Accepted (UC-16, 2026-10-24; amendment A-1)
+- **Context:** thumbs up/down and an optional comment were already stored (`feedback`, W2-09)
+  and the admin overview shows the thumbs-down rate, but nobody could see _which_ answers were
+  rated down or why.
+- **Decision:**
+  - Chat: after "Not helpful", optional quick reasons plus a short note, saved as the existing
+    feedback comment (same upsert; no new collection or endpoint for employees).
+  - Admin: `GET /api/admin/feedback?rating=down|up` (admin only) joins each rating with its turn
+    trace: the **redacted** question (`trace.redactedInput`), an answer excerpt, the decision and
+    reason code, the profile snapshot and the persona's email. The comment is PII-redacted on the
+    way out. Confidential (restricted) turns show no question or answer: they stay in the audited
+    trace viewer. Shown on the Knowledge gaps page ("Rated not helpful").
+  - **"Copy as golden case"** builds a draft JSONL line in the browser (question, persona,
+    placeholders for id, category, decision, documents and key facts, and the reason in the
+    notes). The API writes nothing to the repository; a person reviews it and adds it to
+    `evals/golden` (then `golden:validate`).
+- **Consequences:** no LLM involved. The list is a recent window (50 by default, at most 100);
+  aggregation by topic stays with the knowledge-gap clusters.

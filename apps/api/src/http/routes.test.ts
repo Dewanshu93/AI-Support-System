@@ -69,6 +69,7 @@ describe('route policy table', () => {
       ['GET', '/api/admin/conversations', ['admin']],
       ['GET', '/api/admin/conversations/:id/traces', ['admin']],
       ['GET', '/api/admin/traces/:traceId', ['admin']],
+      ['GET', '/api/admin/feedback', ['admin']],
       // Documents (W4-04).
       ['GET', '/api/admin/documents', ['admin']],
       ['GET', '/api/admin/documents/:id', ['admin']],

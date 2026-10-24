@@ -63,7 +63,7 @@ decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 
 | UC-13 | Bulk timesheet actions (several entries, one confirm card) | Built; P-10 v2 eval with the P-1 v3 run                            | UC-05        |
 | UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                                        | W2-09        |
 | UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                                        | UC-04, UC-09 |
-| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                                        | W4-02        |
+| UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Done                                                               | W4-02        |
 | UC-17 | Manage requests from chat (comment, cancel, reopen)        | Built (chat + request page); P-13 eval with the P-1 v3 run         | UC-08        |
 
 Scope notes (to be expanded into task cards when each task starts):
@@ -2344,3 +2344,18 @@ which; rule refusal with reason; other employee's number not found; missing comm
 unclear operation); `TicketDetail.test.tsx`, `ActionCard.test.tsx`; Playwright `requests.spec.ts`
 (Tom comments on HR-9002, status unchanged, then withdraws it: closed, actions gone) with
 `tickets.spec.ts` and `workspace.spec.ts`: 12/12. Eval pending with P-1 v3.
+
+## UC-16 Answer feedback loop — 2026-10-24
+
+**Delivered:** after "Not helpful", optional quick reasons and a note (`FeedbackReason`), saved
+as the existing feedback comment; `GET /api/admin/feedback` (admin only; redacted question and
+reason, answer excerpt, decision, profile; confidential turns hidden); "Rated not helpful" on the
+Knowledge gaps page with a trace link and "Copy as golden case" (draft line built in the browser,
+nothing written by the API). ADR-029. No LLM.
+
+**Verification:** `traces.test.ts` (Supertest: the down rating with redacted question and
+reason, decision, profile, persona; the raw email never returned; `rating=up`; restricted turn
+hidden; employee and agent 403); route policy table and role matrix; `NotHelpful.test.tsx`
+(golden draft from the redacted question and profile, row content, no copy for confidential;
+chat reason chips, Send disabled until a reason or note); Playwright `admin.spec.ts` checks the
+new section (see the task report).

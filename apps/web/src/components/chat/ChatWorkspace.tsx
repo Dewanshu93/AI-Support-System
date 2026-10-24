@@ -330,6 +330,9 @@ export function ChatWorkspace({
                       <FeedbackButtons
                         value={ratings[m.id] ?? null}
                         onRate={(r) => void rate(m.id, r)}
+                        onReason={async (comment) => {
+                          await api.feedback(m.id, { rating: 'down', comment });
+                        }}
                       />
                       {canResolve && m.id === lastAssistant?.id && (
                         <ResolutionPrompt

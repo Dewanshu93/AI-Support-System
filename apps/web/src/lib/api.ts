@@ -15,6 +15,7 @@ import {
   type DocumentUploadMetadata,
   type AdminConversationListQuery,
   AdminConversationListResponseSchema,
+  AdminFeedbackListResponseSchema,
   ConversationTracesResponseSchema,
   TraceDetailResponseSchema,
   type AgentClassificationRequest,
@@ -155,6 +156,9 @@ export const api = {
   // Knowledge gaps (W4-02).
   knowledgeGaps: async () =>
     (await apiRequest('/admin/knowledge-gaps?snapshot=latest', KnowledgeGapsResponseSchema))!,
+  // UC-16: rated answers with their trace.
+  adminFeedback: async (rating: 'up' | 'down' = 'down') =>
+    (await apiRequest(`/admin/feedback?rating=${rating}`, AdminFeedbackListResponseSchema))!,
   refreshKnowledgeGaps: async (body: { from?: string; to?: string } = {}) =>
     (await apiRequest('/admin/knowledge-gaps/refresh', KnowledgeGapsRefreshResponseSchema, {
       method: 'POST',

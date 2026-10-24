@@ -39,6 +39,14 @@ test('knowledge gaps: the page loads with its refresh action and a snapshot or t
   await expect(
     page.getByText('No gaps detected yet').or(page.getByTestId('gap-cluster-list')),
   ).toBeVisible();
+  // UC-16: answers rated "Not helpful" (rows, or the empty message).
+  const notHelpful = page.getByTestId('not-helpful');
+  await expect(notHelpful.getByRole('heading', { name: 'Rated not helpful' })).toBeVisible();
+  await expect(
+    notHelpful
+      .getByText('No answer has been rated not helpful yet.')
+      .or(notHelpful.getByTestId('feedback-row').first()),
+  ).toBeVisible();
 });
 
 test('trace viewer: conversations list, and a conversation opens its turn timeline and trace tabs', async ({

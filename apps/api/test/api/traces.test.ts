@@ -205,6 +205,26 @@ function fixture() {
     traces: [trace],
     messages,
     chunks: [chunk],
+    // UC-16: a thumbs-down with a reason (carrying personal data) and a thumbs-up.
+    feedback: [
+      {
+        _id: new ObjectId(),
+        messageId: assistantId,
+        conversationId,
+        userId: priya._id,
+        rating: 'down',
+        comment: `Wrong or out of date: write to ${RAW_EMAIL}`,
+        createdAt: new Date('2026-10-11T09:00:00Z'),
+      },
+      {
+        _id: new ObjectId(),
+        messageId: assistantId,
+        conversationId,
+        userId: priya._id,
+        rating: 'up',
+        createdAt: new Date('2026-10-11T10:00:00Z'),
+      },
+    ],
   };
   const tickets = memoryTicketsRepository();
   void tickets.insert(ticket);
@@ -359,5 +379,49 @@ describe('GET /api/admin/traces/:traceId', () => {
       .get(`/api/admin/traces/${new ObjectId().toHexString()}`)
       .set('Cookie', cookie);
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /api/admin/feedback (UC-16)', () => {
+  it('lists not-helpful answers with the redacted question and reason, the decision and the trace', async () => {
+    const { ctx, trace, conversation } = fixture();
+    const cookie = await loginCookie(ctx.app, ADMIN);
+    const res = await request(ctx.app).get('/api/admin/feedback').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toEqual([
+      expect.objectContaining({
+        rating: 'down',
+        comment: 'Wrong or out of date: write to [EMAIL]',
+        conversationId: conversation._id.toHexString(),
+        traceId: trace._id.toHexString(),
+        question: 'My laptop battery is swollen, reach me at [EMAIL]',
+        answerExcerpt: 'Stop using the laptop now and unplug it. I can raise an urgent ticket.',
+        decision: 'ESCALATE',
+        reasonCode: 'SAFETY_RISK',
+        profile: { country: 'US', employmentType: 'full_time' },
+        userEmail: 'priya.shah@example.com',
+      }),
+    ]);
+    expect(JSON.stringify(res.body)).not.toContain(RAW_EMAIL);
+    const up = await request(ctx.app).get('/api/admin/feedback?rating=up').set('Cookie', cookie);
+    expect(up.body.items).toHaveLength(1);
+  });
+
+  it('keeps confidential questions and answers out of the list', async () => {
+    const { ctx, trace } = fixture();
+    trace.restricted = true;
+    const cookie = await loginCookie(ctx.app, ADMIN);
+    const res = await request(ctx.app).get('/api/admin/feedback').set('Cookie', cookie);
+    expect(res.body.items[0]).toMatchObject({ question: null, answerExcerpt: null });
+  });
+
+  it('is admin only', async () => {
+    const { ctx } = fixture();
+    for (const email of ['priya.shah@example.com', 'hana.kim@example.com']) {
+      const cookie = await loginCookie(ctx.app, email);
+      expect((await request(ctx.app).get('/api/admin/feedback').set('Cookie', cookie)).status).toBe(
+        403,
+      );
+    }
   });
 });

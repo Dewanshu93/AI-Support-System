@@ -1,5 +1,11 @@
 // In-memory trace-viewer reads for API tests (W4-03), over plain arrays.
-import type { ChunkDoc, ConversationDoc, MessageDoc, TurnTraceDoc } from '../../src/db/schemas';
+import type {
+  ChunkDoc,
+  ConversationDoc,
+  FeedbackDoc,
+  MessageDoc,
+  TurnTraceDoc,
+} from '../../src/db/schemas';
 import { decodeCursor, encodeCursor } from '../../src/modules/conversations/repository';
 import type { TracesRepository } from '../../src/modules/traces/repository';
 
@@ -8,11 +14,13 @@ export interface TraceStore {
   traces: TurnTraceDoc[];
   messages: MessageDoc[];
   chunks: ChunkDoc[];
+  feedback?: FeedbackDoc[];
 }
 
 export function memoryTracesRepository(
   store: TraceStore = { conversations: [], traces: [], messages: [], chunks: [] },
 ): TracesRepository {
+  const feedback = () => store.feedback ?? [];
   return {
     async listConversations(filter, { limit, cursor }) {
       const after = cursor ? decodeCursor(cursor) : null;
@@ -57,5 +65,12 @@ export function memoryTracesRepository(
     findMessages: async (ids) => store.messages.filter((m) => ids.some((id) => id.equals(m._id))),
     findTrace: async (id) => store.traces.find((t) => t._id.toHexString() === id) ?? null,
     findChunks: async (ids) => store.chunks.filter((c) => ids.includes(c._id.toHexString())),
+    listFeedback: async (rating, limit) =>
+      feedback()
+        .filter((f) => f.rating === rating)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit),
+    findTracesByMessages: async (ids) =>
+      store.traces.filter((t) => ids.some((id) => id.equals(t.messageId))),
   };
 }

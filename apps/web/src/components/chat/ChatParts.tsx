@@ -123,35 +123,116 @@ export function ResolutionPrompt({
   );
 }
 
+/** Quick reasons after "Not helpful" (UC-16); the admins see them with the trace. */
+export const FEEDBACK_REASONS = [
+  'Wrong or out of date',
+  'Did not answer my question',
+  'Missing a source',
+  'Too long or unclear',
+] as const;
+
 export function FeedbackButtons({
   value,
   onRate,
+  onReason,
 }: {
   value: 'up' | 'down' | null;
   onRate: (rating: 'up' | 'down') => void;
+  /** Sends the optional reason after "Not helpful" (UC-16). */
+  onReason?: (comment: string) => Promise<void>;
 }) {
   const style = (active: boolean) =>
     `rounded px-2 py-1 text-xs ring-1 ring-inset ${active ? 'bg-ink text-on-ink ring-ink' : 'text-slate-600 ring-slate-200 hover:bg-slate-100'}`;
   return (
-    <div data-testid="feedback" className="flex items-center gap-1" aria-label="Rate this reply">
-      <button
-        type="button"
-        data-testid="feedback-up"
-        aria-pressed={value === 'up'}
-        className={style(value === 'up')}
-        onClick={() => onRate('up')}
+    <div className="space-y-2">
+      <div data-testid="feedback" className="flex items-center gap-1" aria-label="Rate this reply">
+        <button
+          type="button"
+          data-testid="feedback-up"
+          aria-pressed={value === 'up'}
+          className={style(value === 'up')}
+          onClick={() => onRate('up')}
+        >
+          Helpful
+        </button>
+        <button
+          type="button"
+          data-testid="feedback-down"
+          aria-pressed={value === 'down'}
+          className={style(value === 'down')}
+          onClick={() => onRate('down')}
+        >
+          Not helpful
+        </button>
+      </div>
+      {value === 'down' && onReason && <FeedbackReason onSend={onReason} />}
+    </div>
+  );
+}
+
+export function FeedbackReason({ onSend }: { onSend: (comment: string) => Promise<void> }) {
+  const [reason, setReason] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  if (state === 'sent') {
+    return (
+      <p data-testid="feedback-thanks" className="text-xs text-slate-600">
+        Thanks: this goes to the team that improves the answers.
+      </p>
+    );
+  }
+  const comment = [reason, note.trim()].filter(Boolean).join(': ');
+  const send = async () => {
+    setState('sending');
+    try {
+      await onSend(comment);
+      setState('sent');
+    } catch {
+      setState('failed');
+    }
+  };
+  return (
+    <div data-testid="feedback-reason" className="space-y-2 rounded-lg bg-slate-50 p-2.5">
+      <p className="text-xs text-slate-600">What was wrong? (optional)</p>
+      <div className="flex flex-wrap gap-1.5">
+        {FEEDBACK_REASONS.map((r) => (
+          <button
+            key={r}
+            type="button"
+            aria-pressed={reason === r}
+            onClick={() => setReason(reason === r ? null : r)}
+            className={`rounded-full px-2.5 py-1 text-xs ring-1 ring-inset ${reason === r ? 'bg-ink text-on-ink ring-ink' : 'bg-surface text-slate-700 ring-slate-200 hover:bg-slate-100'}`}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+      <label htmlFor="feedback-note" className="sr-only">
+        Anything else
+      </label>
+      <input
+        id="feedback-note"
+        data-testid="feedback-note"
+        value={note}
+        maxLength={300}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Anything else (do not include personal details)"
+        className="block h-8 w-full rounded-lg border border-slate-300 bg-surface px-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none"
+      />
+      {state === 'failed' && (
+        <p role="alert" className="text-xs text-rose-700">
+          Could not send. Please try again.
+        </p>
+      )}
+      <Button
+        size="sm"
+        variant="secondary"
+        data-testid="feedback-send"
+        disabled={!comment || state === 'sending'}
+        onClick={() => void send()}
       >
-        Helpful
-      </button>
-      <button
-        type="button"
-        data-testid="feedback-down"
-        aria-pressed={value === 'down'}
-        className={style(value === 'down')}
-        onClick={() => onRate('down')}
-      >
-        Not helpful
-      </button>
+        {state === 'sending' ? 'Sending…' : 'Send'}
+      </Button>
     </div>
   );
 }

@@ -1,8 +1,14 @@
 // Admin reads for the trace viewer (W4-03): every conversation (evaluation runs
 // excluded from the list), its turn traces and assistant messages, and the
-// chunks a trace refers to. Read-only.
+// chunks a trace refers to; answer ratings with their traces (UC-16). Read-only.
 import { type Collection, ObjectId } from 'mongodb';
-import type { ChunkDoc, ConversationDoc, MessageDoc, TurnTraceDoc } from '../../db/schemas';
+import type {
+  ChunkDoc,
+  ConversationDoc,
+  FeedbackDoc,
+  MessageDoc,
+  TurnTraceDoc,
+} from '../../db/schemas';
 import { decodeCursor, encodeCursor } from '../conversations/repository';
 
 export interface AdminConversationFilter {
@@ -25,6 +31,9 @@ export interface TracesRepository {
   findMessages(ids: ObjectId[]): Promise<MessageDoc[]>;
   findTrace(id: string): Promise<TurnTraceDoc | null>;
   findChunks(ids: string[]): Promise<ChunkDoc[]>;
+  /** Most recent first (UC-16): ratings of answers, one per user and message. */
+  listFeedback(rating: FeedbackDoc['rating'], limit: number): Promise<FeedbackDoc[]>;
+  findTracesByMessages(messageIds: ObjectId[]): Promise<TurnTraceDoc[]>;
 }
 
 const toId = (id: string) => (ObjectId.isValid(id) ? new ObjectId(id) : null);
@@ -34,6 +43,7 @@ export function mongoTracesRepository(c: {
   messages: Collection<MessageDoc>;
   turnTraces: Collection<TurnTraceDoc>;
   chunks: Collection<ChunkDoc>;
+  feedback: Collection<FeedbackDoc>;
 }): TracesRepository {
   return {
     async listConversations(filter, { limit, cursor }) {
@@ -90,5 +100,11 @@ export function mongoTracesRepository(c: {
       const valid = ids.map(toId).filter((id): id is ObjectId => id !== null);
       return valid.length === 0 ? [] : c.chunks.find({ _id: { $in: valid } }).toArray();
     },
+    listFeedback: (rating, limit) =>
+      c.feedback.find({ rating }).sort({ createdAt: -1, _id: -1 }).limit(limit).toArray(),
+    findTracesByMessages: (messageIds) =>
+      messageIds.length === 0
+        ? Promise.resolve([])
+        : c.turnTraces.find({ messageId: { $in: messageIds } }).toArray(),
   };
 }

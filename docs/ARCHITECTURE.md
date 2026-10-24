@@ -1232,6 +1232,15 @@ inside the app:
   P-13 `request_change_extract`; code resolves the request and the rules) → `request_change`
   action → `applyAction` → `records.changeRequest` (same service). Golden 113 (`WS-RMG` ×3).
 
+## Answer feedback loop (UC-16, ADR-029)
+
+- Chat: `FeedbackButtons` → after "Not helpful", `FeedbackReason` (quick reasons + note) re-posts
+  the rating with the comment (`POST …/messages/:id/feedback`, unchanged endpoint).
+- Admin: `GET /api/admin/feedback` (`modules/traces/routes.ts`; `TracesRepository.listFeedback`,
+  `findTracesByMessages`) → redacted question, answer excerpt, decision, profile, redacted
+  reason; restricted turns hidden. UI: `components/admin/gaps/NotHelpful.tsx` on the Knowledge
+  gaps page, with "Copy as golden case" (`draftGoldenCase`, client-side only).
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

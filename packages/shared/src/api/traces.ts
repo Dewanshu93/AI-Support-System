@@ -2,7 +2,14 @@
 // decision. User text is always the redacted input from the trace; evaluation
 // conversations are never listed.
 import { z } from 'zod';
-import { ConversationStatusSchema, DecisionSchema, PrioritySchema } from '../enums';
+import {
+  ConversationStatusSchema,
+  CountrySchema,
+  DecisionSchema,
+  EmploymentTypeSchema,
+  FeedbackRatingSchema,
+  PrioritySchema,
+} from '../enums';
 import { ObjectIdStringSchema, PaginationQuerySchema, paginatedSchema } from './common';
 import { IsoDateSchema } from './workspace';
 
@@ -166,3 +173,35 @@ export type TraceDetail = z.infer<typeof TraceDetailSchema>;
 
 export const TraceDetailResponseSchema = z.object({ trace: TraceDetailSchema });
 export type TraceDetailResponse = z.infer<typeof TraceDetailResponseSchema>;
+
+// --- answer feedback for admins (UC-16, ADR-029) ----------------------------------
+
+export const AdminFeedbackListQuerySchema = z.object({
+  rating: FeedbackRatingSchema.default('down'),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+export type AdminFeedbackListQuery = z.infer<typeof AdminFeedbackListQuerySchema>;
+
+/** One rated answer with what the trace recorded; user text is redacted. */
+export const AdminFeedbackSchema = z.object({
+  id: ObjectIdStringSchema,
+  rating: FeedbackRatingSchema,
+  /** The employee's reason, PII-redacted. */
+  comment: z.string().nullable(),
+  createdAt: z.string(),
+  conversationId: ObjectIdStringSchema,
+  /** Null when the turn has no trace (e.g. a fixed reply before W2-08 tracing). */
+  traceId: ObjectIdStringSchema.nullable(),
+  /** The question as traced (redacted). */
+  question: z.string().nullable(),
+  /** The start of the rated answer. */
+  answerExcerpt: z.string().nullable(),
+  decision: DecisionSchema.nullable(),
+  reasonCode: z.string().nullable(),
+  profile: z.object({ country: CountrySchema, employmentType: EmploymentTypeSchema }).nullable(),
+  /** The demo persona, so a golden case can be drafted for the same profile. */
+  userEmail: z.string().nullable(),
+});
+export type AdminFeedback = z.infer<typeof AdminFeedbackSchema>;
+export const AdminFeedbackListResponseSchema = z.object({ items: z.array(AdminFeedbackSchema) });
+export type AdminFeedbackListResponse = z.infer<typeof AdminFeedbackListResponseSchema>;

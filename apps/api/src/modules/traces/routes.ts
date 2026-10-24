@@ -2,8 +2,13 @@
 // GET /api/admin/conversations             filters + cursor; evaluation runs excluded
 // GET /api/admin/conversations/:id/traces  timeline (audited admin.trace_view)
 // GET /api/admin/traces/:traceId           full trace, chunk texts resolved (audited)
+// GET /api/admin/feedback                  rated answers with their trace (UC-16)
 // User text is always the trace's redactedInput; raw messages are never returned.
 import {
+  type AdminFeedback,
+  type AdminFeedbackListQuery,
+  AdminFeedbackListQuerySchema,
+  type AdminFeedbackListResponse,
   type AdminConversation,
   type AdminConversationListQuery,
   AdminConversationListQuerySchema,
@@ -16,6 +21,7 @@ import {
   type TraceSummary,
 } from '@sd/shared';
 import { z } from 'zod';
+import { redactPII } from '../../ai/guards/redaction';
 import type { ChunkDoc, ConversationDoc, TurnTraceDoc } from '../../db/schemas';
 import type { AppDeps } from '../../deps';
 import type { RouteDef } from '../../http/routes';
@@ -231,5 +237,62 @@ export function tracesRoutes(
         },
       ],
     },
+    {
+      // UC-16 (ADR-029): rated answers with what their trace recorded, newest first.
+      method: 'get',
+      path: `${API_BASE_PATH}/admin/feedback`,
+      access: ['admin'],
+      handlers: [
+        validate({ query: AdminFeedbackListQuerySchema }),
+        async (req, res) => {
+          const { rating, limit } = req.validated.query as AdminFeedbackListQuery;
+          const rows = await deps.traces.listFeedback(rating, limit);
+          const messageIds = rows.map((f) => f.messageId);
+          const [traces, messages] = await Promise.all([
+            deps.traces.findTracesByMessages(messageIds),
+            deps.traces.findMessages(messageIds),
+          ]);
+          const users = new Map(
+            await Promise.all(
+              [...new Set(rows.map((f) => f.userId.toHexString()))].map(
+                async (id) => [id, await deps.users.findById(id)] as const,
+              ),
+            ),
+          );
+          const items: AdminFeedback[] = rows.map((f) => {
+            const trace = traces.find((t) => t.messageId.equals(f.messageId));
+            const message = messages.find((m) => m._id.equals(f.messageId));
+            // Confidential turns stay in the (audited) trace viewer, not in this list.
+            const hidden = trace?.restricted ?? false;
+            return {
+              id: f._id.toHexString(),
+              rating: f.rating,
+              comment: f.comment ? redactPII(f.comment) : null,
+              createdAt: f.createdAt.toISOString(),
+              conversationId: f.conversationId.toHexString(),
+              traceId: trace?._id.toHexString() ?? null,
+              question: trace && !hidden ? trace.redactedInput : null,
+              answerExcerpt:
+                message && !hidden ? excerpt(message.content, ANSWER_EXCERPT_CHARS) : null,
+              decision: trace?.decision.value ?? null,
+              reasonCode: trace?.decision.reasonCode ?? null,
+              profile: trace
+                ? {
+                    country: trace.profileSnapshot.country,
+                    employmentType: trace.profileSnapshot.employmentType,
+                  }
+                : null,
+              userEmail: users.get(f.userId.toHexString())?.email ?? null,
+            };
+          });
+          const body: AdminFeedbackListResponse = { items };
+          res.json(body);
+        },
+      ],
+    },
   ];
 }
+
+const ANSWER_EXCERPT_CHARS = 300;
+const excerpt = (text: string, max: number) =>
+  text.length <= max ? text : `${text.slice(0, max).trimEnd()}…`;

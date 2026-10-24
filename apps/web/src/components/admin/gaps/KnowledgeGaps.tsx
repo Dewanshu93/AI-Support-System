@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { NotHelpful } from './NotHelpful';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api';
 
@@ -228,6 +229,8 @@ export function KnowledgeGaps() {
           </div>
         </div>
       )}
+
+      <NotHelpful />
     </>
   );
 }
