@@ -2,7 +2,7 @@ import type { TicketDetailResponse } from '@sd/shared';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { EmailCard } from './EmailCard';
 import { TicketRows } from './MyTickets';
-import { TicketDetailView } from './TicketDetail';
+import { RequestActions, TicketDetailView } from './TicketDetail';
 
 const DATA: TicketDetailResponse = {
   ticket: {
@@ -33,6 +33,34 @@ const DATA: TicketDetailResponse = {
   ],
   emails: [],
 };
+
+// UC-17: the requester's own actions on the live page.
+describe('RequestActions', () => {
+  const render = (status: TicketDetailResponse['ticket']['status']) =>
+    renderToStaticMarkup(
+      <RequestActions
+        data={{ ...DATA, ticket: { ...DATA.ticket, status } }}
+        onChange={() => undefined}
+      />,
+    );
+
+  it('offers a comment and withdraw on an open request', () => {
+    const html = render('waiting_on_employee');
+    expect(html).toContain('data-testid="request-comment"');
+    expect(html).toContain('Withdraw request');
+    expect(html).not.toContain('Reopen request');
+  });
+
+  it('offers reopen on a resolved request, and nothing on a closed one', () => {
+    expect(render('resolved')).toContain('Reopen request');
+    expect(render('resolved')).not.toContain('Withdraw request');
+    expect(render('closed')).toBe('');
+  });
+
+  it('is not shown on the read-only view', () => {
+    expect(renderToStaticMarkup(<TicketDetailView data={DATA} />)).not.toContain('request-comment');
+  });
+});
 
 describe('employee ticket views', () => {
   it('shows status, team, known fields, the public timeline and the conversation link', () => {

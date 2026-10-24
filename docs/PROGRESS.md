@@ -64,7 +64,7 @@ decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 
 | UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                                        | W2-09        |
 | UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                                        | UC-04, UC-09 |
 | UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Planned (amendment pending)                                        | W4-02        |
-| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Planned (amendment pending)                                        | UC-08        |
+| UC-17 | Manage requests from chat (comment, cancel, reopen)        | Built (chat + request page); P-13 eval with the P-1 v3 run         | UC-08        |
 
 Scope notes (to be expanded into task cards when each task starts):
 
@@ -2322,3 +2322,25 @@ copy every project, skips days with hours, non-working, future and empty source 
 missing project asks, Ravi nothing to fill, copy last week proposes and confirm saves every
 entry with one audit, v1 output unchanged, v2 renders with both kinds); `copilotAction.test.ts`
 unchanged and green. Eval pending with P-1 v3.
+
+## UC-17 Manage requests (comment, withdraw, reopen) — 2026-10-23
+
+**Owner decisions (2026-10-23):** withdraw → Closed (requester only); a comment changes no
+status; a new prompt P-13 reads the request; the request page gets the same actions.
+
+**Delivered:** `domain/requestChanges.ts`, `modules/tickets/requesterService.ts`, endpoints
+`POST /api/tickets/:id/{comment,withdraw,reopen}` (audited), `RequestActions` on the request
+page, P-13 `request_change_extract` v1 (listed in `config/prompts.yaml`), `requestChange` node in
+`requestsAgent` (code finds the request and checks the rules), `request_change` action through
+the shared confirmation path, eval runner refuses request writes, golden `WS-RMG-001` – `003`
+(113 cases), regenerated topology. ADR-028.
+
+**Verification:** `requestChanges.test.ts` (every status × change); `requestChanges.test.ts`
+(Supertest: comment public, no status change, audited; withdraw with reason, closed is final;
+withdraw of resolved 409; reopen clears resolution; other employee 404, agent 403, anonymous 401);
+`copilotRequestChange.test.ts` (fake models: withdraw by number after confirm, audited copilot +
+employee; exact comment, status unchanged; only resolved request reopened; cancel; several fit →
+which; rule refusal with reason; other employee's number not found; missing comment text;
+unclear operation); `TicketDetail.test.tsx`, `ActionCard.test.tsx`; Playwright `requests.spec.ts`
+(Tom comments on HR-9002, status unchanged, then withdraws it: closed, actions gone) with
+`tickets.spec.ts` and `workspace.spec.ts`: 12/12. Eval pending with P-1 v3.

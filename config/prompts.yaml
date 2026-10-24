@@ -14,3 +14,4 @@ active:
   timesheet_extract: 1 # P-10 (UC-05, ADR-015)
   payroll_explain: 1 # P-11 (UC-06, ADR-015)
   leave_extract: 1 # P-12 (UC-11c, ADR-026; eval with P-1 v3)
+  request_change_extract: 1 # P-13 (UC-17, ADR-028; eval with P-1 v3)

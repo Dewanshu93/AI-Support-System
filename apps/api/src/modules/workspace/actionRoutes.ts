@@ -32,34 +32,41 @@ export function actionRoutes(deps: AppDeps, service: ActionService): RouteDef[] 
             const by = { conversationId: id, triggeredBy: 'copilot', approvedBy: 'employee' };
             await audit.record(
               req,
-              action.kind === 'leave_apply'
+              action.kind === 'request_change'
                 ? {
-                    action: 'leave.apply',
-                    targetType: 'leave_request',
-                    targetId: result.recordId ?? req.user!.id,
-                    metadata: {
-                      ...by,
-                      type: action.type,
-                      startDate: action.startDate,
-                      endDate: action.endDate,
-                      days: action.days,
-                      status: action.needsApproval ? 'pending' : 'approved',
-                    },
+                    action: `ticket.${action.change}`,
+                    targetType: 'ticket',
+                    targetId: action.ticketId,
+                    metadata: { ...by, to: action.statusAfter },
                   }
-                : {
-                    action: 'timesheet.save',
-                    targetType: 'timesheet',
-                    targetId: req.user!.id,
-                    metadata: {
-                      ...by,
-                      changes: action.entries.map(({ date, projectId, hours }) => ({
-                        date,
-                        projectId,
-                        hours,
-                        action: 'saved',
-                      })),
+                : action.kind === 'leave_apply'
+                  ? {
+                      action: 'leave.apply',
+                      targetType: 'leave_request',
+                      targetId: result.recordId ?? req.user!.id,
+                      metadata: {
+                        ...by,
+                        type: action.type,
+                        startDate: action.startDate,
+                        endDate: action.endDate,
+                        days: action.days,
+                        status: action.needsApproval ? 'pending' : 'approved',
+                      },
+                    }
+                  : {
+                      action: 'timesheet.save',
+                      targetType: 'timesheet',
+                      targetId: req.user!.id,
+                      metadata: {
+                        ...by,
+                        changes: action.entries.map(({ date, projectId, hours }) => ({
+                          date,
+                          projectId,
+                          hours,
+                          action: 'saved',
+                        })),
+                      },
                     },
-                  },
             );
           }
           const body: ActionConfirmResponse = { result };

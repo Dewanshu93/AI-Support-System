@@ -11,6 +11,7 @@ import { GroundedAnswerTrailerSchema } from './groundedAnswer';
 import { LeaveExtractionSchema } from './leaveExtraction';
 import { PayrollExplanationSchema } from './payrollExplanation';
 import { RerankAssessmentSchema } from './rerank';
+import { RequestChangeExtractionSchema } from './requestChangeExtraction';
 import { slotFillSchema } from './slotFill';
 import { timesheetExtractionSchema } from './timesheetExtraction';
 import { turnAnalysisSchema } from './turnAnalysis';
@@ -24,6 +25,7 @@ export * from './groundedAnswer';
 export * from './leaveExtraction';
 export * from './payrollExplanation';
 export * from './rerank';
+export * from './requestChangeExtraction';
 export * from './slotFill';
 export * from './timesheetExtraction';
 export * from './turnAnalysis';
@@ -39,6 +41,7 @@ export const OUTPUT_SCHEMAS = {
   TimesheetExtraction: () => timesheetExtractionSchema([]),
   PayrollExplanation: () => PayrollExplanationSchema,
   LeaveExtraction: () => LeaveExtractionSchema,
+  RequestChangeExtraction: () => RequestChangeExtractionSchema,
   AgentSummary: () => AgentSummaryResultSchema,
   AgentDraftReply: () => AgentDraftReplySchema,
   GapClusterLabel: () => GapClusterLabelSchema,

@@ -51,7 +51,6 @@ export function routeAfterAnalysis(state: State): (typeof AFTER_ANALYSIS)[number
     case 'timesheet_log':
     case 'timesheet_status':
       return 'timesheetAgent';
-    // Until UC-17 builds the request actions, a change request gets the request list.
     case 'request_status':
     case 'request_manage':
       return 'requestsAgent';
@@ -142,6 +141,13 @@ export function routeAfterSlotFill(state: State): (typeof AFTER_SLOT_FILL)[numbe
 export const TIMESHEET_START = ['timesheetLog', 'timesheetStatus'] as const;
 export function routeTimesheetStart(state: State): (typeof TIMESHEET_START)[number] {
   return workspaceIntentOf(state.analysis) === 'timesheet_log' ? 'timesheetLog' : 'timesheetStatus';
+}
+
+// --- requestsAgent (status from the ticket store; UC-17 changes, confirmed by the employee) ---
+
+export const REQUESTS_START = ['requestChange', 'requestStatus'] as const;
+export function routeRequestsStart(state: State): (typeof REQUESTS_START)[number] {
+  return workspaceIntentOf(state.analysis) === 'request_manage' ? 'requestChange' : 'requestStatus';
 }
 
 // --- leaveAgent (UC-11: balance from records; applying is confirmed by the employee) ---

@@ -24,8 +24,14 @@ export interface ActionServiceDeps {
 export const ACTION_CANCELLED_TEXT = 'Timesheet entry cancelled. Nothing was saved.';
 export const LEAVE_CANCELLED_TEXT = 'Leave request cancelled. Nothing was booked.';
 
+export const REQUEST_CHANGE_CANCELLED_TEXT = 'Cancelled. Your request was not changed.';
+
 const cancelledText = (action: CopilotAction | undefined) =>
-  action?.kind === 'leave_apply' ? LEAVE_CANCELLED_TEXT : ACTION_CANCELLED_TEXT;
+  action?.kind === 'leave_apply'
+    ? LEAVE_CANCELLED_TEXT
+    : action?.kind === 'request_change'
+      ? REQUEST_CHANGE_CANCELLED_TEXT
+      : ACTION_CANCELLED_TEXT;
 
 export function createActionService(deps: ActionServiceDeps) {
   const now = deps.now ?? (() => new Date());

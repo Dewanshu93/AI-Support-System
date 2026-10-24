@@ -404,7 +404,10 @@ graph TD;
 	timesheetAgent_timesheetStatus(timesheetStatus)
 	timesheetAgent_timesheetLog(timesheetLog)
 	timesheetAgent___end__(<p>__end__</p>)
-	requestsAgent(requestsAgent)
+	requestsAgent___start__(<p>__start__</p>)
+	requestsAgent_requestStatus(requestStatus)
+	requestsAgent_requestChange(requestChange)
+	requestsAgent___end__(<p>__end__</p>)
 	payrollAgent_payrollRecords(payrollRecords)
 	payrollAgent_retrieve(retrieve)
 	payrollAgent_rerankAssess(rerankAssess)
@@ -433,7 +436,7 @@ graph TD;
 	leaveAgent___end__ --> persist;
 	loadContext --> precheck;
 	payrollAgent_payrollCompose --> persist;
-	requestsAgent --> persist;
+	requestsAgent___end__ --> persist;
 	sendEmail --> agentSummary;
 	sensitiveHandoff --> persist;
 	timesheetAgent___end__ --> persist;
@@ -442,7 +445,7 @@ graph TD;
 	analyzeTurn -.-> sensitiveHandoff;
 	analyzeTurn -.-> escalationAgent_slotFill;
 	analyzeTurn -.-> timesheetAgent___start__;
-	analyzeTurn -.-> requestsAgent;
+	analyzeTurn -.-> requestsAgent___start__;
 	analyzeTurn -.-> payrollAgent_payrollRecords;
 	analyzeTurn -.-> leaveAgent___start__;
 	analyzeTurn -.-> briefingAgent;
@@ -478,6 +481,12 @@ graph TD;
 	timesheetAgent_timesheetStatus --> timesheetAgent___end__;
 	timesheetAgent___start__ -.-> timesheetAgent_timesheetLog;
 	timesheetAgent___start__ -.-> timesheetAgent_timesheetStatus;
+	end
+	subgraph requestsAgent
+	requestsAgent_requestChange --> requestsAgent___end__;
+	requestsAgent_requestStatus --> requestsAgent___end__;
+	requestsAgent___start__ -.-> requestsAgent_requestChange;
+	requestsAgent___start__ -.-> requestsAgent_requestStatus;
 	end
 	subgraph payrollAgent
 	payrollAgent_rerankAssess --> payrollAgent_payrollExplain;
@@ -1209,6 +1218,19 @@ inside the app:
   days up to today), then the same `previewTimesheet` rules and confirmation card as single
   entries. Missing project → CLARIFY; nothing to do → `TIMESHEET_BULK_NOTHING`.
 - Golden set: 110 cases (`WS-TSL-007` – `009`).
+
+## Requester changes: comment, withdraw, reopen (UC-17, ADR-028)
+
+- Rules: `domain/requestChanges.ts` (`checkRequestChange`: comment unless closed, no status
+  change; withdraw open → closed; reopen resolved → in progress).
+- Service: `modules/tickets/requesterService.ts` (own request or 404; guarded update via
+  `agentTickets.update`; public `reply` or `status_change` event with the reason). Endpoints
+  `POST /api/tickets/:id/{comment,withdraw,reopen}` in `modules/tickets/routes.ts`, audited
+  `ticket.<change>`; contracts `RequestCommentRequestSchema`, `RequestStatusChangeRequestSchema`.
+- Web: `RequestActions` on the request page (`components/tickets/TicketDetail.tsx`).
+- Copilot: `request_manage` → `requestsAgent` → `requestChange` (`ai/nodes/requestChange.ts`,
+  P-13 `request_change_extract`; code resolves the request and the rules) → `request_change`
+  action → `applyAction` → `records.changeRequest` (same service). Golden 113 (`WS-RMG` ×3).
 
 ## Runtime
 

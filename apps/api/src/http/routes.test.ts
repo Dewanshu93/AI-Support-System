@@ -49,6 +49,10 @@ describe('route policy table', () => {
       ['POST', '/api/conversations/:id/ticket-draft/cancel', ['employee']],
       ['GET', '/api/tickets/mine', ['employee']],
       ['GET', '/api/tickets/:id', ['employee']],
+      // The requester's own changes (UC-17, ADR-028).
+      ['POST', '/api/tickets/:id/comment', ['employee']],
+      ['POST', '/api/tickets/:id/withdraw', ['employee']],
+      ['POST', '/api/tickets/:id/reopen', ['employee']],
       ['GET', '/api/agent/tickets', ['agent', 'admin']],
       ['GET', '/api/agent/tickets/:id', ['agent', 'admin']],
       ['POST', '/api/agent/tickets/:id/replies', ['agent', 'admin']],

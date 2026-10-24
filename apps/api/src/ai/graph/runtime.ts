@@ -15,6 +15,7 @@ import { createClarifyForTicket } from '../nodes/clarifyForTicket';
 import { createCreateTicket } from '../nodes/createTicket';
 import { createSlotFill } from '../nodes/slotFill';
 import { createLeaveApply } from '../nodes/leaveAction';
+import { createRequestChange } from '../nodes/requestChange';
 import { createApplyAction, createTimesheetLog } from '../nodes/timesheetAction';
 import { createClarify } from '../nodes/clarify';
 import { createDecide } from '../nodes/decide';
@@ -155,6 +156,7 @@ export function buildTurnGraph(deps: TurnGraphDeps): SupportGraph {
         isEval: deps.isEval,
       }),
       requestStatus: createRequestStatus({ records: deps.records }),
+      requestChange: createRequestChange({ ...llm, records: deps.records }),
       leaveBalance: createLeaveBalance({ records: deps.records }),
       leaveApply: createLeaveApply({ ...llm, records: deps.records }),
       dailyBriefing: createDailyBriefing({ records: deps.records }),

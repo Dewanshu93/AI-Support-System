@@ -1,13 +1,15 @@
 'use client';
 
 // One of the employee's tickets (playbook section 10): summary, status, the
-// public timeline (team replies, status changes) and a link to the conversation.
+// public timeline (team replies, status changes), the requester's own actions
+// (comment, withdraw, reopen; UC-17) and a link to the conversation.
 // Internal notes and the agent brief never reach this view (API-enforced).
 import type { TicketDetailResponse } from '@sd/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { PRIORITY_TONE, priorityLabel } from '@/components/chat/TicketDraftCard';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { api, ApiError } from '@/lib/api';
@@ -15,7 +17,103 @@ import { fieldLabel, UNKNOWN } from '@/lib/ticketDraft';
 import { TicketEmails } from './EmailCard';
 import { EVENT_LABEL, formatDateTime, STATUS_LABEL, STATUS_TONE } from './ticketLabels';
 
-export function TicketDetailView({ data }: { data: TicketDetailResponse }) {
+/**
+ * Comment, withdraw or reopen (UC-17, ADR-028). Which buttons show mirrors the API
+ * rules for display only; the API enforces them.
+ */
+export function RequestActions({
+  data,
+  onChange,
+}: {
+  data: TicketDetailResponse;
+  onChange: (data: TicketDetailResponse) => void;
+}) {
+  const { status, id } = data.ticket;
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  if (status === 'closed') return null;
+  const open = status !== 'resolved';
+
+  const run = async (kind: string, call: () => Promise<TicketDetailResponse>) => {
+    setBusy(kind);
+    setFailure(null);
+    try {
+      onChange(await call());
+      if (kind === 'comment') setComment('');
+    } catch (err) {
+      setFailure(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section aria-labelledby="request-actions-title" className="space-y-3">
+      <h2 id="request-actions-title" className="text-sm font-semibold text-slate-900">
+        Add to this request
+      </h2>
+      <label htmlFor="request-comment" className="sr-only">
+        Comment for the team
+      </label>
+      <textarea
+        id="request-comment"
+        data-testid="request-comment"
+        value={comment}
+        maxLength={1000}
+        rows={3}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Write a comment for the team"
+        className="block w-full rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none"
+      />
+      {failure && (
+        <p role="alert" className="text-sm text-rose-700">
+          {failure}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          data-testid="request-comment-send"
+          disabled={busy !== null || !comment.trim()}
+          onClick={() => void run('comment', () => api.commentRequest(id, comment.trim()))}
+        >
+          {busy === 'comment' ? 'Sending…' : 'Send comment'}
+        </Button>
+        {open ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            data-testid="request-withdraw"
+            disabled={busy !== null}
+            onClick={() => void run('withdraw', () => api.withdrawRequest(id))}
+          >
+            {busy === 'withdraw' ? 'Withdrawing…' : 'Withdraw request'}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            data-testid="request-reopen"
+            disabled={busy !== null}
+            onClick={() => void run('reopen', () => api.reopenRequest(id))}
+          >
+            {busy === 'reopen' ? 'Reopening…' : 'Reopen request'}
+          </Button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function TicketDetailView({
+  data,
+  onChange,
+}: {
+  data: TicketDetailResponse;
+  /** Set on the live page: the requester's actions (UC-17). */
+  onChange?: (data: TicketDetailResponse) => void;
+}) {
   const { ticket, events } = data;
   const fields = Object.entries(ticket.fields).filter(([, v]) => v && v !== UNKNOWN);
   return (
@@ -83,6 +181,8 @@ export function TicketDetailView({ data }: { data: TicketDetailResponse }) {
         </ol>
       </section>
 
+      {onChange && <RequestActions data={data} onChange={onChange} />}
+
       <Link
         href={`/chat/${ticket.conversationId}`}
         data-testid="ticket-conversation-link"
@@ -134,7 +234,7 @@ export function TicketDetail({ id }: { id: string }) {
           <Skeleton className="h-24 w-full" />
         </div>
       )}
-      {data && <TicketDetailView data={data} />}
+      {data && <TicketDetailView data={data} onChange={setData} />}
     </div>
   );
 }

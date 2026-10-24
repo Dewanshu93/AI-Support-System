@@ -4,7 +4,7 @@
 //   knowledgeAgent  — HR and IT policy answers (retrieval, decision, grounded answer)
 //   escalationAgent — ticket drafts (slot filling, clarification, draft)
 //   timesheetAgent  — the employee's timesheet (status; log hours, confirmed by the employee)
-//   requestsAgent   — the employee's requests
+//   requestsAgent   — the employee's requests (status; changes confirmed by the employee, UC-17)
 //   payrollAgent    — the employee's pay records explained with cited policy
 //   leaveAgent      — the employee's leave (balance; applying in UC-11c)
 //   briefingAgent   — "what should I do today?" from the attention items (UC-12)
@@ -44,6 +44,7 @@ import {
   stubValidateCitations,
 } from '../nodes/stubs';
 import { payrollCompose } from '../nodes/payrollAgent';
+import { requestChangeUnavailable } from '../nodes/requestChange';
 import {
   createDailyBriefing,
   createLeaveBalance,
@@ -63,6 +64,7 @@ import {
   BY_DECISION,
   KNOWLEDGE_START,
   LEAVE_START,
+  REQUESTS_START,
   routeAfterAnalysis,
   routeAfterConfirmation,
   routeAfterKnowledge,
@@ -74,6 +76,7 @@ import {
   routeByDecision,
   routeKnowledgeStart,
   routeLeaveStart,
+  routeRequestsStart,
   routeTimesheetStart,
   TIMESHEET_START,
 } from './edges';
@@ -102,6 +105,7 @@ export const DEFAULT_NODES = {
   leaveApply,
   dailyBriefing: createDailyBriefing({}),
   requestStatus: stubRequestStatus,
+  requestChange: requestChangeUnavailable,
   payrollRecords: stubPayrollRecords,
   payrollExplain: stubPayrollExplain,
   payrollCompose,
@@ -127,7 +131,7 @@ export const AGENTS = {
   ],
   escalationAgent: ['slotFill', 'clarifyForTicket', 'buildDraft'],
   timesheetAgent: ['timesheetStatus', 'timesheetLog'],
-  requestsAgent: ['requestStatus'],
+  requestsAgent: ['requestStatus', 'requestChange'],
   leaveAgent: ['leaveBalance', 'leaveApply'],
   briefingAgent: ['dailyBriefing'],
   // Reuses the knowledge agent's retrieval, rerank and citation check.
@@ -205,8 +209,10 @@ export function buildSupportGraph({ checkpointer, nodes = {} }: SupportGraphOpti
 
   const requestsAgent = new StateGraph(GraphState)
     .addNode('requestStatus', node('requestStatus'))
-    .addEdge(START, 'requestStatus')
+    .addNode('requestChange', node('requestChange'))
+    .addConditionalEdges(START, routeRequestsStart, [...REQUESTS_START])
     .addEdge('requestStatus', END)
+    .addEdge('requestChange', END)
     .compile({ name: 'requestsAgent' });
 
   const leaveAgent = new StateGraph(GraphState)

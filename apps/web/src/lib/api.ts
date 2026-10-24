@@ -354,6 +354,22 @@ export const api = {
       },
     ))!.conversation,
   ticket: async (id: string) => (await apiRequest(`/tickets/${id}`, TicketDetailResponseSchema))!,
+  // The requester's own changes (UC-17).
+  commentRequest: async (id: string, body: string) =>
+    (await apiRequest(`/tickets/${id}/comment`, TicketDetailResponseSchema, {
+      method: 'POST',
+      body: { body },
+    }))!,
+  withdrawRequest: async (id: string, reason?: string) =>
+    (await apiRequest(`/tickets/${id}/withdraw`, TicketDetailResponseSchema, {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    }))!,
+  reopenRequest: async (id: string, reason?: string) =>
+    (await apiRequest(`/tickets/${id}/reopen`, TicketDetailResponseSchema, {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    }))!,
 
   // Employee workspace (UC-02).
   dashboard: async () => (await apiRequest('/dashboard', DashboardResponseSchema))!,

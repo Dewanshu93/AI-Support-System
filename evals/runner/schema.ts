@@ -25,6 +25,8 @@ export const WORKSPACE_CATEGORIES = [
   'leave_balance',
   'leave_apply',
   'daily_briefing',
+  // UC-17: changes to the employee's own requests.
+  'request_manage',
 ] as const;
 export const CASE_CATEGORIES = [...KNOWLEDGE_CATEGORIES, ...WORKSPACE_CATEGORIES] as const;
 export type CaseCategory = (typeof CASE_CATEGORIES)[number];
@@ -51,6 +53,7 @@ export const CATEGORY_DECISION = {
   leave_balance: 'ANSWER',
   leave_apply: 'ANSWER',
   daily_briefing: 'ANSWER',
+  request_manage: 'ANSWER',
 } as const satisfies Record<CaseCategory, z.infer<typeof DecisionSchema>>;
 
 export const CATEGORY_CODE = {
@@ -67,6 +70,7 @@ export const CATEGORY_CODE = {
   leave_balance: 'LBL',
   leave_apply: 'LAP',
   daily_briefing: 'BRF',
+  request_manage: 'RMG',
 } as const satisfies Record<CaseCategory, string>;
 
 /** The P-1 workspace intent that routes each workspace category to its agent. */
@@ -78,6 +82,7 @@ export const CATEGORY_INTENT = {
   leave_balance: 'leave_balance',
   leave_apply: 'leave_apply',
   daily_briefing: 'daily_briefing',
+  request_manage: 'request_manage',
 } as const satisfies Record<WorkspaceCategory, WorkspaceIntent>;
 
 /**
@@ -110,7 +115,7 @@ export const GoldenCaseSchema = z.strictObject({
   id: z
     .string()
     .regex(
-      /^((IT|HR|GEN)-(ANS|PAR|CLR|ESC|SEN|OOS)|WS-(TSL|TSS|PAY|REQ|LBL|LAP|BRF))-\d{3}$/,
+      /^((IT|HR|GEN)-(ANS|PAR|CLR|ESC|SEN|OOS)|WS-(TSL|TSS|PAY|REQ|LBL|LAP|BRF|RMG))-\d{3}$/,
       'must look like HR-ANS-007 or WS-TSL-001',
     ),
   category: z.enum(CASE_CATEGORIES),

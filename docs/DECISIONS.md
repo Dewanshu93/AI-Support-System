@@ -775,3 +775,30 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     active). Golden set: `WS-TSL-007` – `009`.
 - **Consequences:** one confirm saves every entry, audited as one `timesheet.save` with every
   change listed. Wider windows (a whole month) are out of scope: the employee names days instead.
+
+## ADR-028 — The requester's own changes: comment, withdraw, reopen; P-13 (UC-17)
+
+- **Status:** Accepted (UC-17, 2026-10-23; owner decisions on all four points below)
+- **Context:** employees could only read their requests. ADR-012's transitions are the agents'
+  workflow and have no way for a requester to cancel; "add a note to my VPN ticket" needs the
+  request and the comment read from free text.
+- **Decision:**
+  - **Requester rules** (`domain/requestChanges.ts`, separate from ADR-012's agent table):
+    _comment_ on anything but a closed request, **no status change** (owner decision: the agent
+    moves it on); _withdraw_ any open request → **closed** (owner decision), recorded as a public
+    `status_change` with the reason; _reopen_ a resolved request → in progress (resolution time
+    cleared). Closed is final for the requester.
+  - **One service** (`modules/tickets/requesterService.ts`, guarded update shared with agents) for
+    the request page and the copilot. Endpoints `POST /api/tickets/:id/comment | withdraw | reopen`
+    (employee-only; another employee's request 404; 409 with the reason when a rule refuses),
+    audited `ticket.comment` / `ticket.withdraw` / `ticket.reopen` with `triggeredBy`. The request
+    page shows the comment box and Withdraw / Reopen (owner decision).
+  - **P-13 `request_change_extract`** (fast tier): operation, the request as the employee
+    referred to it, and the comment text copied. Code finds the request: a number in the
+    reference or message among the employee's own, else the only request the change fits; several
+    → "which request?" with the list; none → says so. Then the rules, then a `request_change`
+    action on the confirmation card; applyAction goes through the same service.
+  - P-13 is listed in `config/prompts.yaml`; its eval comes with the P-1 v3 run. Golden
+    `WS-RMG-001` – `003`.
+- **Consequences:** agents see the employee's comment as a public reply and the withdrawal as a
+  status change; they get no notification (in-app notifications are for employees only).

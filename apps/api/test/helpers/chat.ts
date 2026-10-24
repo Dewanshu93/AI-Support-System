@@ -21,6 +21,7 @@ import {
 import { VALID_ENV } from './config';
 import { type MemoryConversations, memoryConversationsRepository } from './conversations';
 import {
+  memoryAgentTicketsRepository,
   type MemoryEmails,
   memoryEmailService,
   type MemoryTickets,
@@ -28,6 +29,7 @@ import {
 } from './tickets';
 import { type MemoryWorkspace, memoryWorkspaceRepository } from './workspace';
 import { buildMockHrData } from '../../src/modules/workspace/seed';
+import { createRequesterService } from '../../src/modules/tickets/requesterService';
 import { createLeaveService } from '../../src/modules/workspace/leaveService';
 import { createWorkspaceRecords } from '../../src/modules/workspace/records';
 import { createWorkspaceService } from '../../src/modules/workspace/service';
@@ -162,6 +164,11 @@ export function buildChatTestApp(
       workday: config.workday,
       approvalQueue: 'hr_general',
       clock,
+    }),
+    requester: createRequesterService({
+      tickets,
+      agentTickets: memoryAgentTicketsRepository(tickets),
+      now: clock,
     }),
   });
   const queue: FakeReply[] = [...(options.replies ?? [])];

@@ -186,3 +186,17 @@ export const TicketDetailResponseSchema = z.object({
 });
 export type TicketDetailResponse = z.infer<typeof TicketDetailResponseSchema>;
 export const TicketParamsSchema = z.object({ id: ObjectIdStringSchema });
+
+// --- the requester's own changes (UC-17, ADR-028) -------------------------------
+
+/** A public comment on the employee's own request (changes no status). */
+export const RequestCommentRequestSchema = z.strictObject({
+  body: z.string().trim().min(1).max(1000),
+});
+export type RequestCommentRequest = z.infer<typeof RequestCommentRequestSchema>;
+
+/** Withdraw (open → closed) or reopen (resolved → in progress), with an optional reason. */
+export const RequestStatusChangeRequestSchema = z.strictObject({
+  reason: z.string().trim().max(500).optional(),
+});
+export type RequestStatusChangeRequest = z.infer<typeof RequestStatusChangeRequestSchema>;

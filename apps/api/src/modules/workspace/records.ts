@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import type { WorkspaceRecords } from '../../ai/nodes/workspaceAgents';
 import type { ConfigFiles } from '../../config/schemas';
 import type { TicketsRepository } from '../tickets/repository';
+import type { RequesterService } from '../tickets/requesterService';
 import type { LeaveService } from './leaveService';
 import type { WorkspaceService } from './service';
 
@@ -13,6 +14,8 @@ export function createWorkspaceRecords(deps: {
   routing: ConfigFiles['routing'];
   /** Leave for the leave agent (UC-11); without it the agent says records are unavailable. */
   leave?: Pick<LeaveService, 'overview' | 'types' | 'check' | 'apply'>;
+  /** The requester's own changes (UC-17); without it the copilot cannot apply them. */
+  requester?: Pick<RequesterService, 'change'>;
 }): WorkspaceRecords {
   const { leave } = deps;
   const leaveRecords: Partial<WorkspaceRecords> = leave
@@ -61,6 +64,31 @@ export function createWorkspaceRecords(deps: {
     entries: (who, from, to) => deps.service.entries(who, from, to),
     payroll: (who) => deps.service.payrollFacts(who),
     attention: (who) => deps.service.needsAttention(who),
+    async ownRequests(userId) {
+      const page = await deps.tickets.listForRequester(new ObjectId(userId), { limit: 50 });
+      return page.items.map((t) => ({
+        id: t._id.toHexString(),
+        humanId: t.humanId,
+        summary: t.summary,
+        status: t.status,
+      }));
+    },
+    ...(deps.requester && {
+      changeRequest: async (
+        userId: string,
+        ticketId: string,
+        change: 'comment' | 'withdraw' | 'reopen',
+        text: string | null,
+      ) => {
+        const { ticket } = await deps.requester!.change(
+          userId,
+          ticketId,
+          change,
+          text ?? undefined,
+        );
+        return { status: ticket.status };
+      },
+    }),
     ...leaveRecords,
     async requests(userId) {
       const page = await deps.tickets.listForRequester(new ObjectId(userId), { limit: 50 });

@@ -160,6 +160,7 @@ describe('committed prompts', () => {
     timesheet_extract: ['history', 'message', 'projects', 'today'],
     payroll_explain: ['question', 'records', 'sources'],
     leave_extract: ['history', 'message', 'today', 'types'],
+    request_change_extract: ['history', 'message', 'requests'],
     agent_ticket_summary: ['articles', 'conversation', 'ticket'],
     agent_draft_reply: ['brief', 'sources', 'ticket', 'tone'],
     gap_cluster_label: ['questions'],

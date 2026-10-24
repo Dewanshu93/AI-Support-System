@@ -534,6 +534,73 @@ export function leaveAppliedReply(l: ProposedLeave): string {
     : `Recorded: ${leaveLine(l)}.`;
 }
 
+// --- changes to the employee's own requests (UC-17) -------------------------------------
+
+type Change = 'comment' | 'withdraw' | 'reopen';
+const CHANGE_VERB: Record<Change, string> = {
+  comment: 'commented on',
+  withdraw: 'withdrawn',
+  reopen: 'reopened',
+};
+const requestLine = (r: { humanId: string; summary: string; status: TicketStatus }) =>
+  `• ${r.humanId} — ${r.summary} (${REQUEST_STAGE_LABEL[r.status]})`;
+
+export const REQUEST_CHANGE_WHAT_REPLY =
+  'What would you like to do with your request: add a comment, withdraw it, or reopen it?';
+
+/** Several requests fit: the employee picks one by number. */
+export function requestWhichReply(
+  change: Change,
+  candidates: { humanId: string; summary: string; status: TicketStatus }[],
+): string {
+  return [
+    `Which request should be ${CHANGE_VERB[change]}? Tell me its number:`,
+    ...candidates.slice(0, 5).map(requestLine),
+  ].join('\n');
+}
+
+export function requestNoneReply(change: Change): string {
+  return change === 'reopen'
+    ? 'You have no resolved request to reopen. Closed requests cannot be reopened: I can help you raise a new one.'
+    : `You have no open request that can be ${CHANGE_VERB[change]}.`;
+}
+
+export const requestNotFoundReply = (humanId: string) =>
+  `I could not find ${humanId} among your requests. Open Requests in the menu to see them all.`;
+
+export const requestRuleReply = (humanId: string, change: Change, reason: string) =>
+  `${humanId} cannot be ${CHANGE_VERB[change]}: ${reason}.`;
+
+export const requestCommentMissingReply = (humanId: string) =>
+  `What should I add to ${humanId}? Write the comment as you want the team to read it.`;
+
+export interface ProposedRequestChange {
+  change: Change;
+  humanId: string;
+  summary: string;
+  comment: string | null;
+  statusAfter: TicketStatus | null;
+}
+
+/** Shown with the confirmation card; nothing changes yet. */
+export function requestChangeConfirmReply(c: ProposedRequestChange): string {
+  const what =
+    c.change === 'comment'
+      ? `add this comment to ${c.humanId} (${c.summary}): "${c.comment}"`
+      : `${c.change} ${c.humanId} (${c.summary}); it will show as ${REQUEST_STAGE_LABEL[c.statusAfter!]}`;
+  return `Please confirm: ${what}. Nothing changes until you confirm.`;
+}
+
+/** Recorded in the conversation after the employee confirmed. */
+export function requestChangeAppliedReply(c: ProposedRequestChange): string {
+  return c.change === 'comment'
+    ? `Comment added to ${c.humanId}. The team sees it on the request.`
+    : `${c.humanId} is ${CHANGE_VERB[c.change]}: it now shows as ${REQUEST_STAGE_LABEL[c.statusAfter!]}.`;
+}
+
+export const REQUEST_CHANGE_EXTRACTION_FAILED_REPLY =
+  'I could not read that. Try "Add a comment to IT-9001: it works from home now", "Withdraw HR-0012" or "Reopen my VPN request", or open the request in Requests.';
+
 export const LEAVE_EXTRACTION_FAILED_REPLY =
   'I could not read that leave request. Try something like "Casual leave on 26 October" or "Annual leave from Oct 26 to Oct 28", or use the Leave page.';
 

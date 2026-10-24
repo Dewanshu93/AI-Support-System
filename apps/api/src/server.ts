@@ -56,6 +56,7 @@ import { loadPromptRegistry, PromptError, type PromptRegistry } from './ai/promp
 import { logger } from './lib/logger';
 import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
+import { createRequesterService } from './modules/tickets/requesterService';
 import { createLeaveService } from './modules/workspace/leaveService';
 import { createWorkspaceRecords } from './modules/workspace/records';
 import { mongoWorkspaceRepository } from './modules/workspace/repository';
@@ -155,6 +156,11 @@ async function main() {
       workday: config.workday,
       approvalQueue: config.routing.routes.leave ?? 'hr_general',
       clock: clock ?? (() => new Date()),
+    }),
+    requester: createRequesterService({
+      tickets,
+      agentTickets: mongoAgentTicketsRepository(collections),
+      now: clock,
     }),
   });
 

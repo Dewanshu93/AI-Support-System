@@ -248,6 +248,7 @@ export const PROMPT_NAMES = [
   // P-11, the payroll agent's explanation (UC-06).
   'payroll_explain',
   'leave_extract',
+  'request_change_extract',
 ] as const;
 export type PromptName = (typeof PROMPT_NAMES)[number];
 

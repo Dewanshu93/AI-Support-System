@@ -12,6 +12,7 @@ import { copyLastWeek, fillMissingDays } from '../../domain/timesheetBulk';
 import {
   bulkNothingReply,
   leaveAppliedReply,
+  requestChangeAppliedReply,
   type ProposedEntry,
   TIMESHEET_EXTRACTION_FAILED_REPLY,
   timesheetAppliedReply,
@@ -248,7 +249,25 @@ export function createApplyAction(deps: ApplyActionDeps) {
         .join('; ');
 
     let result: ActionResult;
-    if (action.kind === 'leave_apply') {
+    if (action.kind === 'request_change') {
+      // UC-17: the exact change shown, through the request page's service and rules.
+      if (!deps.records.changeRequest) throw new Error('applyAction: request changes unavailable');
+      try {
+        await deps.records.changeRequest(who.id, action.ticketId, action.change, action.comment);
+        result = {
+          status: 'applied',
+          message: requestChangeAppliedReply(action),
+          saved: 1,
+          recordId: action.ticketId,
+        };
+      } catch (err) {
+        result = {
+          status: 'failed',
+          message: `Nothing was changed: ${issuesOf(err) ?? (err instanceof Error ? err.message : 'the request could not be updated')}. Please check the request in Requests.`,
+          saved: 0,
+        };
+      }
+    } else if (action.kind === 'leave_apply') {
       // UC-11c: books the leave exactly as shown, through the Leave page's service.
       if (!deps.records.applyLeave) throw new Error('applyAction: leave records unavailable');
       const { type, startDate, endDate } = action;

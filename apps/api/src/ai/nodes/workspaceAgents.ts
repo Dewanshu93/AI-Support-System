@@ -1,7 +1,14 @@
 // Records-based copilot nodes (code, no LLM; UC-04). They answer from the
 // employee's own timesheet and requests, which code reads from the database
 // (Build Contract v2.0, rule E.2). The timesheet log action arrives in UC-05.
-import type { Country, IsoDate, LeaveStatus, LeaveType, TimesheetDay } from '@sd/shared';
+import type {
+  Country,
+  IsoDate,
+  LeaveStatus,
+  LeaveType,
+  TicketStatus,
+  TimesheetDay,
+} from '@sd/shared';
 import {
   type BriefingItem,
   dailyBriefingReply,
@@ -52,6 +59,17 @@ export interface WorkspaceRecords {
   leave?(who: Employee): Promise<LeaveFacts>;
   /** The dashboard's "needs your attention" items, most urgent first (UC-12). */
   attention?(who: Employee): Promise<BriefingItem[]>;
+  /** The employee's requests with their ids (UC-17), most recent first. */
+  ownRequests?(
+    userId: string,
+  ): Promise<{ id: string; humanId: string; summary: string; status: TicketStatus }[]>;
+  /** Applies a confirmed change through the request page's service; throws if a rule now fails. */
+  changeRequest?(
+    userId: string,
+    ticketId: string,
+    change: 'comment' | 'withdraw' | 'reopen',
+    text: string | null,
+  ): Promise<{ status: TicketStatus }>;
   /** Leave types employees book, from config (UC-11c). */
   leaveTypes?(): { type: LeaveType; label: string; needsApproval: boolean }[];
   /** Checks a leave application against every rule without writing (UC-11c). */

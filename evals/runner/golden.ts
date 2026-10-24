@@ -35,7 +35,7 @@ export const GOLDEN_FILE = path.join(
 
 /** Section 8 composition, plus the workspace cases (UC-09; UC-11/UC-12, amendment A-1). */
 export const COMPOSITION = {
-  total: 110,
+  total: 113,
   byCategory: {
     answerable: 35,
     partial: 10,
@@ -50,6 +50,7 @@ export const COMPOSITION = {
     leave_balance: 3,
     leave_apply: 5,
     daily_briefing: 2,
+    request_manage: 3,
   },
   answerableByDomain: { IT: { min: 16, max: 20 }, HR: { min: 15, max: 19 } },
   minProfileVariantPairs: 8,
@@ -146,7 +147,7 @@ export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): s
       say(`id code does not match category ${c.category}`);
     // A timesheet or leave request with missing details or a rule problem is a code-asked CLARIFY.
     const clarifyingLog =
-      (c.category === 'timesheet_log' || c.category === 'leave_apply') &&
+      ['timesheet_log', 'leave_apply', 'request_manage'].includes(c.category) &&
       c.expected.decision === 'CLARIFY';
     if (c.expected.decision !== CATEGORY_DECISION[c.category] && !clarifyingLog) {
       say(
@@ -174,9 +175,11 @@ export function findCaseProblems(cases: GoldenCase[], ctx: ValidationContext): s
       say('WS ids are for workspace categories only');
     if (
       c.expected.awaitsConfirmation &&
-      !['timesheet_log', 'leave_apply', 'escalate'].includes(c.category)
+      !['timesheet_log', 'leave_apply', 'request_manage', 'escalate'].includes(c.category)
     ) {
-      say('only timesheet_log, leave_apply and escalate cases can await confirmation');
+      say(
+        'only timesheet_log, leave_apply, request_manage and escalate cases can await confirmation',
+      );
     }
 
     const user = usersByEmail.get(c.userEmail);

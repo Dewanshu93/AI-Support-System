@@ -90,6 +90,34 @@ describe('ActionCard (leave)', () => {
     expect(html).not.toContain('action-entry');
   });
 
+  it('shows a request change: the request, the exact comment, the status after', () => {
+    const comment = render({
+      kind: 'request_change',
+      change: 'comment',
+      ticketId: 'a'.repeat(24),
+      humanId: 'HR-9002',
+      summary: 'Badge access',
+      comment: 'The new badge works now',
+      statusAfter: null,
+    });
+    expect(comment).toContain('Add a comment to HR-9002');
+    expect(comment).toContain('The new badge works now');
+    expect(comment).toContain('Confirm and add');
+    expect(comment).not.toContain('It will show as');
+    const withdraw = render({
+      kind: 'request_change',
+      change: 'withdraw',
+      ticketId: 'a'.repeat(24),
+      humanId: 'IT-9001',
+      summary: 'VPN access',
+      comment: null,
+      statusAfter: 'closed',
+    });
+    expect(withdraw).toContain('Withdraw IT-9001');
+    expect(withdraw).toContain('It will show as');
+    expect(withdraw).toContain('Confirm and withdraw');
+  });
+
   it('says sick leave is recorded at once', () => {
     const html = render({ ...LEAVE, type: 'sick', typeLabel: 'Sick leave', needsApproval: false });
     expect(html).toContain('Recorded at once');

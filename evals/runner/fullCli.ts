@@ -30,8 +30,8 @@ import type { RefMatcher } from './scorers';
 import { type EvalModelMode, evalModels } from './models';
 import { beginRun, evalStore } from './store';
 
-/** Thrown by the eval's records if anything tries to save a timesheet or book leave. */
-export const EVAL_WRITE_REFUSED = 'eval runs never save timesheets or book leave';
+/** Thrown by the eval's records if anything tries to save a timesheet, book leave or change a request. */
+export const EVAL_WRITE_REFUSED = 'eval runs never save timesheets, book leave or change requests';
 
 /** Same "today" as the API (DEMO_TODAY), so relative dates resolve as in the demo. */
 const clockFor = (demoToday: string | undefined) =>
@@ -100,6 +100,7 @@ export async function runFullCli(
       ...records,
       saveTimesheet: () => Promise.reject(new Error(EVAL_WRITE_REFUSED)),
       applyLeave: () => Promise.reject(new Error(EVAL_WRITE_REFUSED)),
+      changeRequest: () => Promise.reject(new Error(EVAL_WRITE_REFUSED)),
     },
     checkpointer: new MemorySaver(),
     isEval: true,
