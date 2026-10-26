@@ -103,6 +103,8 @@ export const CASE_TAGS = [
   'indirect',
   // Three quick retrieval cases for the E2E smoke run of the eval page (W4-05).
   'smoke',
+  // UC-15: asked in Hindi; the answer must be in Hindi (Devanagari).
+  'hindi',
 ] as const;
 export type CaseTag = (typeof CASE_TAGS)[number];
 

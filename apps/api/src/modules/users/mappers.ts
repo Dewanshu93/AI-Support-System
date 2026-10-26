@@ -15,6 +15,7 @@ export function toAuthUser(doc: UserDoc): AuthUser {
     queues: doc.queues,
     // Users stored before the setting existed have no field: Pro is off.
     proModels: doc.proModels === true,
+    replyLanguage: doc.replyLanguage ?? 'auto',
   };
 }
 

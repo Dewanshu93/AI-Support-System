@@ -35,9 +35,9 @@ export const GOLDEN_FILE = path.join(
 
 /** Section 8 composition, plus the workspace cases (UC-09; UC-11/UC-12, amendment A-1). */
 export const COMPOSITION = {
-  total: 113,
+  total: 116,
   byCategory: {
-    answerable: 35,
+    answerable: 38, // section 8: 35, plus three Hindi cases (UC-15)
     partial: 10,
     clarify: 10,
     escalate: 12,

@@ -54,6 +54,29 @@ function outcome(
   };
 }
 
+describe('UC-15: Hindi cases must be answered in Hindi', () => {
+  const hindi = (answerText: string) =>
+    scoreFullCase(
+      outcome({ tags: ['hindi'], answerText, expected: { keyFacts: ['15'] } }),
+      refMatcher,
+    );
+
+  it('passes a Devanagari answer that keeps the figure', () => {
+    const s = hindi('आपको हर साल 15 दिन की वार्षिक छुट्टी मिलती है [S1].');
+    expect(s).toMatchObject({ languageCorrect: true, passed: true });
+  });
+
+  it('fails an English answer to a Hindi question', () => {
+    const s = hindi('You get 15 days of paid vacation [S1].');
+    expect(s.languageCorrect).toBe(false);
+    expect(s.failureReasons).toContain('WRONG_LANGUAGE');
+  });
+
+  it('does not apply to other cases', () => {
+    expect(scoreFullCase(outcome(), refMatcher).languageCorrect).toBeNull();
+  });
+});
+
 describe('W3-08: escalation quality in the case score and the summary', () => {
   const escalation = (ticket: FullCaseOutcome['ticket'], tags: string[] = []) =>
     outcome({

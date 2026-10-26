@@ -69,6 +69,8 @@ export interface FullCaseScore {
   awaitsConfirmation: boolean | null;
   /** Something was written although the employee never confirmed (hard gate). */
   unconfirmedWrite: boolean;
+  /** UC-15: a Hindi case answered in Devanagari; null for other cases or when not answered. */
+  languageCorrect: boolean | null;
   /** Escalation quality (W3-08); null when the case expects no ticket. */
   ticket: TicketScore | null;
   passed: boolean;
@@ -122,6 +124,7 @@ export function scoreFullCase(
       ? null
       : (o.awaiting !== null) === o.expected.awaitsConfirmation;
   const unconfirmedWrite = o.writeNodes.length > 0;
+  const languageCorrect = o.tags.includes('hindi') && answered ? /[ऀ-ॿ]/.test(o.answerText) : null;
   const ticket = o.expected.ticket
     ? scoreTicket(o.expected.ticket, o.ticket ?? null, {
         requiredFields: requiredFields(o.expected.ticket.category),
@@ -140,6 +143,7 @@ export function scoreFullCase(
   // Key facts count only where the expected outcome is an answer.
   if (ANSWERING.includes(o.expected.decision) && missing.length > 0)
     failureReasons.push('MISSING_FACT');
+  if (languageCorrect === false) failureReasons.push('WRONG_LANGUAGE');
   // Ticket checks apply when the case escalated as expected (a draft exists).
   if (ticket && o.ticket) {
     if (!ticket.categoryCorrect) failureReasons.push('WRONG_CATEGORY');
@@ -161,6 +165,7 @@ export function scoreFullCase(
     intentCorrect,
     awaitsConfirmation,
     unconfirmedWrite,
+    languageCorrect,
     ticket,
     passed: failureReasons.length === 0,
     failureReasons,

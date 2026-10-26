@@ -17,6 +17,7 @@ import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
 import type { PromptRegistry } from '../prompts/registry';
 import { PayrollExplanationSchema } from '../schemas';
 import { formatSources } from './answer';
+import { languageVariable } from './promptFormat';
 import { structuredCallWithRetry } from './structuredCall';
 import type { WorkspaceRecords } from './workspaceAgents';
 
@@ -107,6 +108,7 @@ export function createPayrollExplain(deps: PayrollExplainDeps) {
       records: payrollFactsForModel(facts),
       question: state.input.text,
       sources: formatSources(context),
+      ...languageVariable(deps.prompts, 'payroll_explain', state),
     });
     const { data, llmCalls, errors } = await structuredCallWithRetry({
       node: 'payrollExplain',

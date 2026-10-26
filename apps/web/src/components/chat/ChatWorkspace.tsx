@@ -31,6 +31,7 @@ import {
 } from './ChatParts';
 import type { PrivateContactOffer } from './HandoffCard';
 import { ProModelsSwitch } from './ProModelsSwitch';
+import { ReplyLanguageSelect } from './ReplyLanguageSelect';
 import { SourceDrawer } from './SourceDrawer';
 import { TicketDraftCard } from './TicketDraftCard';
 
@@ -274,7 +275,10 @@ export function ChatWorkspace({
               Answers cite company policy. Actions and requests always ask you to confirm.
             </p>
           </div>
-          <ProModelsSwitch />
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <ReplyLanguageSelect />
+            <ProModelsSwitch />
+          </div>
         </div>
         {detail?.kind === 'loading' && (
           <div className="space-y-3" role="status" aria-label="Loading conversation">

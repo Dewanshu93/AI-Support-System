@@ -13,6 +13,7 @@ import {
   EmailSubjectSchema,
   IsoDateSchema,
   NotificationKindSchema,
+  ReplyLanguageSettingSchema,
   LeaveSourceSchema,
   LeaveStatusSchema,
   LeaveTypeSchema,
@@ -64,6 +65,8 @@ export const UserSchema = z
     isDemo: z.boolean(),
     /** The user's own "Pro" setting (ADR-020); absent = off (local model). Never seeded. */
     proModels: z.boolean().optional(),
+    /** UC-15: the copilot's answer language; absent = auto. Never seeded. */
+    replyLanguage: ReplyLanguageSettingSchema.optional(),
     createdAt: z.date(),
   })
   .refine((u) => (u.role === 'agent') === u.queues.length > 0, {

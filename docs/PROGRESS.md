@@ -62,7 +62,7 @@ decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 
 | UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                                      | UC-02, UC-03 |
 | UC-13 | Bulk timesheet actions (several entries, one confirm card) | Built; P-10 v2 eval with the P-1 v3 run                            | UC-05        |
 | UC-14 | Voice input in the copilot (browser Web Speech API)        | Done                                                               | W2-09        |
-| UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                                        | UC-04, UC-09 |
+| UC-15 | Hindi/multilingual answers                                 | Built; v2 answer prompts switch with the P-1 v3 eval run           | UC-04, UC-09 |
 | UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Done                                                               | W4-02        |
 | UC-17 | Manage requests from chat (comment, cancel, reopen)        | Built (chat + request page); P-13 eval with the P-1 v3 run         | UC-08        |
 
@@ -2374,3 +2374,23 @@ only while the employee has the mic on. Clear with the data-protection owner bef
 joining, error texts); Playwright `voice.spec.ts` with a fake recognizer (speech fills the
 composer after typed text and sends nothing; a blocked speech service shows the reason and typing
 still works): written, not yet run: the LAN database (192.168.29.3) was unreachable on 2026-10-26, and every E2E run needs it.
+
+## UC-15 Hindi replies — 2026-10-26
+
+**Delivered:** reply-language setting (`auto` | `en` | `hi`; "Reply in" beside the Pro switch;
+`PATCH /api/profiles/me/preferences` takes either preference), `domain/language.ts` (auto =
+Hindi for Devanagari), P-3 / P-4 / P-11 v2 with `{{language}}` (citations, digits and figures
+kept as written), `languageVariable` so active v1 prompts render unchanged, P-1 v3 English search
+query, golden tag `hindi` with 3 cases (116 total) and the `WRONG_LANGUAGE` check. ADR-031.
+
+**Defaults (owner can change):** auto by default; only model-written answers follow the language;
+records replies, confirmations and fixed texts stay English for now.
+
+**Not switched on:** v2 answer prompts and P-1 v3 switch together after the full eval run (needs
+a quality model).
+
+**Verification:** `language.test.ts`; `replyLanguage.test.ts` (no language for v1; Hindi /
+English / explicit setting for v2; v2 renders with the v1 variables plus language and the
+citation rule); `preferences.test.ts` (auto by default, set and audited, Pro untouched, bad
+values 400); `ReplyLanguageSelect.test.tsx`; `fullScorers.test.ts` (Devanagari answer passes,
+English answer fails `WRONG_LANGUAGE`, other cases unaffected); `golden:validate`.

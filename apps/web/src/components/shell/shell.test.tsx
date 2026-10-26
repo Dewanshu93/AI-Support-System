@@ -23,6 +23,7 @@ const PRIYA: AuthUser = {
   accessLevel: 'standard',
   queues: [],
   proModels: false,
+  replyLanguage: 'auto',
 } as AuthUser;
 
 describe('ProfileMenu', () => {

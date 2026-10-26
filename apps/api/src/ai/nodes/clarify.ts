@@ -7,7 +7,7 @@ import type { State, StateUpdate } from '../graph/state';
 import type { CallPolicy, ChatHandle, CostTable, ModelTier } from '../llm';
 import type { PromptRegistry } from '../prompts/registry';
 import { ClarifyingQuestionSchema } from '../schemas';
-import { formatProfile } from './promptFormat';
+import { formatProfile, languageVariable } from './promptFormat';
 import { structuredCallWithRetry } from './structuredCall';
 
 export const CLARIFY_FALLBACK = 'CLARIFY_FALLBACK';
@@ -30,6 +30,7 @@ export function createClarify(deps: ClarifyDeps) {
       profile: formatProfile(state.profile),
       question: state.input.text,
       needed: reason,
+      ...languageVariable(deps.prompts, 'clarifying_question', state),
     });
     const { data, llmCalls, errors } = await structuredCallWithRetry({
       node: NODE,

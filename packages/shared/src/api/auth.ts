@@ -36,6 +36,13 @@ export const LoginRequestSchema = z
   });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 
+/** Languages the copilot answers in (UC-15). */
+export const REPLY_LANGUAGES = ['en', 'hi'] as const;
+export type ReplyLanguage = (typeof REPLY_LANGUAGES)[number];
+export const REPLY_LANGUAGE_SETTINGS = ['auto', ...REPLY_LANGUAGES] as const;
+export type ReplyLanguageSetting = (typeof REPLY_LANGUAGE_SETTINGS)[number];
+export const ReplyLanguageSettingSchema = z.enum(REPLY_LANGUAGE_SETTINGS);
+
 /** The authenticated user as returned by login and /me. */
 export const AuthUserSchema = z.object({
   id: ObjectIdStringSchema,
@@ -50,11 +57,20 @@ export const AuthUserSchema = z.object({
   queues: z.array(z.string()),
   /** "Pro" (ADR-020): paid models (Gemini, OpenRouter) answer; off → the local model. */
   proModels: z.boolean(),
+  /** UC-15 (ADR-031): the copilot's answer language; "auto" follows the message's script. */
+  replyLanguage: ReplyLanguageSettingSchema,
 });
 export type AuthUser = z.infer<typeof AuthUserSchema>;
 
-/** PATCH /api/profiles/me/preferences: the signed-in user's own settings. */
-export const PreferencesRequestSchema = z.strictObject({ proModels: z.boolean() });
+/** PATCH /api/profiles/me/preferences: the signed-in user's own settings (one or both). */
+export const PreferencesRequestSchema = z
+  .strictObject({
+    proModels: z.boolean().optional(),
+    replyLanguage: ReplyLanguageSettingSchema.optional(),
+  })
+  .refine((p) => p.proModels !== undefined || p.replyLanguage !== undefined, {
+    message: 'give at least one preference',
+  });
 export type PreferencesRequest = z.infer<typeof PreferencesRequestSchema>;
 export const AuthUserResponseSchema = z.object({ user: AuthUserSchema });
 export type AuthUserResponse = z.infer<typeof AuthUserResponseSchema>;

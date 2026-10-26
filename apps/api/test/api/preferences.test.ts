@@ -48,6 +48,27 @@ describe('PATCH /api/profiles/me/preferences', () => {
     });
   });
 
+  it('UC-15: the reply language is auto by default; setting it is saved and audited, Pro untouched', async () => {
+    const ctx = buildTestApp();
+    const priya = await loginCookie(ctx.app, PRIYA);
+    expect(
+      (await request(ctx.app).get('/api/auth/me').set('Cookie', priya)).body.user.replyLanguage,
+    ).toBe('auto');
+    const res = await request(ctx.app)
+      .patch(URL)
+      .set('Cookie', priya)
+      .send({ replyLanguage: 'hi' });
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({ replyLanguage: 'hi', proModels: false });
+    expect(ctx.audit.at(-1)).toMatchObject({
+      action: 'user.preferences',
+      metadata: { replyLanguage: 'hi', previousLanguage: 'auto' },
+    });
+    for (const body of [{ replyLanguage: 'fr' }, {}]) {
+      expect((await request(ctx.app).patch(URL).set('Cookie', priya).send(body)).status).toBe(400);
+    }
+  });
+
   it('is per user: one user turning Pro on does not change another', async () => {
     const { ctx, priya, hana } = await setup();
     await request(ctx.app).patch(URL).set('Cookie', priya).send({ proModels: true });

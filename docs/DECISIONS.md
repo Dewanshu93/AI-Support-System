@@ -842,3 +842,29 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     are shown in words; typing always works.
   - Language `en-US` for now; UC-15 (Hindi) can pass `hi-IN`.
 - **Consequences:** behaviour depends on the browser and network; E2E uses a fake recognizer.
+
+## ADR-031 — Hindi replies: code picks the language, model answers follow it (UC-15)
+
+- **Status:** Accepted (UC-15, 2026-10-26; amendment A-1). Prompts not active until the eval run.
+- **Context:** employees may write in Hindi. The policies are English; citations, figures and the
+  number check must keep working; the language must not be the model's choice.
+- **Decision:**
+  - **Code decides** (`domain/language.ts` `replyLanguageFor`): the user's setting
+    `replyLanguage` (`auto` | `en` | `hi`, default auto, `PATCH /api/profiles/me/preferences`, a
+    "Reply in" select next to the Pro switch); on auto, Hindi when the message contains
+    Devanagari. Romanised Hindi is not detected: the employee can choose Hindi.
+  - **Model-written answers only:** new versions P-3 `grounded_answer` v2, P-4
+    `clarifying_question` v2 and P-11 `payroll_explain` v2 take `{{language}}` and keep source
+    markers, digits, dates, amounts and limits exactly as the sources write them, so citation
+    validation and the numeric check are unchanged. `uncovered` stays English. Code-written replies
+    (records answers, confirmations, fixed templates) and policy titles stay English for now: a
+    separate localisation task.
+  - Nodes pass `language` only when the active version declares it (`languageVariable`), so v1
+    keeps rendering unchanged and the switch is a `config/prompts.yaml` change.
+  - **Search stays English:** P-1 v3 writes the search query in English whatever the message
+    language (the corpus is English; BM25 would miss Hindi words).
+  - Golden set: three Hindi answerable cases (tag `hindi`, key facts that survive translation:
+    figures and addresses); the full scorer fails a `hindi` answer without Devanagari
+    (`WRONG_LANGUAGE`). Voice input (ADR-030) can pass `hi-IN` later.
+- **Consequences:** a mixed reply (Hindi answer, English records and buttons) until the UI and
+  code replies are localised. Switch the v2 prompts with the P-1 v3 eval run.

@@ -13,7 +13,7 @@ import { toAuthUser, toProfile } from './mappers';
 
 /**
  * Profiles are read-only in the MVP; they come from seed data (production: HRIS).
- * Each user may change their own preferences (ADR-020: the "Pro" models switch).
+ * Each user may change their own preferences (ADR-020: the "Pro" models switch; UC-15: the reply language).
  */
 export function profileRoutes(deps: Pick<AppDeps, 'users' | 'audit'>): RouteDef[] {
   const audit = createAuditService(deps.audit);
@@ -31,14 +31,23 @@ export function profileRoutes(deps: Pick<AppDeps, 'users' | 'audit'>): RouteDef[
       handlers: [
         validate({ body: PreferencesRequestSchema }),
         async (req, res) => {
-          const { proModels } = req.body as PreferencesRequest;
-          const doc = await deps.users.setPreferences(req.user!.id, { proModels });
+          const { proModels, replyLanguage } = req.body as PreferencesRequest;
+          const doc = await deps.users.setPreferences(req.user!.id, {
+            ...(proModels !== undefined && { proModels }),
+            ...(replyLanguage !== undefined && { replyLanguage }),
+          });
           if (!doc) throw new AppError('UNAUTHENTICATED', 'Sign in required');
           await audit.record(req, {
             action: 'user.preferences',
             targetType: 'user',
             targetId: req.user!.id,
-            metadata: { proModels, previous: req.user!.proModels },
+            metadata: {
+              ...(proModels !== undefined && { proModels, previous: req.user!.proModels }),
+              ...(replyLanguage !== undefined && {
+                replyLanguage,
+                previousLanguage: req.user!.replyLanguage,
+              }),
+            },
           });
           const body: AuthUserResponse = { user: toAuthUser(doc) };
           res.json(body);

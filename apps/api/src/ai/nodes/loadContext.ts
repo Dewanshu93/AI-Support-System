@@ -36,6 +36,7 @@ export function createLoadContext({
         accessLevel: user.accessLevel,
         department: user.department,
         jobTitle: user.jobTitle,
+        ...(user.replyLanguage && { replyLanguage: user.replyLanguage }),
       },
       history,
     };

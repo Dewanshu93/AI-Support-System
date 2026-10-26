@@ -1,6 +1,25 @@
 // Shared formatting of state into prompt variables (no names, emails or IDs).
+import type { PromptName } from '../../config/schemas';
+import { LANGUAGE_NAME, replyLanguageFor } from '../../domain/language';
 import { withoutPayrollRecords } from '../../domain/workspaceReplies';
-import type { HistoryMessage, Profile } from '../graph/state';
+import type { HistoryMessage, Profile, State } from '../graph/state';
+import type { PromptRegistry } from '../prompts/registry';
+
+/**
+ * `{ language }` for answer prompts that take it (UC-15, v2 and later), decided by
+ * code from the setting and the message; `{}` for active versions without it, which
+ * the registry would otherwise reject as an unknown variable.
+ */
+export function languageVariable(
+  prompts: PromptRegistry,
+  name: PromptName,
+  state: Pick<State, 'profile' | 'input'>,
+): { language?: string } {
+  if (!prompts.get(name).variables.includes('language')) return {};
+  return {
+    language: LANGUAGE_NAME[replyLanguageFor(state.profile?.replyLanguage, state.input.text)],
+  };
+}
 
 /** Profile summary for prompts: country, employment type and department only. */
 export function formatProfile(profile: Profile | null): string {

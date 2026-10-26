@@ -10,7 +10,10 @@ export interface UsersRepository {
   findByEmail(email: string): Promise<UserDoc | null>;
   listDemo(): Promise<UserDoc[]>;
   /** Saves the user's own settings; returns the updated user, null if unknown. */
-  setPreferences(id: string, preferences: { proModels: boolean }): Promise<UserDoc | null>;
+  setPreferences(
+    id: string,
+    preferences: Partial<Pick<UserDoc, 'proModels' | 'replyLanguage'>>,
+  ): Promise<UserDoc | null>;
 }
 
 export function mongoUsersRepository(users: Collection<UserDoc>): UsersRepository {
@@ -25,11 +28,11 @@ export function mongoUsersRepository(users: Collection<UserDoc>): UsersRepositor
     async listDemo() {
       return users.find({ isDemo: true }).toArray();
     },
-    async setPreferences(id, { proModels }) {
+    async setPreferences(id, preferences) {
       if (!ObjectId.isValid(id)) return null;
       return users.findOneAndUpdate(
         { _id: new ObjectId(id) },
-        { $set: { proModels } },
+        { $set: preferences },
         { returnDocument: 'after' },
       );
     },

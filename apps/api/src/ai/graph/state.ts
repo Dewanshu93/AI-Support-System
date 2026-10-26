@@ -13,6 +13,7 @@ import type {
   EmploymentType,
   ImpactScope,
   Priority,
+  ReplyLanguageSetting,
   TicketDraft,
 } from '@sd/shared';
 import { z } from 'zod';
@@ -36,6 +37,8 @@ export interface Profile {
   accessLevel: AccessLevel;
   department: string;
   jobTitle: string;
+  /** UC-15: the employee's reply-language setting (absent = auto). */
+  replyLanguage?: ReplyLanguageSetting;
 }
 
 export interface HistoryMessage {

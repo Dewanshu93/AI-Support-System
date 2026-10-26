@@ -19,7 +19,7 @@ import {
 } from '../llm';
 import type { PromptRegistry } from '../prompts/registry';
 import { type AnswerMode, GroundedAnswerTrailerSchema } from '../schemas';
-import { formatProfile } from './promptFormat';
+import { formatProfile, languageVariable } from './promptFormat';
 
 export const ANSWER_TRAILER_INVALID = 'ANSWER_TRAILER_INVALID';
 const NODE = 'answer';
@@ -89,6 +89,7 @@ export function createAnswer(deps: AnswerDeps) {
       profile: formatProfile(state.profile),
       question: state.analysis?.searchQuery ?? state.input.text,
       sources: formatSources(context),
+      ...languageVariable(deps.prompts, 'grounded_answer', state),
     });
     const chat = deps.chatFor(prompt.modelTier, { temperature: prompt.temperature });
     const started = performance.now();

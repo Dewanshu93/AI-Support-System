@@ -1248,6 +1248,17 @@ inside the app:
   supported, appends the transcript after typed text, shows a privacy notice while listening and
   errors in words. Nothing is sent until Send. No API change, no dependency.
 
+## Reply language (UC-15, ADR-031)
+
+- Setting: `users.replyLanguage` (`auto` | `en` | `hi`), `AuthUser.replyLanguage`, `PATCH
+/api/profiles/me/preferences` (either preference); web `ReplyLanguageSelect` beside the Pro
+  switch. `loadContext` puts it on `state.profile`.
+- Rule: `domain/language.ts` `replyLanguageFor(setting, message)` (auto → Hindi for Devanagari).
+- Prompts: `grounded_answer` v2, `clarifying_question` v2, `payroll_explain` v2 take
+  `{{language}}`; `languageVariable` (`ai/nodes/promptFormat.ts`) adds it only for versions that
+  declare it. Active versions stay v1 until the eval run. P-1 v3: English search query.
+- Eval: tag `hindi`, `WRONG_LANGUAGE` in `fullScorers.ts`; golden 116 cases.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.
