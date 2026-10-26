@@ -61,7 +61,7 @@ decision (2026-10-20): the new copilot intents of UC-11 – UC-17 share one P-1 
 | UC-11 | Leave management: balances, apply for leave by chat/form   | Built (11a–c); P-1 v3 eval + E2E re-record pending a quality model | UC-01, UC-05 |
 | UC-12 | "Needs your attention" panel (deterministic, no LLM)       | Done (copilot part in P-1 v3)                                      | UC-02, UC-03 |
 | UC-13 | Bulk timesheet actions (several entries, one confirm card) | Built; P-10 v2 eval with the P-1 v3 run                            | UC-05        |
-| UC-14 | Voice input in the copilot (browser Web Speech API)        | Planned (amendment pending)                                        | W2-09        |
+| UC-14 | Voice input in the copilot (browser Web Speech API)        | Done                                                               | W2-09        |
 | UC-15 | Hindi/multilingual answers                                 | Planned (amendment pending)                                        | UC-04, UC-09 |
 | UC-16 | Answer feedback loop (thumbs up/down → knowledge gaps)     | Done                                                               | W4-02        |
 | UC-17 | Manage requests from chat (comment, cancel, reopen)        | Built (chat + request page); P-13 eval with the P-1 v3 run         | UC-08        |
@@ -2358,4 +2358,19 @@ reason, decision, profile, persona; the raw email never returned; `rating=up`; r
 hidden; employee and agent 403); route policy table and role matrix; `NotHelpful.test.tsx`
 (golden draft from the redacted question and profile, row content, no copy for confidential;
 chat reason chips, Send disabled until a reason or note); Playwright `admin.spec.ts` checks the
-new section (see the task report).
+new section: 4/4 (the overview test once hit a "socket hang up" at its first sign-in under load
+and passed when re-run alone).
+
+## UC-14 Voice input — 2026-10-24
+
+**Delivered:** `hooks/useSpeechInput.ts` (browser Web Speech API; no dependency, no API change),
+mic button in the chat composer (hidden where unsupported), transcript appended after typed
+text, privacy notice while listening, errors in words. ADR-030.
+
+**Privacy note:** Chrome and Edge send the audio to the browser vendor's speech service; it runs
+only while the employee has the mic on. Clear with the data-protection owner before production.
+
+**Verification:** `useSpeechInput.test.ts` (recognizer detection incl. webkit prefix, transcript
+joining, error texts); Playwright `voice.spec.ts` with a fake recognizer (speech fills the
+composer after typed text and sends nothing; a blocked speech service shows the reason and typing
+still works): written, not yet run: the LAN database (192.168.29.3) was unreachable on 2026-10-26, and every E2E run needs it.

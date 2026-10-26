@@ -1241,6 +1241,13 @@ inside the app:
   reason; restricted turns hidden. UI: `components/admin/gaps/NotHelpful.tsx` on the Knowledge
   gaps page, with "Copy as golden case" (`draftGoldenCase`, client-side only).
 
+## Voice input (UC-14, ADR-030)
+
+- `hooks/useSpeechInput.ts` wraps the browser's `SpeechRecognition` (continuous, interim
+  results, `en-US`); `Composer` (`components/chat/ChatParts.tsx`) shows a mic button only where
+  supported, appends the transcript after typed text, shows a privacy notice while listening and
+  errors in words. Nothing is sent until Send. No API change, no dependency.
+
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.

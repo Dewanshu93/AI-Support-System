@@ -3,9 +3,11 @@
 // Smaller chat pieces: stage indicator, composer, resolution prompt, feedback,
 // empty state with example prompts.
 import type { ChatStage } from '@sd/shared';
-import { type FormEvent, type KeyboardEvent, useState } from 'react';
+import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
+import { joinTranscript, useSpeechInput } from '@/hooks/useSpeechInput';
 
 const STAGE_TEXT: Record<ChatStage, string> = {
   analyzing: 'Understanding your question…',
@@ -40,11 +42,23 @@ export function Composer({
 }) {
   const [text, setText] = useState('');
   const trimmed = text.trim();
+  // Voice input (UC-14): what was typed before pressing the mic stays; speech is appended.
+  const typedBefore = useRef('');
+  const speech = useSpeechInput({
+    onText: (heard) =>
+      setText(joinTranscript(typedBefore.current, heard).slice(0, MAX_MESSAGE_LENGTH)),
+  });
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (disabled || !trimmed || trimmed.length > MAX_MESSAGE_LENGTH) return;
+    speech.stop();
     onSend(trimmed);
     setText('');
+  };
+  const toggleMic = () => {
+    if (speech.listening) return speech.stop();
+    typedBefore.current = text;
+    speech.start();
   };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) submit(e);
@@ -81,11 +95,35 @@ export function Composer({
           <span className="text-xs text-slate-500">
             {trimmed.length}/{MAX_MESSAGE_LENGTH}
           </span>
+          {speech.supported && (
+            <Button
+              variant={speech.listening ? 'danger' : 'ghost'}
+              data-testid="voice-input"
+              aria-pressed={speech.listening}
+              aria-label={speech.listening ? 'Stop voice input' : 'Speak your message'}
+              title="Speech is turned into text by your browser's speech service"
+              disabled={disabled}
+              onClick={toggleMic}
+            >
+              <Icon name="mic" className="h-4 w-4" />
+              {speech.listening && <span className="text-xs">Listening…</span>}
+            </Button>
+          )}
           <Button type="submit" data-testid="send" disabled={disabled || !trimmed}>
             Send
           </Button>
         </div>
       </div>
+      {speech.error && (
+        <p role="alert" data-testid="voice-error" className="px-2 text-xs text-rose-700">
+          {speech.error}
+        </p>
+      )}
+      {speech.listening && (
+        <p className="px-2 text-xs text-slate-500" aria-live="polite">
+          Your browser's speech service turns what you say into text. Check it, then press Send.
+        </p>
+      )}
     </form>
   );
 }

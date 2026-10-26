@@ -823,3 +823,22 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     `evals/golden` (then `golden:validate`).
 - **Consequences:** no LLM involved. The list is a recent window (50 by default, at most 100);
   aggregation by topic stays with the knowledge-gap clusters.
+
+## ADR-030 — Voice input with the browser's Web Speech API (UC-14)
+
+- **Status:** Accepted (UC-14, 2026-10-24; amendment A-1)
+- **Context:** employees want to speak to the copilot. Server-side speech-to-text would add a
+  provider, a dependency and audio uploads (out of scope: no attachments, no new services).
+- **Decision:**
+  - The browser's `SpeechRecognition` (`webkitSpeechRecognition` in Chrome / Edge), wrapped in
+    `hooks/useSpeechInput.ts`. No dependency, no API change: the transcript only fills the
+    composer, after any typed text, and the employee reviews it and presses Send (nothing is sent
+    by voice alone). The mic button is hidden where the browser has no support (Firefox).
+  - **Privacy:** Chrome and Edge send the audio to the browser vendor's speech service. Recognition
+    runs only while the employee holds the mic on (one click to start, one to stop); a notice says
+    so while listening, and the button's title repeats it. Production would need this cleared by
+    the data-protection owner, or an on-device engine.
+  - Errors (microphone blocked, speech service unreachable from the corporate network, no speech)
+    are shown in words; typing always works.
+  - Language `en-US` for now; UC-15 (Hindi) can pass `hi-IN`.
+- **Consequences:** behaviour depends on the browser and network; E2E uses a fake recognizer.
