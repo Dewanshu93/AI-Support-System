@@ -260,3 +260,21 @@ manager approval pending (as for v2.0 itself).
 - **Unchanged:** sections E (AI rules), O (out of scope) and the hard gates. New intents share
   one new version of the turn-analysis prompt, with golden cases and a full eval run before it
   is switched on.
+
+**A-2 (2026-10-27) — Real tool integrations, Jira Cloud first; extensions UC-18 – UC-24.**
+Status: approved by the owner (the company allows integrations with its tools); manager approval
+pending.
+
+- **Reason:** employees use real tools (Jira first); the copilot is more useful on their real
+  work than on mock tasks.
+- **Changed (sections M and O):** a real integration is allowed once it has its own ADR. The
+  first is Jira Cloud (UC-18, ADR-032). Each employee connects their own Atlassian account
+  (OAuth 2.0); the app sees only what Jira lets that employee see. HR, payroll, ITSM and email
+  stay mock until their own ADR (UC-19).
+- **Rules for every integration:** code calls the system (no tools bound to the model); reads
+  first; every write is a confirmed action with an audit entry (rule E.4); secrets and client
+  credentials only in `.env`; tokens encrypted at rest; tests and the demo run on the mock.
+- **Added to scope (section B):** UC-18 Jira Cloud; UC-19 connector layer for the other systems;
+  UC-20 IT access requests; UC-21 expense claims (no attachments); UC-22 my equipment; UC-23
+  satisfaction rating after resolution; UC-24 agent reply templates.
+- **Unchanged:** section E (AI rules) and the hard gates.

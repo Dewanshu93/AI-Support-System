@@ -1,6 +1,7 @@
 'use client';
 
-// My work: tasks assigned in the (mock) project tracker, as a board or a list.
+// My work: tasks assigned in the project tracker, as a board or a list. A connected
+// employee sees their Jira issues (UC-18, read-only; each links to Jira).
 import { TASK_STATUSES, type Task, type TaskStatus } from '@sd/shared';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
@@ -13,7 +14,8 @@ import { api } from '@/lib/api';
 import { dueLabel } from '@/lib/format';
 import { ViewToggle } from './ViewToggle';
 import { PRIORITY_DOT, TASK_STATUS } from './styles';
-import { ProjectChip, TaskRow } from './TaskRow';
+import { JiraConnection } from './JiraConnection';
+import { ProjectChip, TaskKey, TaskRow } from './TaskRow';
 
 const BOARD_ORDER: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
 
@@ -33,9 +35,14 @@ export function TasksPage() {
       <PageHeader
         eyebrow="My work"
         title="Tasks"
-        description="Work assigned to you in the project tracker."
+        description={
+          state.data?.tracker.source === 'jira'
+            ? `Issues assigned to you in Jira${state.data.tracker.siteName ? ` (${state.data.tracker.siteName})` : ''}.`
+            : 'Work assigned to you in the project tracker.'
+        }
         actions={<ViewToggle value={view} onChange={setView} />}
       />
+      <JiraConnection tracker={state.data?.tracker} onChange={() => void reload()} />
       {state.kind === 'error' && !state.data ? (
         <ErrorState
           message={state.error.message}
@@ -51,8 +58,12 @@ export function TasksPage() {
       ) : state.data.items.length === 0 ? (
         <EmptyState
           icon="checklist"
-          title="No tasks assigned"
-          description="Tasks assigned to you appear here."
+          title={state.data.tracker.problem ? 'No issues to show' : 'No tasks assigned'}
+          description={
+            state.data.tracker.source === 'jira'
+              ? 'Jira issues assigned to you appear here.'
+              : 'Tasks assigned to you appear here.'
+          }
         />
       ) : (
         <>
@@ -139,7 +150,7 @@ function Column({ status, tasks, today }: { status: TaskStatus; tasks: Task[]; t
               className="rounded-xl border border-slate-200 bg-surface p-3.5 shadow-card"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[11px] font-medium text-slate-500">{t.key}</span>
+                <TaskKey task={t} />
                 <span
                   role="img"
                   aria-label={`${t.priority} priority`}

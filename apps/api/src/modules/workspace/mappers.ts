@@ -43,6 +43,8 @@ export function toTask(t: TaskDoc, project: ProjectDoc): Task {
     },
     dueDate: t.dueDate,
     updatedAt: t.updatedAt.toISOString(),
+    source: 'mock',
+    url: null,
   };
 }
 

@@ -1262,3 +1262,29 @@ inside the app:
 ## Runtime
 
 - `GET /api/health` → `200 { status, db, vectorStore, llmConfigured }`.
+
+## Jira Cloud, read-only (UC-18, ADR-032)
+
+- **Connect:** the Tasks page's "Connect Jira" is a plain link to
+  `GET /api/integrations/jira/connect`, which redirects to Atlassian's sign-in and consent page
+  (scopes `read:jira-work read:jira-user offline_access`) with a random state, also kept in the
+  httpOnly cookie `sd_jira_state` (10 minutes). Atlassian redirects to
+  `GET /api/integrations/jira/callback` (through the web proxy, so the session cookie comes
+  along); a matching state and the same employee are required, then the code is exchanged, the
+  Jira site picked (`JIRA_SITE_URL` or the first) and the employee is sent to
+  `/tasks?jira=connected | declined | failed | no_site`. `POST /api/integrations/jira/disconnect`
+  deletes the tokens. `GET /api/integrations` lists the status. Connect and disconnect are audited.
+- **Storage:** `integration_tokens` (unique per user and provider): site, scopes, expiry, and the
+  access and refresh tokens encrypted with AES-256-GCM (`modules/integrations/tokenCrypto.ts`,
+  `TOKEN_ENCRYPTION_KEY`). Refresh tokens rotate; a refused token deletes the connection.
+- **Reads:** `modules/integrations/service.ts` gives the workspace service `externalTasks`: a
+  connected employee's `GET /api/tasks/mine` and dashboard come from Jira (`jiraClient.ts`,
+  REST v3 `search/jql`, `assignee = currentUser()`, 50 issues), mapped in code
+  (`jiraMapping.ts`) to the same `Task` shape with `source: jira` and `url` (the issue page).
+  Everyone else keeps the mock tracker. `tracker.problem` (`reconnect` | `unreachable`) explains
+  an empty Jira list; a Jira failure never fails the dashboard.
+- **Writes:** none. Changes are made in Jira through the issue links.
+- **Set-up:** offered only when `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET` and
+  `TOKEN_ENCRYPTION_KEY` are set (`modules/integrations/setup.ts`); otherwise connect answers
+  503 `INTEGRATION_UNAVAILABLE` and the UI hides the card. Tests use a fake Atlassian
+  (`test/helpers/integrations.ts`); no network.

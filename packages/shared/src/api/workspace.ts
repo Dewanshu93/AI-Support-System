@@ -27,6 +27,7 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const TaskStatusSchema = z.enum(TASK_STATUSES);
 
 export const TASK_PRIORITIES = ['low', 'medium', 'high'] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 export const TaskPrioritySchema = z.enum(TASK_PRIORITIES);
 
 /** Where a timesheet entry came from: the form, the AI copilot (after confirmation) or seed data. */
@@ -101,17 +102,40 @@ export type Project = z.infer<typeof ProjectSchema>;
 export const ProjectListResponseSchema = z.object({ items: z.array(ProjectSchema) });
 export type ProjectListResponse = z.infer<typeof ProjectListResponseSchema>;
 
+/** Where the tasks come from: the built-in mock tracker or the employee's Jira (UC-18). */
+export const TASK_SOURCES = ['mock', 'jira'] as const;
+export type TaskSource = (typeof TASK_SOURCES)[number];
+
 export const TaskSchema = z.object({
-  id: ObjectIdStringSchema,
+  /** Mock: ObjectId; Jira: the issue id. */
+  id: z.string().min(1),
   key: z.string(),
   title: z.string(),
   status: TaskStatusSchema,
   priority: TaskPrioritySchema,
-  project: ProjectSchema.pick({ id: true, code: true, name: true, color: true }),
+  /** Mock: a workspace project; Jira: the Jira project (its key as the code). */
+  project: z.object({
+    id: z.string().min(1),
+    code: z.string(),
+    name: z.string(),
+    color: z.string(),
+  }),
   dueDate: IsoDateSchema.nullable(),
   updatedAt: z.string(),
+  source: z.enum(TASK_SOURCES),
+  /** The issue page in Jira (changes are made there); null for mock tasks. */
+  url: z.url().nullable(),
 });
 export type Task = z.infer<typeof TaskSchema>;
+
+/** Which tracker answered, and why a Jira list is empty when it could not be read. */
+export const TaskTrackerInfoSchema = z.object({
+  source: z.enum(TASK_SOURCES),
+  /** Jira site name when the source is jira. */
+  siteName: z.string().nullable(),
+  problem: z.enum(['unreachable', 'reconnect']).nullable(),
+});
+export type TaskTrackerInfo = z.infer<typeof TaskTrackerInfoSchema>;
 export const TaskListQuerySchema = z.object({
   status: TaskStatusSchema.optional(),
   /** `open` = everything except done. */
@@ -121,6 +145,7 @@ export type TaskListQuery = z.infer<typeof TaskListQuerySchema>;
 export const TaskListResponseSchema = z.object({
   items: z.array(TaskSchema),
   today: IsoDateSchema,
+  tracker: TaskTrackerInfoSchema,
 });
 export type TaskListResponse = z.infer<typeof TaskListResponseSchema>;
 
@@ -361,6 +386,7 @@ export const DashboardResponseSchema = z.object({
     open: z.number().int(),
     dueSoon: z.number().int(),
     items: z.array(TaskSchema),
+    tracker: TaskTrackerInfoSchema,
   }),
   timesheet: z.object({
     weekStart: IsoDateSchema,

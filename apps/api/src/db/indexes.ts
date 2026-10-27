@@ -109,6 +109,9 @@ export const REGULAR_INDEXES: Record<CollectionKey, IndexSpec[]> = {
     // HR approval list: oldest waiting first.
     { name: 'status_createdAt', key: { status: 1, createdAt: 1 } },
   ],
+  integrationTokens: [
+    { name: 'userId_provider_unique', key: { userId: 1, provider: 1 }, unique: true },
+  ],
 };
 
 /** Creates any collection that does not exist yet. */

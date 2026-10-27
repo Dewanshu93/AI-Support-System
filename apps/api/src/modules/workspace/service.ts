@@ -6,7 +6,9 @@ import {
   type DashboardResponse,
   type IsoDate,
   REQUEST_STAGE_LABEL,
+  type Task,
   type TaskListQuery,
+  type TaskTrackerInfo,
   type TimesheetCell,
   type TimesheetDay,
   type TimesheetSource,
@@ -42,6 +44,14 @@ export interface WorkspaceServiceDeps {
   routing: ConfigFiles['routing'];
   /** Injected so tests (and the seeded demo) control "today". */
   clock: () => Date;
+  /**
+   * The employee's connected tracker (Jira, UC-18): null when not connected, and the
+   * mock tracker is used instead.
+   */
+  externalTasks?: (
+    user: AuthUser,
+    query: TaskListQuery,
+  ) => Promise<{ items: Task[]; tracker: TaskTrackerInfo } | null>;
 }
 
 /** Who the records belong to: enough to scope queries and pick the holiday calendar. */
@@ -267,7 +277,12 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     };
   }
 
-  async function tasks(user: AuthUser, query: TaskListQuery) {
+  async function tasks(
+    user: AuthUser,
+    query: TaskListQuery,
+  ): Promise<{ items: Task[]; tracker: TaskTrackerInfo }> {
+    const external = await deps.externalTasks?.(user, query);
+    if (external) return external;
     const docs = await workspace.tasksForAssignee(uid(user), {
       status: query.status,
       openOnly: query.view === 'open',
@@ -279,10 +294,11 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
         )
       ).map((p) => [p._id.toHexString(), p]),
     );
-    return docs.flatMap((t) => {
+    const items = docs.flatMap((t) => {
       const project = projects.get(t.projectId.toHexString());
       return project ? [toTask(t, project)] : [];
     });
+    return { items, tracker: { source: 'mock', siteName: null, problem: null } };
   }
 
   async function payslips(user: AuthUser) {
@@ -403,9 +419,11 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
       },
       today: now,
       tasks: {
-        open: openTasks.length,
-        dueSoon: openTasks.filter((t) => t.dueDate !== null && t.dueDate <= dueSoonLimit).length,
-        items: openTasks.slice(0, 6),
+        open: openTasks.items.length,
+        dueSoon: openTasks.items.filter((t) => t.dueDate !== null && t.dueDate <= dueSoonLimit)
+          .length,
+        items: openTasks.items.slice(0, 6),
+        tracker: openTasks.tracker,
       },
       timesheet: {
         weekStart: thisWeek,

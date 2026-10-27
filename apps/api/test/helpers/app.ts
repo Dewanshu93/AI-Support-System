@@ -24,6 +24,7 @@ import {
   memoryTicketsRepository,
   type MemoryTickets,
 } from './tickets';
+import { memoryIntegrationsRepository } from './integrations';
 import { memoryWorkspaceRepository } from './workspace';
 
 export const TEST_JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-bytes';
@@ -88,6 +89,8 @@ export interface TestAppOptions extends CreateAppOptions {
   documentAdmin?: AppDeps['documentAdmin'];
   /** Eval runs (W4-05); default: none, and a start answers 503. */
   evals?: AppDeps['evals'];
+  /** Connected tools (UC-18); default: empty in-memory tokens and Jira not set up. */
+  integrations?: Partial<AppDeps['integrations']>;
   /** Rate limits (W4-07); default: high enough that only rate-limit tests hit them. */
   rateLimits?: Partial<AppDeps['security']['rateLimits']>;
 }
@@ -122,6 +125,10 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
       duplicateWindowDays: config.thresholds.ticket.duplicateWindowDays,
     },
     workspace: options.workspace ?? memoryWorkspaceRepository(),
+    integrations: {
+      repository: options.integrations?.repository ?? memoryIntegrationsRepository(),
+      jira: options.integrations?.jira,
+    },
     metrics: options.metrics ?? emptyMetrics(),
     gaps: options.gaps ?? testGaps(),
     traces: options.traces ?? memoryTracesRepository(),

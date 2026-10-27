@@ -23,6 +23,8 @@ import { sourceRoutes } from '../modules/documents/routes';
 import { ticketRoutes } from '../modules/tickets/routes';
 import { createTicketService } from '../modules/tickets/service';
 import { healthRoutes } from '../modules/health/routes';
+import { integrationRoutes } from '../modules/integrations/routes';
+import { createIntegrationsService } from '../modules/integrations/service';
 import { profileRoutes } from '../modules/users/routes';
 import { actionRoutes } from '../modules/workspace/actionRoutes';
 import { createActionService } from '../modules/workspace/actionService';
@@ -58,6 +60,11 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
     graph: deps.chat.graph,
     conversations: deps.conversations,
     genericErrorText: deps.templates.generic_error,
+  });
+  const integrations = createIntegrationsService({
+    repository: deps.integrations.repository,
+    jira: deps.integrations.jira,
+    clock: deps.clock ?? (() => new Date()),
   });
   const agentService = createAgentService({
     tickets: deps.tickets,
@@ -115,8 +122,10 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
         workday: deps.workday,
         routing: deps.ticketConfig.routing,
         clock: deps.clock ?? (() => new Date()),
+        externalTasks: integrations.tasks,
       }),
     ),
+    ...integrationRoutes(deps, integrations),
     ...leaveRoutes(
       deps,
       createLeaveService({

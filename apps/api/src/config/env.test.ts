@@ -28,7 +28,16 @@ describe('parseEnv', () => {
       LLM_MODE: 'live',
       EMAIL_DELIVERY: 'mock',
       RATE_LIMIT_SCALE: 1,
+      JIRA_REDIRECT_URI: 'http://localhost:3000/api/integrations/jira/callback',
     });
+  });
+
+  it('accepts a 32-byte base64 TOKEN_ENCRYPTION_KEY and rejects any other length', () => {
+    const key = Buffer.alloc(32, 1).toString('base64');
+    expect(parseEnv({ ...valid, TOKEN_ENCRYPTION_KEY: key }).TOKEN_ENCRYPTION_KEY).toBe(key);
+    expect(() =>
+      parseEnv({ ...valid, TOKEN_ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') }),
+    ).toThrow(/TOKEN_ENCRYPTION_KEY/);
   });
 
   it('accepts EMAIL_DELIVERY=smtp and treats a blank value as mock', () => {

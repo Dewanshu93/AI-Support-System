@@ -91,6 +91,44 @@ Scope notes (to be expanded into task cards when each task starts):
   request is meant and checks the allowed status transitions; confirm card before any change; the
   change is audited and appears in the tracker.
 
+### Use Case 1 extensions, second batch (owner, 2026-10-27)
+
+Build Contract amendment A-2 (2026-10-27): the company allows real tool integrations; owner
+approved, manager approval pending. It lifts "mock services only" for Jira Cloud first; every
+other system stays mock until its own ADR. Same rules as before: code calls the systems (no tools
+bound to the LLM), every write is a confirmed action with an audit entry, secrets only in `.env`.
+
+| Task  | Name                                                                   | Status                                      | Depends on   |
+| ----- | ---------------------------------------------------------------------- | ------------------------------------------- | ------------ |
+| UC-18 | Jira Cloud (read-only): per-employee sign-in, my issues, links to Jira | Built; live check pending the Atlassian app | UC-02, UC-05 |
+| UC-19 | Connector layer for real systems (HR, payroll, ITSM, calendar)         | Not started                                 | UC-18        |
+| UC-20 | IT access requests (apps, groups, shared drives) with approval         | Not started                                 | UC-17        |
+| UC-21 | Expense claims: submit by form or chat, approver queue                 | Not started                                 | UC-11        |
+| UC-22 | My equipment: assigned assets, report a fault, request a device        | Not started                                 | UC-20        |
+| UC-23 | Satisfaction rating after a request is resolved                        | Not started                                 | UC-08        |
+| UC-24 | Agent reply templates (saved replies with placeholders)                | Not started                                 | W3-07        |
+
+Scope notes (to be expanded into task cards when each task starts):
+
+- **UC-18** Each employee connects Jira themselves (Atlassian OAuth 2.0 3LO); tokens encrypted
+  in a new `integration_tokens` collection with Node `crypto`. A `TaskTracker` port with the
+  current mock and a Jira Cloud REST v3 adapter (connected employees get Jira).
+  Read-only (owner): my issues on the dashboard and the Tasks page, each linking to its Jira
+  page where changes are made. No new npm dependency.
+- **UC-19** Generalise UC-18's port pattern to the other mock systems (HR records, payroll,
+  tickets/ITSM, calendar): one interface each, mock implementation default, real adapters added
+  per ADR. Health page shows which connector each system uses.
+- **UC-20** Request access to an app, group or shared drive from a catalogue in config; code
+  routes it to the owner's queue; approve/reject by the agent; employee sees status in the tracker.
+- **UC-21** Expense claim with category, amount, date and description; limits per category in
+  config, checked by code; approver queue like leave. No attachments (Do Not Build).
+- **UC-22** Assets assigned to the employee (mock data); report a fault (creates an IT request
+  linked to the asset) or request a device (via UC-20's approval flow).
+- **UC-23** When a request is resolved, the requester rates it 1–5 with an optional comment;
+  shown on the admin Overview per queue. In-app only.
+- **UC-24** Agents save and reuse reply templates with placeholders (`{{employeeName}}`,
+  `{{requestId}}`) filled by code; templates per queue; manage on the agent page.
+
 ## Checkpoints
 
 | Checkpoint         | Status                             | Notes                                                                                                                                                        |

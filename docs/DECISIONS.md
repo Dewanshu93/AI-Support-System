@@ -868,3 +868,39 @@ Format: context · decision · alternatives · consequences. Numbering follows t
     (`WRONG_LANGUAGE`). Voice input (ADR-030) can pass `hi-IN` later.
 - **Consequences:** a mixed reply (Hindi answer, English records and buttons) until the UI and
   code replies are localised. Switch the v2 prompts with the P-1 v3 eval run.
+
+## ADR-032 — Jira Cloud: each employee connects their own account; read-only (UC-18)
+
+- **Status:** Accepted (UC-18, 2026-10-27; amendment A-2).
+- **Context:** the dashboard and Tasks page show the mock tracker (UC-01). The company allows a
+  real Jira connection. The owner chose "Jira does its own auth": no shared service account and
+  no password or token typed into the app.
+- **Decision:**
+  - **Atlassian OAuth 2.0 (3LO), per employee.** "Connect Jira" (`GET
+/api/integrations/jira/connect`) redirects to Atlassian with a random `state`, also kept in
+    a 10-minute httpOnly cookie; the callback (`GET /api/integrations/jira/callback`) requires
+    the same signed-in employee and a matching state, exchanges the code, picks the Jira site
+    (`JIRA_SITE_URL`, else the first site granted) and stores the tokens. Scopes for slice 1:
+    `read:jira-work read:jira-user offline_access` only. `POST /api/integrations/jira/disconnect` deletes the tokens. Connect
+    and disconnect are audited.
+  - **Tokens encrypted at rest** in a new collection `integration_tokens` (one per user and
+    provider), AES-256-GCM with Node `crypto` and `TOKEN_ENCRYPTION_KEY` (32 bytes, base64).
+    Refresh tokens rotate; a refused refresh deletes the connection and the UI asks to
+    reconnect. Tokens never reach logs, traces, the web app or the model.
+  - **Available only when configured:** `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET` and
+    `TOKEN_ENCRYPTION_KEY` set. Otherwise the endpoints answer 503 and nothing changes.
+  - **Where Jira shows:** `GET /api/tasks/mine` and the dashboard read Jira for a connected
+    employee (`assignee = currentUser()`, REST v3 `search/jql`, 50 issues) and the mock tracker
+    for everyone else. The response says which (`tracker.source`) and why it is empty
+    (`unreachable` | `reconnect`); a Jira failure never breaks the dashboard. Mapping is code:
+    status category new/indeterminate/done → todo/in_progress/done, a status name containing
+    "review" → in_review; Highest/High → high, Low/Lowest → low, otherwise medium.
+  - **No new dependency:** Node `fetch` and `crypto`. Behind the company proxy Node needs
+    `NODE_USE_ENV_PROXY=1` (Node ≥ 24.5) with `HTTPS_PROXY`; otherwise an approved proxy agent.
+  - **Read-only (owner, 2026-10-27):** the app never writes to Jira. Each issue links to its
+    page in Jira (`url`); the employee makes changes there and the app shows them on the next
+    load. Copilot answers about Jira issues are a later task (a new P-1 version).
+- **Consequences:** tests, E2E and the demo stay on the mock (no network). Jira Server/Data
+  Center would be a second adapter. A live check needs the Atlassian app registered (callback
+  `http://localhost:3000/api/integrations/jira/callback`) and the proxy allowing
+  `auth.atlassian.com` and `api.atlassian.com`.

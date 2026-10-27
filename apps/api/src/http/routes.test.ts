@@ -92,6 +92,11 @@ describe('route policy table', () => {
       ['GET', '/api/payslips/:id', ['employee']],
       ['GET', '/api/notifications', ['employee']],
       ['POST', '/api/notifications/read', ['employee']],
+      // Connected tools (UC-18, ADR-032): each employee connects their own Jira.
+      ['GET', '/api/integrations', ['employee']],
+      ['GET', '/api/integrations/jira/connect', ['employee']],
+      ['GET', '/api/integrations/jira/callback', ['employee']],
+      ['POST', '/api/integrations/jira/disconnect', ['employee']],
       // Leave (UC-11, ADR-025): approval by agents of the leave queue (checked in the service).
       ['GET', '/api/leave', ['employee']],
       ['POST', '/api/leave/requests', ['employee']],

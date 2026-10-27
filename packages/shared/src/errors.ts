@@ -14,6 +14,8 @@ export const ERROR_HTTP_STATUS = {
   RATE_LIMITED: 429,
   INTERNAL: 500,
   LLM_UNAVAILABLE: 503,
+  // A connected tool that is not set up on this server, or cannot be reached (UC-18).
+  INTEGRATION_UNAVAILABLE: 503,
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_HTTP_STATUS;

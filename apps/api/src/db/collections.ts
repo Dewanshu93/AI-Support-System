@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import type {
   AttendanceDoc,
   EmailOutboxDoc,
+  IntegrationTokenDoc,
   LeaveRequestDoc,
   NotificationDoc,
   PayslipDoc,
@@ -52,6 +53,8 @@ export const COLLECTIONS = {
   emailOutbox: 'email_outbox',
   // Leave requests (UC-11, ADR-025): mock HR leave system.
   leaveRequests: 'leave_requests',
+  // Connected tools (UC-18, ADR-032): encrypted per-employee tokens.
+  integrationTokens: 'integration_tokens',
 } as const;
 export type CollectionKey = keyof typeof COLLECTIONS;
 
@@ -80,6 +83,7 @@ export function getCollections(db: Db) {
     notifications: db.collection<NotificationDoc>(COLLECTIONS.notifications),
     emailOutbox: db.collection<EmailOutboxDoc>(COLLECTIONS.emailOutbox),
     leaveRequests: db.collection<LeaveRequestDoc>(COLLECTIONS.leaveRequests),
+    integrationTokens: db.collection<IntegrationTokenDoc>(COLLECTIONS.integrationTokens),
   } satisfies Record<CollectionKey, unknown>;
 }
 export type Collections = ReturnType<typeof getCollections>;

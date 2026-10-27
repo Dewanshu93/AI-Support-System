@@ -567,6 +567,34 @@ export const LeaveRequestSchema = z
   });
 export type LeaveRequestDoc = z.infer<typeof LeaveRequestSchema>;
 
+// --- integration_tokens (UC-18, ADR-032) ------------------------------------
+
+/** AES-256-GCM output (modules/integrations/tokenCrypto.ts), each part base64. */
+export const EncryptedSecretSchema = z.object({
+  iv: z.string().min(1),
+  tag: z.string().min(1),
+  data: z.string().min(1),
+});
+export type EncryptedSecret = z.infer<typeof EncryptedSecretSchema>;
+
+/** One connected tool per employee and provider; tokens are stored encrypted only. */
+export const IntegrationTokenSchema = z.object({
+  _id: zObjectId,
+  userId: zObjectId,
+  provider: z.enum(['jira']),
+  /** Atlassian cloud ID of the chosen Jira site. */
+  siteId: NonEmpty,
+  siteUrl: z.url(),
+  siteName: NonEmpty,
+  accessToken: EncryptedSecretSchema,
+  refreshToken: nullable(EncryptedSecretSchema),
+  expiresAt: z.date(),
+  scopes: z.array(z.string()),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type IntegrationTokenDoc = z.infer<typeof IntegrationTokenSchema>;
+
 // --- email_outbox (UC-07, ADR-017) -------------------------------------------
 
 /**

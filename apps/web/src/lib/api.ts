@@ -51,6 +51,7 @@ import {
   PayslipListResponseSchema,
   PayslipResponseSchema,
   TaskListResponseSchema,
+  IntegrationListResponseSchema,
   type TimesheetSaveRequest,
   TimesheetSaveResponseSchema,
   TimesheetWeekResponseSchema,
@@ -379,6 +380,12 @@ export const api = {
   dashboard: async () => (await apiRequest('/dashboard', DashboardResponseSchema))!,
   myTasks: async (view: 'open' | 'all' = 'all') =>
     (await apiRequest(`/tasks/mine?view=${view}`, TaskListResponseSchema))!,
+  // Connected tools (UC-18): connecting is a browser navigation to /api/integrations/jira/connect.
+  integrations: async () => (await apiRequest('/integrations', IntegrationListResponseSchema))!,
+  disconnectJira: async () =>
+    (await apiRequest('/integrations/jira/disconnect', IntegrationListResponseSchema, {
+      method: 'POST',
+    }))!,
   timesheetWeek: async (date?: string) =>
     (await apiRequest(
       `/timesheets/week${date ? `?date=${date}` : ''}`,

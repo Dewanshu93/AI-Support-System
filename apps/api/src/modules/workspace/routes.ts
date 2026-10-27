@@ -72,7 +72,7 @@ export function workspaceRoutes(deps: AppDeps, service: WorkspaceService): Route
         validate({ query: TaskListQuerySchema }),
         async (req, res) => {
           const body: TaskListResponse = {
-            items: await service.tasks(req.user!, req.validated.query as TaskListQuery),
+            ...(await service.tasks(req.user!, req.validated.query as TaskListQuery)),
             today: service.today(),
           };
           res.json(body);

@@ -300,7 +300,7 @@ function TasksCard({ data }: { data: DashboardResponse }) {
       <CardHeader
         icon={<Icon name="checklist" className="h-4.5 w-4.5" />}
         title="My work"
-        subtitle={`${data.tasks.open} open task${data.tasks.open === 1 ? '' : 's'} from the project tracker`}
+        subtitle={`${data.tasks.open} open ${data.tasks.tracker.source === 'jira' ? 'Jira issue' : 'task'}${data.tasks.open === 1 ? '' : 's'} from ${data.tasks.tracker.source === 'jira' ? (data.tasks.tracker.siteName ?? 'Jira') : 'the project tracker'}`}
         action={
           <Link href="/tasks" className="text-xs font-medium text-brand-600 hover:text-brand-700">
             View board →
@@ -311,7 +311,13 @@ function TasksCard({ data }: { data: DashboardResponse }) {
         <EmptyState
           icon="checkCircle"
           title="No open tasks"
-          description="Nice — nothing assigned right now."
+          description={
+            data.tasks.tracker.problem === 'unreachable'
+              ? 'Jira could not be reached just now.'
+              : data.tasks.tracker.problem === 'reconnect'
+                ? 'Jira asked you to sign in again — connect it on the Tasks page.'
+                : 'Nice — nothing assigned right now.'
+          }
         />
       ) : (
         <ul className="-my-3 divide-y divide-slate-100">

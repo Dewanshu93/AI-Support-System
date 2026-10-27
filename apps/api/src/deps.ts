@@ -9,6 +9,8 @@ import type { SourcesReader } from './modules/documents/repository';
 import type { EmailService } from './modules/email/service';
 import type { GapsRepository } from './modules/gaps/repository';
 import type { GapsService } from './modules/gaps/service';
+import type { IntegrationsRepository } from './modules/integrations/repository';
+import type { JiraIntegration } from './modules/integrations/service';
 import type { MetricsRepository } from './modules/metrics/repository';
 import type { TicketsRepository } from './modules/tickets/repository';
 import type { TracesRepository } from './modules/traces/repository';
@@ -58,6 +60,11 @@ export interface AppDeps {
     ticketSchemas: ConfigFiles['ticketSchemas']['schemas'];
     duplicateWindowDays: number;
   };
+  /**
+   * Connected tools (UC-18, ADR-032): encrypted tokens, and the Jira client when the
+   * server has Atlassian client credentials (otherwise Jira is not offered).
+   */
+  integrations: { repository: IntegrationsRepository; jira?: JiraIntegration };
   /** Mock task tracker, timesheets, HR/payroll records and notifications (UC-01). */
   workspace: WorkspaceRepository;
   /** Rows for the admin overview metrics (W4-01). */
