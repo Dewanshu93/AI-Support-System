@@ -28,6 +28,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: '/tasks', label: 'My work', icon: 'checklist' },
     { href: '/payroll', label: 'Payroll', icon: 'wallet' },
     { href: '/tickets', label: 'Requests', icon: 'inbox' },
+    { href: '/apps', label: 'Connected apps', icon: 'grid' },
   ],
   agent: [
     { href: '/agent/queue', label: 'Queue', icon: 'inbox' },

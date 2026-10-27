@@ -1,11 +1,11 @@
 // Connected tools (UC-18, ADR-032): an employee connects their own Jira Cloud through
 // Atlassian's sign-in page, then sees their Jira issues (read-only, each linking to
 // Jira) instead of the mock tracker. Atlassian is a fake: no network.
-import { TaskListResponseSchema } from '@sd/shared';
+import { GithubWorkResponseSchema, TaskListResponseSchema } from '@sd/shared';
 import type { Express } from 'express';
 import request from 'supertest';
 import { loadConfig } from '../../src/config';
-import { JIRA_STATE_COOKIE } from '../../src/modules/integrations/routes';
+import { stateCookieName } from '../../src/modules/integrations/routes';
 import { buildMockHrData } from '../../src/modules/workspace/seed';
 import { buildTestApp, loginCookie, seededUsers, userByEmail } from '../helpers/app';
 import { VALID_ENV } from '../helpers/config';
@@ -13,7 +13,8 @@ import {
   fakeJira,
   jiraIssue,
   memoryIntegrationsRepository,
-  testJira,
+  githubItem,
+  testIntegrations,
 } from '../helpers/integrations';
 import { memoryWorkspaceRepository } from '../helpers/workspace';
 
@@ -21,9 +22,10 @@ const PRIYA = 'priya.shah@example.com';
 const TOM = 'tom.clarke@example.com';
 const SAM = 'sam.patel@example.com';
 const TODAY = '2026-10-07';
+const JIRA_COOKIE = stateCookieName('jira');
 const config = loadConfig(VALID_ENV);
 
-function setup(options: { jira?: boolean; siteUrl?: string } = {}) {
+function setup(options: { tools?: 'none' | 'jira' | 'github'; siteUrl?: string } = {}) {
   const users = seededUsers();
   const fake = fakeJira();
   const repository = memoryIntegrationsRepository();
@@ -35,7 +37,9 @@ function setup(options: { jira?: boolean; siteUrl?: string } = {}) {
     ),
     integrations: {
       repository,
-      jira: options.jira === false ? undefined : testJira(fake, options.siteUrl),
+      ...(options.tools === 'none'
+        ? {}
+        : testIntegrations(fake, { siteUrl: options.siteUrl, only: options.tools })),
     },
     clock: () => now,
   });
@@ -48,12 +52,14 @@ function setup(options: { jira?: boolean; siteUrl?: string } = {}) {
 }
 
 /** Connect: the redirect to Atlassian, then Atlassian's redirect back with a code. */
-async function connect(app: Express, cookie: string) {
-  const start = await request(app).get('/api/integrations/jira/connect').set('Cookie', cookie);
+async function connect(app: Express, cookie: string, provider: 'jira' | 'github' = 'jira') {
+  const start = await request(app)
+    .get(`/api/integrations/${provider}/connect`)
+    .set('Cookie', cookie);
   const state = new URL(start.headers.location as string).searchParams.get('state')!;
   const callback = await request(app)
-    .get(`/api/integrations/jira/callback?code=auth-code&state=${state}`)
-    .set('Cookie', `${cookie}; ${JIRA_STATE_COOKIE}=${state}`);
+    .get(`/api/integrations/${provider}/callback?code=auth-code&state=${state}`)
+    .set('Cookie', `${cookie}; ${stateCookieName(provider)}=${state}`);
   return { start, state, callback };
 }
 
@@ -69,6 +75,8 @@ describe('access', () => {
     ['get', '/api/integrations/jira/connect'],
     ['get', '/api/integrations/jira/callback?state=x'],
     ['post', '/api/integrations/jira/disconnect'],
+    ['get', '/api/integrations/github/connect'],
+    ['get', '/api/integrations/github/work'],
   ] as const)('%s %s needs an employee session', async (method, path) => {
     const ctx = setup();
     expect((await request(ctx.app)[method](path)).status).toBe(401);
@@ -79,11 +87,12 @@ describe('access', () => {
 
 describe('Jira not set up on the server', () => {
   it('is reported as unavailable and connect answers 503', async () => {
-    const ctx = setup({ jira: false });
+    const ctx = setup({ tools: 'none' });
     const cookie = await loginCookie(ctx.app, PRIYA);
     const list = await request(ctx.app).get('/api/integrations').set('Cookie', cookie);
     expect(list.body.items).toEqual([
       expect.objectContaining({ provider: 'jira', available: false, connected: false }),
+      expect.objectContaining({ provider: 'github', available: false, connected: false }),
     ]);
     const res = await request(ctx.app).get('/api/integrations/jira/connect').set('Cookie', cookie);
     expect(res.status).toBe(503);
@@ -102,7 +111,7 @@ describe('connect', () => {
     expect(url.origin).toBe('https://auth.atlassian.com');
     const state = url.searchParams.get('state');
     const setCookie = (res.headers['set-cookie'] as unknown as string[]).join(';');
-    expect(setCookie).toContain(`${JIRA_STATE_COOKIE}=${state}`);
+    expect(setCookie).toContain(`${JIRA_COOKIE}=${state}`);
     expect(setCookie).toMatch(/HttpOnly/i);
   });
 
@@ -115,13 +124,13 @@ describe('connect', () => {
 
     const [doc] = ctx.repository.docs;
     expect(doc!.userId.equals(userByEmail(ctx.users, PRIYA)._id)).toBe(true);
-    expect(doc!.siteUrl).toBe('https://acme.atlassian.net');
+    expect(doc!.account.url).toBe('https://acme.atlassian.net');
     expect(JSON.stringify(doc)).not.toContain('access-1');
     expect(JSON.stringify(doc)).not.toContain('refresh-1');
     expect(ctx.audit.map((a) => a.action)).toContain('integration.connect');
 
     const list = await request(ctx.app).get('/api/integrations').set('Cookie', cookie);
-    expect(list.body.items[0]).toMatchObject({ connected: true, siteName: 'Acme' });
+    expect(list.body.items[0]).toMatchObject({ connected: true, accountName: 'Acme' });
   });
 
   it('refuses a state that does not match the cookie', async () => {
@@ -130,7 +139,7 @@ describe('connect', () => {
     await request(ctx.app).get('/api/integrations/jira/connect').set('Cookie', cookie);
     const res = await request(ctx.app)
       .get('/api/integrations/jira/callback?code=c&state=forged')
-      .set('Cookie', `${cookie}; ${JIRA_STATE_COOKIE}=the-real-one`);
+      .set('Cookie', `${cookie}; ${JIRA_COOKIE}=the-real-one`);
     expect(res.headers.location).toBe('http://localhost:3000/tasks?jira=failed');
     expect(ctx.repository.docs).toHaveLength(0);
     expect(ctx.fake.calls).toHaveLength(0);
@@ -141,7 +150,7 @@ describe('connect', () => {
     const cookie = await loginCookie(ctx.app, PRIYA);
     const res = await request(ctx.app)
       .get('/api/integrations/jira/callback?error=access_denied&state=s1')
-      .set('Cookie', `${cookie}; ${JIRA_STATE_COOKIE}=s1`);
+      .set('Cookie', `${cookie}; ${JIRA_COOKIE}=s1`);
     expect(res.headers.location).toBe('http://localhost:3000/tasks?jira=declined');
     expect(ctx.repository.docs).toHaveLength(0);
   });
@@ -246,5 +255,103 @@ describe('disconnect', () => {
     expect(ctx.repository.docs).toHaveLength(0);
     expect(ctx.audit.map((a) => a.action)).toContain('integration.disconnect');
     expect((await tasks(ctx.app, cookie)).tracker.source).toBe('mock');
+  });
+});
+
+describe('GitHub (UC-19)', () => {
+  it('connects through GitHub sign-in and returns to the Connected apps page', async () => {
+    const ctx = setup();
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    const { start, callback } = await connect(ctx.app, cookie, 'github');
+    const url = new URL(start.headers.location as string);
+    expect(url.origin + url.pathname).toBe('https://github.com/login/oauth/authorize');
+    expect(url.searchParams.get('client_id')).toBe('gh-client');
+    expect(callback.headers.location).toBe('http://localhost:3000/apps?github=connected');
+
+    const doc = ctx.repository.docs.find((d) => d.provider === 'github')!;
+    expect(doc.account).toEqual({ id: '42', url: 'https://github.com/priya-s', name: 'priya-s' });
+    expect(JSON.stringify(doc)).not.toContain('gh-access-1');
+    expect(ctx.audit.find((a) => a.action === 'integration.connect')?.targetId).toBe('github');
+  });
+
+  it('lists review requests, own pull requests and assigned issues for the employee', async () => {
+    const ctx = setup();
+    ctx.fake.github.assigned = [
+      { ...githubItem(3, { repo: 'acme/api' }), html_url: 'https://github.com/acme/api/issues/3' },
+    ];
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    await connect(ctx.app, cookie, 'github');
+    const res = await request(ctx.app).get('/api/integrations/github/work').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    const body = GithubWorkResponseSchema.parse(res.body);
+    expect(body).toMatchObject({ connected: true, accountName: 'priya-s', problem: null });
+    expect(body.reviewRequests.map((i) => [i.repo, i.number, i.kind])).toEqual([
+      ['acme/portal', 11, 'review_request'],
+    ]);
+    expect(body.pullRequests[0]).toMatchObject({ number: 12, draft: true });
+    expect(body.issues[0]).toMatchObject({
+      repo: 'acme/api',
+      url: 'https://github.com/acme/api/issues/3',
+    });
+    const searches = ctx.fake.calls.filter((c) => c.url.includes('/search/issues'));
+    expect(searches).toHaveLength(3);
+    expect(searches.every((c) => c.method === 'GET' && c.auth === 'Bearer gh-access-1')).toBe(true);
+    expect(searches.every((c) => new URL(c.url).searchParams.get('q')!.includes('@me'))).toBe(true);
+  });
+
+  it('is "not connected" for an employee who has not connected, and 503 when not set up', async () => {
+    const ctx = setup({ tools: 'jira' });
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    const res = await request(ctx.app).get('/api/integrations/github/work').set('Cookie', cookie);
+    expect(res.status).toBe(503);
+    const both = setup();
+    const tom = await loginCookie(both.app, TOM);
+    const work = await request(both.app).get('/api/integrations/github/work').set('Cookie', tom);
+    expect(work.body).toMatchObject({ connected: false, reviewRequests: [] });
+  });
+
+  it('a 403 (rate limit) is "unreachable" and keeps the connection; a 401 drops it', async () => {
+    const ctx = setup();
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    await connect(ctx.app, cookie, 'github');
+    ctx.fake.respond = () => new Response('{}', { status: 403 });
+    const limited = await request(ctx.app)
+      .get('/api/integrations/github/work')
+      .set('Cookie', cookie);
+    expect(limited.body).toMatchObject({ connected: true, problem: 'unreachable' });
+    expect(ctx.repository.docs).toHaveLength(1);
+    ctx.fake.respond = () => new Response('{}', { status: 401 });
+    const refused = await request(ctx.app)
+      .get('/api/integrations/github/work')
+      .set('Cookie', cookie);
+    expect(refused.body).toMatchObject({ connected: false, problem: 'reconnect' });
+    expect(ctx.repository.docs).toHaveLength(0);
+  });
+
+  it('treats a refused code (200 with an error field) as a failed connect', async () => {
+    const ctx = setup();
+    ctx.fake.respond = () =>
+      new Response(JSON.stringify({ error: 'bad_verification_code' }), { status: 200 });
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    const { callback } = await connect(ctx.app, cookie, 'github');
+    expect(callback.headers.location).toBe('http://localhost:3000/apps?github=failed');
+    expect(ctx.repository.docs).toHaveLength(0);
+  });
+
+  it('Jira and GitHub connections are independent', async () => {
+    const ctx = setup();
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    await connect(ctx.app, cookie, 'jira');
+    await connect(ctx.app, cookie, 'github');
+    await request(ctx.app).post('/api/integrations/github/disconnect').set('Cookie', cookie);
+    expect(ctx.repository.docs.map((d) => d.provider)).toEqual(['jira']);
+    expect((await tasks(ctx.app, cookie)).tracker.source).toBe('jira');
+  });
+
+  it('rejects an unknown tool', async () => {
+    const ctx = setup();
+    const cookie = await loginCookie(ctx.app, PRIYA);
+    const res = await request(ctx.app).get('/api/integrations/slack/connect').set('Cookie', cookie);
+    expect(res.status).toBe(400);
   });
 });

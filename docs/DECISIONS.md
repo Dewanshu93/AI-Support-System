@@ -904,3 +904,34 @@ Format: context · decision · alternatives · consequences. Numbering follows t
   Center would be a second adapter. A live check needs the Atlassian app registered (callback
   `http://localhost:3000/api/integrations/jira/callback`) and the proxy allowing
   `auth.atlassian.com` and `api.atlassian.com`.
+
+## ADR-033 — Connected apps: one sign-in framework for every tool; GitHub first (UC-19)
+
+- **Status:** Accepted (UC-19, 2026-10-27; amendment A-2).
+- **Context:** after Jira (ADR-032) the owner wants the other tools employees use (GitHub,
+  Microsoft 365, Slack, Confluence, …) connected the same way: the tool's own sign-in page,
+  read-only. The owner chose GitHub first.
+- **Decision:**
+  - **One framework** (`modules/integrations`): each tool is an `OAuthProvider` (sign-in URL,
+    code and refresh exchange, the connected account) plus its own read functions. Refresh, a
+    refused token (connection dropped, `reconnect`) and an unreachable tool (`unreachable`) are
+    handled once (`withToken`). Generic routes `GET /api/integrations/:provider/connect`,
+    `GET …/:provider/callback`, `POST …/:provider/disconnect` (provider validated against
+    `INTEGRATION_PROVIDERS`); the state cookie is per tool (`sd_oauth_<provider>`).
+    `integration_tokens` documents are generic: `account` {id, url, name} and an optional
+    `expiresAt` (tools whose tokens never expire). Adding a tool = a client, its env keys, its
+    read endpoint and its card.
+  - **GitHub as a GitHub App** (not an OAuth App): GitHub App permissions can be read-only
+    (Pull requests, Issues, Metadata: read), while an OAuth App needs the `repo` scope, which
+    also allows writes. User tokens expire (8 h) and refresh. Results cover the repositories the
+    app is installed on that the employee can see.
+  - **GitHub reads:** `GET /api/integrations/github/work`: three fixed searches scoped to `@me`
+    (review requested, authored, assigned; open, not archived; 30 each), mapped in code. Only a
+    401 means "sign in again": GitHub's 403 is a rate limit and keeps the connection.
+  - **Web:** a Connected apps page (`/apps`, employee nav) with a card per tool the server
+    offers: Connect (a link to the tool's sign-in), Disconnect, and for GitHub the three lists,
+    each item opening on GitHub. The dashboard's "From your apps" card shows the counts; it
+    loads separately, so a slow tool never delays the dashboard.
+- **Consequences:** Microsoft 365 (Teams, Outlook, calendar), Slack and Confluence are next,
+  each with its own ADR (permissions, admin consent). Copilot answers about tool data need a new
+  P-1 version and an eval run. GitHub Enterprise Server would need its own URLs.

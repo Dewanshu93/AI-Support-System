@@ -98,15 +98,15 @@ approved, manager approval pending. It lifts "mock services only" for Jira Cloud
 other system stays mock until its own ADR. Same rules as before: code calls the systems (no tools
 bound to the LLM), every write is a confirmed action with an audit entry, secrets only in `.env`.
 
-| Task  | Name                                                                   | Status                                      | Depends on   |
-| ----- | ---------------------------------------------------------------------- | ------------------------------------------- | ------------ |
-| UC-18 | Jira Cloud (read-only): per-employee sign-in, my issues, links to Jira | Built; live check pending the Atlassian app | UC-02, UC-05 |
-| UC-19 | Connector layer for real systems (HR, payroll, ITSM, calendar)         | Not started                                 | UC-18        |
-| UC-20 | IT access requests (apps, groups, shared drives) with approval         | Not started                                 | UC-17        |
-| UC-21 | Expense claims: submit by form or chat, approver queue                 | Not started                                 | UC-11        |
-| UC-22 | My equipment: assigned assets, report a fault, request a device        | Not started                                 | UC-20        |
-| UC-23 | Satisfaction rating after a request is resolved                        | Not started                                 | UC-08        |
-| UC-24 | Agent reply templates (saved replies with placeholders)                | Not started                                 | W3-07        |
+| Task  | Name                                                                              | Status                                                    | Depends on   |
+| ----- | --------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------ |
+| UC-18 | Jira Cloud (read-only): per-employee sign-in, my issues, links to Jira            | Built; live check pending the Atlassian app               | UC-02, UC-05 |
+| UC-19 | Connected apps: one sign-in framework; GitHub first, then M365, Slack, Confluence | Built (layer + GitHub); live check pending the GitHub App | UC-18        |
+| UC-20 | IT access requests (apps, groups, shared drives) with approval                    | Not started                                               | UC-17        |
+| UC-21 | Expense claims: submit by form or chat, approver queue                            | Not started                                               | UC-11        |
+| UC-22 | My equipment: assigned assets, report a fault, request a device                   | Not started                                               | UC-20        |
+| UC-23 | Satisfaction rating after a request is resolved                                   | Not started                                               | UC-08        |
+| UC-24 | Agent reply templates (saved replies with placeholders)                           | Not started                                               | W3-07        |
 
 Scope notes (to be expanded into task cards when each task starts):
 
@@ -115,9 +115,12 @@ Scope notes (to be expanded into task cards when each task starts):
   current mock and a Jira Cloud REST v3 adapter (connected employees get Jira).
   Read-only (owner): my issues on the dashboard and the Tasks page, each linking to its Jira
   page where changes are made. No new npm dependency.
-- **UC-19** Generalise UC-18's port pattern to the other mock systems (HR records, payroll,
-  tickets/ITSM, calendar): one interface each, mock implementation default, real adapters added
-  per ADR. Health page shows which connector each system uses.
+- **UC-19** (owner, 2026-10-27: "other apps the same way") One sign-in framework for every
+  tool (ADR-033): each employee connects their own account on the tool's sign-in page,
+  read-only, links back to the tool. GitHub first (review requests, own PRs, assigned issues on
+  a Connected apps page and a dashboard card). Next, each with its own ADR: Microsoft 365
+  (meetings, Teams mentions, flagged mail; IT registers an Entra ID app), Slack (mentions and
+  DMs; workspace admin approves), Confluence (watched pages; the Atlassian app).
 - **UC-20** Request access to an app, group or shared drive from a catalogue in config; code
   routes it to the owner's queue; approve/reject by the agent; employee sees status in the tracker.
 - **UC-21** Expense claim with category, amount, date and description; limits per category in

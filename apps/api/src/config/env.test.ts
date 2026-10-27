@@ -29,6 +29,7 @@ describe('parseEnv', () => {
       EMAIL_DELIVERY: 'mock',
       RATE_LIMIT_SCALE: 1,
       JIRA_REDIRECT_URI: 'http://localhost:3000/api/integrations/jira/callback',
+      GITHUB_REDIRECT_URI: 'http://localhost:3000/api/integrations/github/callback',
     });
   });
 

@@ -73,7 +73,17 @@ export const EnvSchema = z.object({
   ),
   /** Picks one Jira site when an account can reach several, e.g. https://acme.atlassian.net. */
   JIRA_SITE_URL: z.preprocess(blankToUndefined, z.url().optional()),
-  /** 32 random bytes, base64: encrypts connected-tool tokens at rest. */
+  /**
+   * GitHub (UC-19, ADR-033): a GitHub App with read-only permissions; employees sign
+   * in through it. Offered only with the client ID, secret and TOKEN_ENCRYPTION_KEY.
+   */
+  GITHUB_CLIENT_ID: optionalString,
+  GITHUB_CLIENT_SECRET: optionalString,
+  GITHUB_REDIRECT_URI: z.preprocess(
+    blankToUndefined,
+    z.url().default('http://localhost:3000/api/integrations/github/callback'),
+  ),
+  /** 32 random bytes, base64: encrypts connected-app tokens at rest. */
   TOKEN_ENCRYPTION_KEY: z.preprocess(
     blankToUndefined,
     z

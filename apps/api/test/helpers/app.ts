@@ -89,7 +89,7 @@ export interface TestAppOptions extends CreateAppOptions {
   documentAdmin?: AppDeps['documentAdmin'];
   /** Eval runs (W4-05); default: none, and a start answers 503. */
   evals?: AppDeps['evals'];
-  /** Connected tools (UC-18); default: empty in-memory tokens and Jira not set up. */
+  /** Connected apps (UC-18, UC-19); default: empty in-memory tokens and no tool set up. */
   integrations?: Partial<AppDeps['integrations']>;
   /** Rate limits (W4-07); default: high enough that only rate-limit tests hit them. */
   rateLimits?: Partial<AppDeps['security']['rateLimits']>;
@@ -127,7 +127,8 @@ export function buildTestApp(options: TestAppOptions = {}): TestContext {
     workspace: options.workspace ?? memoryWorkspaceRepository(),
     integrations: {
       repository: options.integrations?.repository ?? memoryIntegrationsRepository(),
-      jira: options.integrations?.jira,
+      cipher: options.integrations?.cipher,
+      clients: options.integrations?.clients ?? {},
     },
     metrics: options.metrics ?? emptyMetrics(),
     gaps: options.gaps ?? testGaps(),

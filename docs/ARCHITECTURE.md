@@ -1268,13 +1268,14 @@ inside the app:
 - **Connect:** the Tasks page's "Connect Jira" is a plain link to
   `GET /api/integrations/jira/connect`, which redirects to Atlassian's sign-in and consent page
   (scopes `read:jira-work read:jira-user offline_access`) with a random state, also kept in the
-  httpOnly cookie `sd_jira_state` (10 minutes). Atlassian redirects to
+  httpOnly cookie `sd_oauth_jira` (10 minutes; routes are generic since UC-19, see below). Atlassian redirects to
   `GET /api/integrations/jira/callback` (through the web proxy, so the session cookie comes
   along); a matching state and the same employee are required, then the code is exchanged, the
   Jira site picked (`JIRA_SITE_URL` or the first) and the employee is sent to
   `/tasks?jira=connected | declined | failed | no_site`. `POST /api/integrations/jira/disconnect`
   deletes the tokens. `GET /api/integrations` lists the status. Connect and disconnect are audited.
-- **Storage:** `integration_tokens` (unique per user and provider): site, scopes, expiry, and the
+- **Storage:** `integration_tokens` (unique per user and provider): `account` (the Jira site),
+  scopes, expiry (optional), and the
   access and refresh tokens encrypted with AES-256-GCM (`modules/integrations/tokenCrypto.ts`,
   `TOKEN_ENCRYPTION_KEY`). Refresh tokens rotate; a refused token deletes the connection.
 - **Reads:** `modules/integrations/service.ts` gives the workspace service `externalTasks`: a
@@ -1285,6 +1286,26 @@ inside the app:
   an empty Jira list; a Jira failure never fails the dashboard.
 - **Writes:** none. Changes are made in Jira through the issue links.
 - **Set-up:** offered only when `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET` and
-  `TOKEN_ENCRYPTION_KEY` are set (`modules/integrations/setup.ts`); otherwise connect answers
+  `TOKEN_ENCRYPTION_KEY` are set (`modules/integrations/setup.ts` `integrationsFromEnv`); otherwise connect answers
   503 `INTEGRATION_UNAVAILABLE` and the UI hides the card. Tests use a fake Atlassian
   (`test/helpers/integrations.ts`); no network.
+
+## Connected apps and GitHub (UC-19, ADR-033)
+
+- **Framework (`modules/integrations`):** `oauth.ts` defines `OAuthProvider` (sign-in URL, code
+  and refresh exchange, connected account), `callJson` (timeout; refused statuses → reconnect,
+  the rest → unreachable) and `parseTokenResponse`. `service.ts` holds the per-tool logic once:
+  list, connect, disconnect, and `withToken` (refresh before expiry, drop a refused connection).
+  Clients: `jiraClient.ts`, `githubClient.ts`; `setup.ts` builds the ones whose env keys are set.
+- **Routes:** `GET /api/integrations`; `GET /api/integrations/:provider/connect` and
+  `/callback`, `POST /api/integrations/:provider/disconnect` (provider ∈ `jira | github`; the
+  callback returns to `/tasks` for Jira and `/apps` for GitHub with `?<provider>=<result>`);
+  `GET /api/integrations/github/work`. Employee only; connect and disconnect audited.
+- **GitHub:** a GitHub App with read-only permissions (`GITHUB_CLIENT_ID`,
+  `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI`). Three searches scoped to `@me`
+  (`githubMapping.ts` `GITHUB_QUERIES`): review requested, authored PRs, assigned issues. A 403
+  (rate limit) is "unreachable"; only a 401 drops the connection.
+- **Web:** `/apps` (`components/workspace/ConnectedAppsPage.tsx`): a card per tool the server
+  offers, with Connect (link to the tool's sign-in), Disconnect and, for GitHub, the three lists
+  linking to GitHub. Dashboard `AppsCard` ("From your apps") loads on its own. Shared texts in
+  `connectedApps.ts`.

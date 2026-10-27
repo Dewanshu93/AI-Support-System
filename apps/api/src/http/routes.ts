@@ -63,7 +63,8 @@ export function buildRoutes(deps: AppDeps): RouteDef[] {
   });
   const integrations = createIntegrationsService({
     repository: deps.integrations.repository,
-    jira: deps.integrations.jira,
+    cipher: deps.integrations.cipher,
+    clients: deps.integrations.clients,
     clock: deps.clock ?? (() => new Date()),
   });
   const agentService = createAgentService({

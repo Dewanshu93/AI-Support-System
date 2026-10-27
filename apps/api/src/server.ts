@@ -58,7 +58,7 @@ import { mongoAuditRepository } from './modules/audit/repository';
 import { mongoUsersRepository } from './modules/users/repository';
 import { createRequesterService } from './modules/tickets/requesterService';
 import { mongoIntegrationsRepository } from './modules/integrations/repository';
-import { jiraIntegrationFromEnv } from './modules/integrations/setup';
+import { integrationsFromEnv } from './modules/integrations/setup';
 import { createLeaveService } from './modules/workspace/leaveService';
 import { createWorkspaceRecords } from './modules/workspace/records';
 import { mongoWorkspaceRepository } from './modules/workspace/repository';
@@ -399,7 +399,7 @@ async function main() {
     workspace,
     integrations: {
       repository: mongoIntegrationsRepository(collections),
-      jira: jiraIntegrationFromEnv(config.env),
+      ...integrationsFromEnv(config.env),
     },
     metrics: mongoMetricsRepository(collections),
     gaps,

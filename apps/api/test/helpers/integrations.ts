@@ -1,9 +1,8 @@
-// In-memory connected-tool tokens and a fake Atlassian/Jira server (UC-18): tests
-// never reach the network. The fake answers the token, site-list and search calls.
+// In-memory connected-app tokens and a fake Atlassian + GitHub (UC-18, UC-19): tests
+// never reach the network. The fake answers the token, account and search calls.
 import type { IntegrationTokenDoc } from '../../src/db/schemas';
 import type { IntegrationsRepository } from '../../src/modules/integrations/repository';
-import type { JiraIntegration } from '../../src/modules/integrations/service';
-import { jiraIntegrationFromEnv } from '../../src/modules/integrations/setup';
+import { integrationsFromEnv } from '../../src/modules/integrations/setup';
 
 export function memoryIntegrationsRepository(): IntegrationsRepository & {
   docs: IntegrationTokenDoc[];
@@ -52,12 +51,30 @@ export function jiraIssue(
   };
 }
 
+export function githubItem(
+  number: number,
+  overrides: { repo?: string; title?: string; draft?: boolean } = {},
+) {
+  const repo = overrides.repo ?? 'acme/portal';
+  return {
+    id: 5000 + number,
+    number,
+    title: overrides.title ?? `PR #${number}`,
+    html_url: `https://github.com/${repo}/pull/${number}`,
+    repository_url: `https://api.github.com/repos/${repo}`,
+    updated_at: '2026-10-06T09:00:00Z',
+    draft: overrides.draft ?? false,
+  };
+}
+
 export interface FakeJira {
   fetch: typeof fetch;
   calls: { url: string; method: string; body?: unknown; auth?: string }[];
   /** Replace to simulate failures; default answers success. */
   respond: (url: string, init: RequestInit) => Response | Promise<Response>;
   issues: unknown[];
+  /** GitHub search results per query word (review-requested / author / assignee). */
+  github: { reviews: unknown[]; mine: unknown[]; assigned: unknown[] };
   sites: unknown[];
   /** Number of token responses issued (each gives new tokens). */
   tokenCount: number;
@@ -72,9 +89,32 @@ export function fakeJira(): FakeJira {
     calls: [],
     issues: [jiraIssue('PLAT-1'), jiraIssue('PLAT-2', { status: 'Done', category: 'done' })],
     sites: [{ ...TEST_SITE, scopes: ['read:jira-work'] }],
+    github: { reviews: [githubItem(11)], mine: [githubItem(12, { draft: true })], assigned: [] },
     tokenCount: 0,
     expiresIn: 3600,
     respond: (url) => {
+      if (url === 'https://github.com/login/oauth/access_token') {
+        fake.tokenCount += 1;
+        return json({
+          access_token: `gh-access-${fake.tokenCount}`,
+          refresh_token: `gh-refresh-${fake.tokenCount}`,
+          expires_in: 28_800,
+          scope: '',
+          token_type: 'bearer',
+        });
+      }
+      if (url === 'https://api.github.com/user') {
+        return json({ id: 42, login: 'priya-s', html_url: 'https://github.com/priya-s' });
+      }
+      if (url.startsWith('https://api.github.com/search/issues')) {
+        const q = new URL(url).searchParams.get('q') ?? '';
+        const items = q.includes('review-requested:@me')
+          ? fake.github.reviews
+          : q.includes('author:@me')
+            ? fake.github.mine
+            : fake.github.assigned;
+        return json({ total_count: items.length, items });
+      }
       if (url.startsWith('https://auth.atlassian.com/oauth/token')) {
         fake.tokenCount += 1;
         return json({
@@ -113,15 +153,23 @@ export function fakeJira(): FakeJira {
   return fake;
 }
 
-export function testJira(fake: FakeJira, siteUrl?: string): JiraIntegration {
-  return jiraIntegrationFromEnv(
+/** Both tools set up against the fake; pass `only` to set up just one. */
+export function testIntegrations(
+  fake: FakeJira,
+  options: { siteUrl?: string; only?: 'jira' | 'github' } = {},
+) {
+  const on = (tool: 'jira' | 'github') => !options.only || options.only === tool;
+  return integrationsFromEnv(
     {
-      JIRA_CLIENT_ID: 'client-id',
-      JIRA_CLIENT_SECRET: 'client-secret',
+      JIRA_CLIENT_ID: on('jira') ? 'client-id' : undefined,
+      JIRA_CLIENT_SECRET: on('jira') ? 'client-secret' : undefined,
       JIRA_REDIRECT_URI: 'http://localhost:3000/api/integrations/jira/callback',
-      JIRA_SITE_URL: siteUrl,
+      JIRA_SITE_URL: options.siteUrl,
+      GITHUB_CLIENT_ID: on('github') ? 'gh-client' : undefined,
+      GITHUB_CLIENT_SECRET: on('github') ? 'gh-secret' : undefined,
+      GITHUB_REDIRECT_URI: 'http://localhost:3000/api/integrations/github/callback',
       TOKEN_ENCRYPTION_KEY: TEST_TOKEN_KEY,
     },
     fake.fetch,
-  )!;
+  );
 }

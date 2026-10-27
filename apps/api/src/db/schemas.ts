@@ -2,6 +2,7 @@
 // documents with these before every write. IDs are ObjectId, timestamps are
 // UTC Date. Unbounded children live in their own collections, never arrays.
 import {
+  IntegrationProviderSchema,
   AccessLevelSchema,
   AttendanceStatusSchema,
   ConversationStatusSchema,
@@ -577,18 +578,17 @@ export const EncryptedSecretSchema = z.object({
 });
 export type EncryptedSecret = z.infer<typeof EncryptedSecretSchema>;
 
-/** One connected tool per employee and provider; tokens are stored encrypted only. */
+/** One connected app per employee and provider (UC-18, UC-19); tokens stored encrypted only. */
 export const IntegrationTokenSchema = z.object({
   _id: zObjectId,
   userId: zObjectId,
-  provider: z.enum(['jira']),
-  /** Atlassian cloud ID of the chosen Jira site. */
-  siteId: NonEmpty,
-  siteUrl: z.url(),
-  siteName: NonEmpty,
+  provider: IntegrationProviderSchema,
+  /** The connected account: Jira site (cloud ID), GitHub user (numeric ID). */
+  account: z.object({ id: NonEmpty, url: z.url(), name: NonEmpty }),
   accessToken: EncryptedSecretSchema,
   refreshToken: nullable(EncryptedSecretSchema),
-  expiresAt: z.date(),
+  /** Null when the tool's tokens do not expire. */
+  expiresAt: nullable(z.date()),
   scopes: z.array(z.string()),
   createdAt: z.date(),
   updatedAt: z.date(),

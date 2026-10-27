@@ -18,6 +18,7 @@ import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { COPILOT_SUGGESTIONS, copilotHref } from '@/lib/copilot';
 import { dateSpan, fullDate, greeting, hours, money, relativeTime, shortDate } from '@/lib/format';
+import { AppsCard } from './AppsCard';
 import { AttentionCard } from './AttentionCard';
 import { NotificationIcon } from './NotificationIcon';
 import { RequestStepper } from './RequestStepper';
@@ -57,6 +58,7 @@ export function Dashboard() {
         <div className="min-w-0 space-y-6">
           <PayrollCard data={d} />
           <RequestsCard data={d} />
+          <AppsCard />
           <NotificationsCard data={d} onChange={() => void reload()} />
         </div>
       </div>

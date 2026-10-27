@@ -10,7 +10,8 @@ import type { EmailService } from './modules/email/service';
 import type { GapsRepository } from './modules/gaps/repository';
 import type { GapsService } from './modules/gaps/service';
 import type { IntegrationsRepository } from './modules/integrations/repository';
-import type { JiraIntegration } from './modules/integrations/service';
+import type { IntegrationClients } from './modules/integrations/service';
+import type { TokenCipher } from './modules/integrations/tokenCrypto';
 import type { MetricsRepository } from './modules/metrics/repository';
 import type { TicketsRepository } from './modules/tickets/repository';
 import type { TracesRepository } from './modules/traces/repository';
@@ -61,10 +62,14 @@ export interface AppDeps {
     duplicateWindowDays: number;
   };
   /**
-   * Connected tools (UC-18, ADR-032): encrypted tokens, and the Jira client when the
-   * server has Atlassian client credentials (otherwise Jira is not offered).
+   * Connected apps (UC-18, UC-19): encrypted tokens, the cipher, and a client for each
+   * tool the server has credentials for (a tool without one is not offered).
    */
-  integrations: { repository: IntegrationsRepository; jira?: JiraIntegration };
+  integrations: {
+    repository: IntegrationsRepository;
+    cipher?: TokenCipher;
+    clients: IntegrationClients;
+  };
   /** Mock task tracker, timesheets, HR/payroll records and notifications (UC-01). */
   workspace: WorkspaceRepository;
   /** Rows for the admin overview metrics (W4-01). */

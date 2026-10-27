@@ -1,4 +1,5 @@
-import { createJiraClient, JIRA_SCOPES, JiraAuthError, JiraUnavailableError } from './jiraClient';
+import { createJiraClient, JIRA_SCOPES } from './jiraClient';
+import { IntegrationAuthError, IntegrationUnavailableError } from './oauth';
 
 const config = {
   clientId: 'cid',
@@ -53,7 +54,7 @@ describe('createJiraClient', () => {
   it('treats a refused token request as a reconnect', async () => {
     const { fn } = fetchReturning(400, { error: 'invalid_grant' });
     await expect(createJiraClient(config, fn).refresh('old', now)).rejects.toBeInstanceOf(
-      JiraAuthError,
+      IntegrationAuthError,
     );
   });
 
@@ -70,15 +71,15 @@ describe('createJiraClient', () => {
   it('maps 401 to a reconnect and 5xx or a network error to unavailable', async () => {
     await expect(
       createJiraClient(config, fetchReturning(401, {}).fn).myIssues('t', site, 'all'),
-    ).rejects.toBeInstanceOf(JiraAuthError);
+    ).rejects.toBeInstanceOf(IntegrationAuthError);
     await expect(
       createJiraClient(config, fetchReturning(503, {}).fn).myIssues('t', site, 'all'),
-    ).rejects.toBeInstanceOf(JiraUnavailableError);
+    ).rejects.toBeInstanceOf(IntegrationUnavailableError);
     const failing = (async () => {
       throw new TypeError('fetch failed');
     }) as unknown as typeof fetch;
     await expect(createJiraClient(config, failing).sites('t')).rejects.toBeInstanceOf(
-      JiraUnavailableError,
+      IntegrationUnavailableError,
     );
   });
 
