@@ -26,8 +26,13 @@ test.beforeEach(async ({ page }) => {
         this.onend?.();
       }
     }
-    (globalThis as unknown as { webkitSpeechRecognition: unknown }).webkitSpeechRecognition =
-      FakeRecognition;
+    // Recent Chrome has the unprefixed constructor too (preferred by the app): replace both.
+    const g = globalThis as unknown as {
+      SpeechRecognition: unknown;
+      webkitSpeechRecognition: unknown;
+    };
+    g.SpeechRecognition = FakeRecognition;
+    g.webkitSpeechRecognition = FakeRecognition;
   });
 });
 

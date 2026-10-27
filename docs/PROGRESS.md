@@ -2373,7 +2373,7 @@ only while the employee has the mic on. Clear with the data-protection owner bef
 **Verification:** `useSpeechInput.test.ts` (recognizer detection incl. webkit prefix, transcript
 joining, error texts); Playwright `voice.spec.ts` with a fake recognizer (speech fills the
 composer after typed text and sends nothing; a blocked speech service shows the reason and typing
-still works): written, not yet run: the LAN database (192.168.29.3) was unreachable on 2026-10-26, and every E2E run needs it.
+still works): 2/2 on 2026-10-27 (the fake replaces both SpeechRecognition and the webkit name, since recent Chrome has the unprefixed one).
 
 ## UC-15 Hindi replies — 2026-10-26
 
